@@ -11,8 +11,10 @@ import {
   SunIcon,
   TavernIcon,
   TradeIcon,
+  WindIcon,
 } from "@/components/icons";
 import type { EventType, PlaceType, WeatherCondition } from "@/lib/domain";
+import type { Phenomene } from "@/lib/weather/phenomena";
 
 /** La correspondance type → glyphe. Elle vit ici et nulle part ailleurs :
  *  le pin de carte, la puce et la ligne de liste lisent la même table. */
@@ -59,6 +61,25 @@ export function WeatherGlyph({
   ...props
 }: GlyphProps & { condition: WeatherCondition }) {
   const Component = WEATHER_GLYPHS[condition] ?? CloudIcon;
+  return <Component {...props} />;
+}
+
+/** Les phénomènes réutilisent les glyphes du ciel, et en ajoutent deux : le
+ *  vent et la chaleur ne sont pas des conditions, ils se cumulent aux autres. */
+const PHENOMENE_GLYPHS: Record<Phenomene, Glyph> = {
+  orage: StormIcon,
+  neige: SnowIcon,
+  pluie: RainIcon,
+  brume: MistIcon,
+  vent: WindIcon,
+  chaleur: SunIcon,
+};
+
+export function PhenomeneGlyph({
+  phenomene,
+  ...props
+}: GlyphProps & { phenomene: Phenomene }) {
+  const Component = PHENOMENE_GLYPHS[phenomene] ?? CloudIcon;
   return <Component {...props} />;
 }
 

@@ -4,6 +4,7 @@ import { cache } from "react";
 
 import { REGIONS, WEATHER_CONDITIONS, type Region, type Terrain, type WeatherCondition } from "@/lib/domain";
 import { advanceStep, readCell, type WorldState } from "@/lib/weather/engine";
+import { phenomenesOf } from "@/lib/weather/phenomena";
 import { CELL_COUNT, cellIndexAt, type BakedTerrain } from "@/lib/weather/grid";
 import { stepEnd, stepStart } from "@/lib/weather/schedule";
 import { TerrainZone } from "@/models/terrain-zone";
@@ -153,7 +154,13 @@ export async function getUpcomingWeather(limit = 8): Promise<WeatherEntry[]> {
   return entries;
 }
 
-/** Les cellules qui ont quelque chose à montrer : le ciel dégagé ne se dessine pas. */
+/**
+ * Les cellules qui ont quelque chose à montrer.
+ *
+ * Un ciel dégagé ne se dessine pas — mais une cellule dégagée peut porter une
+ * forte chaleur ou un vent fort, donc le tri se fait sur les phénomènes, pas sur
+ * la condition.
+ */
 export async function getWeatherCells(): Promise<WeatherCell[]> {
   const loaded = await loadCurrentStep();
   if (!loaded) return [];
@@ -162,8 +169,14 @@ export async function getWeatherCells(): Promise<WeatherCell[]> {
   for (let index = 0; index < CELL_COUNT; index += 1) {
     if (!loaded.terrain.region[index]) continue;
     const cell = readCell(loaded.state, index, loaded.terrain);
-    if (cell.condition === "degage") continue;
-    cells.push({ index, condition: cell.condition, precipitation: cell.precipitation });
+    const phenomenes = phenomenesOf(cell);
+    if (phenomenes.length === 0) continue;
+    cells.push({
+      index,
+      condition: cell.condition,
+      precipitation: cell.precipitation,
+      phenomenes,
+    });
   }
   return cells;
 }

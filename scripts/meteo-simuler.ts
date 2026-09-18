@@ -2,9 +2,9 @@
  * Fait tourner la simulation sans attendre la tâche planifiée, et vérifie
  * qu'elle tient debout.
  *
- *   npm run meteo:simuler            # vérifie le moteur, sans base
- *   npm run meteo:simuler -- 360     # sur 360 pas, soit trois mois
- *   npm run meteo:simuler -- --base  # avance la vraie simulation en base
+ *   npm run meteo:simuler             # une année tyrienne, à la cadence courante
+ *   npm run meteo:simuler -- 1080     # 1 080 pas de deux heures, soit 90 jours
+ *   npm run meteo:simuler -- --base   # avance la vraie simulation en base
  *
  * Aucun cadre de test n'est installé dans le dépôt : ce script est le filet.
  * Il cuit le terrain depuis les zones en base quand elles existent, retombe sur
@@ -19,6 +19,7 @@ import { TERRAINS, WEATHER_CONDITIONS, type WeatherCondition } from "@/lib/domai
 import { CONTINENT_HEIGHT, CONTINENT_WIDTH } from "@/lib/map";
 import { connectToDatabase } from "@/lib/mongoose";
 import { advanceStep, readCell, seedState } from "@/lib/weather/engine";
+import { PHENOMENES, PHENOMENE_LABELS, phenomenesOf, type Phenomene } from "@/lib/weather/phenomena";
 import {
   CELL_COUNT,
   bakeTerrain,
@@ -27,7 +28,9 @@ import {
   type ZoneShape,
 } from "@/lib/weather/grid";
 import {
+  STEPS_PER_DAY,
   STEP_SLICE_LABELS,
+  formatStepHour,
   sliceOf,
   stepIndexAt,
   stepStart,
@@ -113,10 +116,12 @@ function verifieHorloge() {
     for (let heure = 0; heure < 24; heure += 1) {
       indexes.add(stepIndexAt(new Date(`${jour}T${String(heure).padStart(2, "0")}:30:00Z`)));
     }
+    // Au printemps une heure manque, à l'automne une heure a lieu deux fois :
+    // on attend donc un pas de moins, jamais deux.
     verifie(
-      `le ${jour} ne saute ni ne répète un pas`,
-      indexes.size >= 4,
-      `${indexes.size} pas distincts`,
+      `le ${jour} ne saute ni ne répète plus d'un pas`,
+      indexes.size >= STEPS_PER_DAY - 1,
+      `${indexes.size} pas distincts pour ${STEPS_PER_DAY} attendus`,
     );
   }
 
@@ -127,7 +132,8 @@ function verifieHorloge() {
 async function main() {
   const args = process.argv.slice(2);
   const enBase = args.includes("--base");
-  const pas = Number(args.find((arg) => /^\d+$/.test(arg)) ?? 360);
+  // Par défaut, une année tyrienne complète, quelle que soit la cadence.
+  const pas = Number(args.find((arg) => /^\d+$/.test(arg)) ?? 360 * STEPS_PER_DAY);
 
   verifieGeometrie();
   verifieHorloge();
@@ -181,6 +187,17 @@ async function main() {
   const premierEtat = seedState(depart, terrain);
 
   const vues = new Set<WeatherCondition>();
+  // La distribution, et non quelques témoins : c'est elle qui a fait remonter
+  // deux calibrations fausses — le seuil d'orage, devenu inatteignable au
+  // changement de cadence, et l'échelle du vent, qui rendait « vent fort »
+  // impossible. Un témoin bien choisi ne les aurait pas vues.
+  //
+  // Elle se compte sur les cellules **d'une région**, celles-là mêmes que la
+  // carte teinte. Sur ce continent la mer couvre le reste, et une moyenne prise
+  // sur toute la grille décrirait un océan plutôt que le hub.
+  const parCondition = new Map<WeatherCondition, number>();
+  const parPhenomene = new Map<Phenomene, number>();
+  let releves = 0;
   const bornes = { tmin: 999, tmax: -999, hmin: 999, hmax: -999, pmin: 9_999, pmax: -9_999 };
   let systemesVides = 0;
   let nonFini = 0;
@@ -194,6 +211,12 @@ async function main() {
       const cell = readCell(etat, index, terrain);
       if (!Number.isFinite(cell.temperature) || !Number.isFinite(cell.humidite)) nonFini += 1;
       vues.add(cell.condition);
+      if (!terrain.region[index]) continue;
+      releves += 1;
+      parCondition.set(cell.condition, (parCondition.get(cell.condition) ?? 0) + 1);
+      for (const value of phenomenesOf(cell)) {
+        parPhenomene.set(value, (parPhenomene.get(value) ?? 0) + 1);
+      }
       bornes.tmin = Math.min(bornes.tmin, cell.temperature);
       bornes.tmax = Math.max(bornes.tmax, cell.temperature);
       bornes.hmin = Math.min(bornes.hmin, cell.humidite);
@@ -208,7 +231,7 @@ async function main() {
         "  ",
         String(i).padStart(4),
         stepStart(index).toISOString().slice(0, 10),
-        STEP_SLICE_LABELS[sliceOf(index)].padEnd(11),
+        (STEP_SLICE_LABELS[sliceOf(index)] + " " + formatStepHour(index)).padEnd(17),
         temoins
           .map(([nom, cellule]) => {
             const cell = readCell(etat, cellule, terrain);
@@ -217,6 +240,18 @@ async function main() {
           .join("  "),
       );
     }
+  }
+
+  const part = (compte: number) => `${((compte / releves) * 100).toFixed(2)} %`.padStart(8);
+  console.log(
+    `\nCiel, sur ${releves.toLocaleString("fr-FR")} relevés de cellule en région :`,
+  );
+  for (const condition of WEATHER_CONDITIONS) {
+    console.log("  ", condition.padEnd(12), part(parCondition.get(condition) ?? 0));
+  }
+  console.log("\nPhénomènes (cumulatifs — une cellule peut en porter plusieurs) :");
+  for (const phenomene of PHENOMENES) {
+    console.log("  ", PHENOMENE_LABELS[phenomene].padEnd(12), part(parPhenomene.get(phenomene) ?? 0));
   }
 
   console.log("");

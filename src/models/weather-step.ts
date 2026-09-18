@@ -26,6 +26,10 @@ const weatherStepSchema = new Schema(
     /** Le numéro de pas, absolu depuis l'époque. Son unicité fait l'idempotence
      *  de l'avancement : deux déclenchements du même pas, un seul document. */
     stepIndex: { type: Number, required: true, unique: true },
+    /** La cadence sous laquelle ce pas a été écrit. Le numéro d'un pas vaut
+     *  `jours × cadence + rang` : changer de cadence renumérote tout, donc un
+     *  pas d'une autre cadence n'est pas seulement vieux, il est illisible. */
+    stepsPerDay: { type: Number, required: true },
     startsAt: { type: Date, required: true, index: true },
     endsAt: { type: Date, required: true },
     seed: { type: Number, required: true },

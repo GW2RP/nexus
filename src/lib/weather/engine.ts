@@ -15,6 +15,7 @@ import type { Terrain, WeatherCondition } from "@/lib/domain";
 
 import {
   CELL_COUNT,
+  CELL_SIZE,
   GRID_COLS,
   GRID_ROWS,
   cellColumn,
@@ -22,7 +23,12 @@ import {
   neighbourIndex,
   type BakedTerrain,
 } from "@/lib/weather/grid";
-import { STEPS_PER_DAY, dayOfYearOfStep, sliceOf } from "@/lib/weather/schedule";
+import {
+  HOURS_PER_STEP,
+  STEPS_PER_DAY,
+  dayOfYearOfStep,
+  hourOfStep,
+} from "@/lib/weather/schedule";
 
 /** Un centre de pression qui traverse le continent. C'est lui qui fait que le
  *  temps change tout seul : il naît à l'ouest, dérive, s'épuise et meurt. */
@@ -70,18 +76,96 @@ export type CellReading = {
 
 const PRESSION_DE_REFERENCE = 1013;
 
-/** Le nord du continent est froid, le sud chaud. */
+/** Le nord de la bande habitée est froid, le sud chaud. */
 const NORD_FROID = 1;
 const SUD_CHAUD = 27;
+
+/**
+ * La bande habitée, en pixels de continent.
+ *
+ * Le rectangle du continent fait 114 688 px de haut, mais les six régions du hub
+ * tiennent entre les lignes 12 et 21 de la grille — relevé sur les zones
+ * dessinées, pas supposé. Étaler le gradient nord-sud sur tout le rectangle le
+ * dépensait donc en mer vide : des Pics Glacés à Orr il ne restait que **4 °C**
+ * d'écart, le maximum annuel sur les terres était de 19 °C, et « forte chaleur »
+ * ne pouvait tout simplement jamais arriver.
+ *
+ * Le gradient s'étale sur cette bande et se borne au-delà : l'océan du nord est
+ * uniformément froid, celui du sud uniformément chaud, et personne n'y habite.
+ * C'est le même raisonnement que la maille de la grille — on calibre sur la
+ * partie habitée, pas sur le rectangle.
+ *
+ * L'écart entre deux régions voisines reste modeste, et c'est voulu : le froid
+ * des Pics Glacés vient de leur **altitude**, pas de leur latitude.
+ */
+const BANDE_NORD = 11 * CELL_SIZE;
+const BANDE_SUD = 23 * CELL_SIZE;
 /** L'écart entre le cœur de l'été et celui de l'hiver. */
 const AMPLITUDE_SAISON = 8;
 /** Un relief à 100 perd douze degrés sur la plaine. */
 const REFROIDISSEMENT_MAX = 12;
-/** Le vent d'ouest qui souffle en permanence. */
-const VENT_DOMINANT = 6;
+/**
+ * L'échelle du vent.
+ *
+ * Le gradient de pression entre deux cellules donne un nombre sans unité, que
+ * l'interface affiche pourtant en km/h. Mesuré tel quel, ce vent plafonnait à
+ * 30 km/h et valait 6 en médiane : un monde sans un souffle, et un « vent fort »
+ * impossible à définir. Ce facteur remet l'échelle d'aplomb — médiane 18,
+ * centile 99 à 57, pointes à 90.
+ *
+ * Il ne change **que le nombre affiché** : tout ce qui lit le vent pour agir
+ * (advection, brume, soulèvement) divise par la même échelle, donc la physique
+ * est identique à celle d'avant.
+ */
+const VENT_ECHELLE = 3;
 
-/** L'écart de température propre à chaque tranche du jour. */
-const AMPLITUDE_TRANCHE = { nuit: -4, matin: -1, "apres-midi": 4, soiree: 1 } as const;
+/** Le vent d'ouest qui souffle en permanence. */
+const VENT_DOMINANT = 6 * VENT_ECHELLE;
+
+/** L'amplitude du jour à la nuit, en degrés de part et d'autre de la moyenne. */
+const AMPLITUDE_JOUR = 4.5;
+
+/**
+ * Les coefficients ci-dessous sont calibrés pour un pas de **six heures**, la
+ * cadence d'origine. Ils sont convertis à la cadence courante pour que le temps
+ * se comporte pareil en heures réelles : sans cela, passer à deux heures par pas
+ * rendrait le ciel trois fois plus agité, systèmes compris.
+ *
+ * Changer `HOURS_PER_STEP` suffit donc — rien d'autre n'est à retoucher ici.
+ */
+const HEURES_DE_REFERENCE = 6;
+const CADENCE = HOURS_PER_STEP / HEURES_DE_REFERENCE;
+
+/** Un apport ou un déplacement par pas : il se divise avec la durée. */
+function parPas(parSixHeures: number): number {
+  return parSixHeures * CADENCE;
+}
+
+/** Une fraction consommée par pas. Elle ne se divise pas : rendre la moitié en
+ *  six heures, c'est en rendre 1 − (1 − ½)^⅓ en deux. */
+function fractionParPas(parSixHeures: number): number {
+  return 1 - Math.pow(1 - parSixHeures, CADENCE);
+}
+
+/** Un facteur de décroissance, qui se met à la puissance plutôt qu'au produit. */
+function decroissanceParPas(parSixHeures: number): number {
+  return Math.pow(parSixHeures, CADENCE);
+}
+
+/**
+ * Une grandeur qui retombe vers zéro entre deux apports — la précipitation est
+ * la seule du moteur.
+ *
+ * Elle ne se convertit ni comme un apport, ni comme une décroissance seule : ce
+ * qu'il faut conserver est son **point d'équilibre**, `apport / (1 − décroissance)`,
+ * et sa vitesse de retour. Diviser bêtement l'apport ferait baisser l'équilibre
+ * d'un cinquième — assez pour que les orages, qui demandent une intensité de 45,
+ * cessent tout simplement d'exister.
+ */
+function relaxe(valeur: number, decroissanceSixHeures: number, apportSixHeures: number): number {
+  const d = decroissanceParPas(decroissanceSixHeures);
+  return valeur * d + apportSixHeures * ((1 - d) / (1 - decroissanceSixHeures));
+}
 
 /**
  * Ce que chaque terrain fait au ciel.
@@ -144,7 +228,8 @@ function temperatureCible(
   stepIndex: number,
   terrain: BakedTerrain,
 ): number {
-  const latitude = cellRow(index) / (GRID_ROWS - 1);
+  const y = (cellRow(index) + 0.5) * CELL_SIZE;
+  const latitude = clamp((y - BANDE_NORD) / (BANDE_SUD - BANDE_NORD), 0, 1);
   const base = NORD_FROID + (SUD_CHAUD - NORD_FROID) * latitude;
 
   // La saison suit le calendrier réel, pas le tyrien : le lecteur voit les deux
@@ -153,11 +238,69 @@ function temperatureCible(
   const saison = Math.cos(((dayOfYearOfStep(stepIndex) - 202) / 365) * Math.PI * 2);
 
   const effet = EFFETS[terrain.terrain[index]];
-  const tranche = AMPLITUDE_TRANCHE[sliceOf(stepIndex)] * effet.amplitude;
+  // Une courbe continue sur l'heure plutôt qu'une marche par tranche : à douze
+  // pas par jour, un escalier de quatre marches se verrait.
+  const heure = hourOfStep(stepIndex);
+  const tranche =
+    Math.cos(((heure - 15) / 24) * Math.PI * 2) * AMPLITUDE_JOUR * effet.amplitude;
   const altitude = (terrain.altitude[index] / 100) * REFROIDISSEMENT_MAX;
 
   return base + saison * AMPLITUDE_SAISON + tranche - altitude + effet.chaleur;
 }
+
+/**
+ * Les seuils qui nomment le temps qu'il fait.
+ *
+ * Ils ne sont pas ronds par hasard : ils sont relevés sur la distribution réelle
+ * du moteur. Sur les **cellules en région**, celles que la carte montre et que
+ * les bulletins agrègent — pas sur tout le rectangle du continent, dont la mer
+ * couvre 96 % et qui n'intéresse personne.
+ *
+ * C'est l'orage qui a instruit les deux fois. Posé à 45 sur les à-coups d'un pas
+ * de six heures, il devenait **inatteignable** dès que les pas ont été affinés à
+ * deux heures. Descendu à 20, il touchait bien 0,4 % du continent — mais 0,01 %
+ * des terres, soit trois orages par an sur tout le hub : mesuré sur la mer, il
+ * décrivait la mer.
+ */
+export const SEUILS = {
+  /** En dessous, l'averse s'arrête ; au-dessus, il pleut. */
+  pluie: 3,
+  /**
+   * Un orage est une averse **chaude**.
+   *
+   * L'ancienne règle demandait la coïncidence de trois grandeurs — pluie forte,
+   * dépression, chaleur. Mesure faite, la pression n'y était pour rien : quand
+   * il pleut fort sur les terres, sa médiane vaut 1013, la référence même, et
+   * retirer la clause ne change pas un chiffre au large. Ce qui bloquait est
+   * ailleurs : la saturation monte avec la température, donc une pluie forte sur
+   * les terres est un évènement **froid** — 86 % des averses fortes tombaient
+   * sous 8 °C, et une pluie d'hiver n'est pas un orage.
+   *
+   * La règle dit donc ce qu'un orage est : il pleut dru et il fait chaud. Relevé
+   * sur les terres, 0,6 % des cellules-pas — une demi-cellule en orage à un
+   * instant donné, l'exception qu'on remarque.
+   */
+  orage: 12,
+  orageTemperature: 15,
+  /** Il neige plutôt qu'il ne pleut. */
+  gel: 1,
+  /** Le ciel est couvert. */
+  couverture: 45,
+  /** La brume ne prend que si le vent tombe. */
+  brumeVent: 27,
+  /**
+   * Une chaleur qui pèse, et un vent qui gêne.
+   *
+   * Relevés eux aussi sur les terres. 28 °C y touche 3,0 % des cellules-pas :
+   * une poignée de cellules les après-midi d'été, rien l'hiver. 40 km/h en
+   * touche 0,7 % — le centile 99,3 du vent des terres, et un vent qui décoiffe
+   * pour de bon. Le seuil valait 50, relevé sur le continent entier : au large
+   * c'est le centile 98, sur les terres le 99,8, et « vent fort » ne s'allumait
+   * qu'une visite sur six.
+   */
+  forteChaleur: 28,
+  ventFort: 40,
+} as const;
 
 /** L'humidité à partir de laquelle la brume prend. Le marais la fabrique plus
  *  tôt que la plaine : c'est le sol qui rend son eau, pas seulement l'air. */
@@ -196,10 +339,12 @@ function spawnSystem(seed: number): { system: PressureSystem; seed: number } {
   s = nextSeed(s);
   const rayon = 4 + randomFrom(s) * 5;
   s = nextSeed(s);
-  const vx = 0.5 + randomFrom(s) * 0.7;
+  const vx = parPas(0.5 + randomFrom(s) * 0.7);
   s = nextSeed(s);
-  const vy = (randomFrom(s) - 0.5) * 0.4;
+  const vy = parPas((randomFrom(s) - 0.5) * 0.4);
   s = nextSeed(s);
+  // En jours, pas en pas : un système vit trois à sept jours quelle que soit la
+  // finesse de la simulation.
   const vie = STEPS_PER_DAY * (3 + Math.floor(randomFrom(s) * 5));
 
   return {
@@ -254,14 +399,16 @@ export function advanceStep(
   const systems: PressureSystem[] = [];
   for (const system of previous.systems) {
     seed = nextSeed(seed);
-    const derive = (randomFrom(seed) - 0.5) * 0.18;
+    const derive = parPas((randomFrom(seed) - 0.5) * 0.18);
     const age = system.age + 1;
     const moved: PressureSystem = {
       ...system,
       x: system.x + system.vx,
       y: clamp(system.y + system.vy + derive, -2, GRID_ROWS + 2),
       // Un système s'épuise en fin de vie plutôt que de disparaître d'un coup.
-      force: system.force * (age > system.vie ? 0.55 : 0.99),
+      force:
+        system.force *
+        (age > system.vie ? decroissanceParPas(0.55) : decroissanceParPas(0.99)),
       age,
     };
     if (moved.x < GRID_COLS + moved.rayon && Math.abs(moved.force) > 1.5) {
@@ -298,8 +445,9 @@ export function advanceStep(
     const nord = neighbourIndex(index, 0, -1) ?? index;
     const sud = neighbourIndex(index, 0, 1) ?? index;
     const frein = EFFETS[terrain.terrain[index]].freinVent;
-    ventX[index] = ((pression[ouest] - pression[est]) * 3 + VENT_DOMINANT) * frein;
-    ventY[index] = (pression[nord] - pression[sud]) * 3 * frein;
+    ventX[index] =
+      ((pression[ouest] - pression[est]) * 3 * VENT_ECHELLE + VENT_DOMINANT) * frein;
+    ventY[index] = (pression[nord] - pression[sud]) * 3 * VENT_ECHELLE * frein;
   }
 
   // 4. Advection : chaque cellule reçoit de sa voisine au vent. C'est ce qui
@@ -314,7 +462,7 @@ export function advanceStep(
     const vy = ventY[index];
     const amont =
       neighbourIndex(index, vx > 0 ? -1 : vx < 0 ? 1 : 0, vy > 0 ? -1 : vy < 0 ? 1 : 0) ?? index;
-    const part = clamp(vitesse(vx, vy) / 60, 0, 0.6);
+    const part = fractionParPas(clamp(vitesse(vx, vy) / (60 * VENT_ECHELLE), 0, 0.6));
 
     humidite[index] =
       previous.cells.humidite[index] * (1 - part) + previous.cells.humidite[amont] * part;
@@ -326,7 +474,7 @@ export function advanceStep(
     const cible = temperatureCible(index, stepIndex, terrain);
     temperature[index] =
       previous.cells.temperature[index] +
-      (cible - previous.cells.temperature[index]) * effet.inertie;
+      (cible - previous.cells.temperature[index]) * fractionParPas(effet.inertie);
 
     // La mer n'évapore qu'à proportion de sa chaleur — et de moins en moins à
     // mesure que l'air se remplit, sinon elle finirait en orage permanent.
@@ -336,33 +484,38 @@ export function advanceStep(
           clamp(0.4 + temperature[index] / 30, 0.2, 1.4) *
           clamp(1 - humidite[index] / 100, 0, 1)
         : effet.humidite;
-    humidite[index] += apport;
+    const apportDuPas = parPas(apport);
+    humidite[index] += apportDuPas;
+
+    // La pluie se pose en une fois plus bas : le relief fixe la vitesse à
+    // laquelle elle retombe, le relief et la condensation ce qui l'alimente.
+    let retombee = 0.5;
+    let alimentation = 0;
 
     // Le relief force l'air à monter : il pleut au vent, et il sèche dessous.
     const denivele = terrain.altitude[index] - terrain.altitude[amont];
     if (denivele > 8) {
-      const soulevement = (denivele / 100) * clamp(vitesse(vx, vy) / 10, 0.3, 3);
-      humidite[index] -= soulevement * 6;
-      couverture[index] += soulevement * 22;
-      precipitation[index] = (previous.cells.precipitation[index] + soulevement * 30) / 2;
+      const soulevement =
+        (denivele / 100) * clamp(vitesse(vx, vy) / (10 * VENT_ECHELLE), 0.3, 3);
+      humidite[index] -= parPas(soulevement * 6);
+      couverture[index] += parPas(soulevement * 22);
+      alimentation += soulevement * 15;
     } else if (denivele < -8) {
       // Le versant sous le vent reçoit un air déjà essoré.
-      humidite[index] += denivele / 12;
-      couverture[index] += denivele / 4;
-      precipitation[index] = previous.cells.precipitation[index] * 0.3;
-    } else {
-      precipitation[index] = previous.cells.precipitation[index] * 0.5;
+      humidite[index] += parPas(denivele / 12);
+      couverture[index] += parPas(denivele / 4);
+      retombee = 0.3;
     }
 
     // Une dépression creuse fait monter l'air à elle seule.
     const creux = PRESSION_DE_REFERENCE - pression[index];
     if (creux > 0) {
-      couverture[index] += creux * 1.6;
-      humidite[index] += creux * 0.18;
+      couverture[index] += parPas(creux * 1.6);
+      humidite[index] += parPas(creux * 0.18);
     } else {
       // Sous anticyclone, le ciel se dégage et l'air s'assèche.
-      couverture[index] += creux * 1.8;
-      humidite[index] += creux * 0.3;
+      couverture[index] += parPas(creux * 1.8);
+      humidite[index] += parPas(creux * 0.3);
     }
 
     humidite[index] = clamp(humidite[index], 5, 100);
@@ -373,14 +526,18 @@ export function advanceStep(
     const seuil = saturation(temperature[index]) - (terrain.altitude[index] / 100) * 9;
     if (humidite[index] > seuil) {
       const exces = humidite[index] - seuil;
-      precipitation[index] = clamp(precipitation[index] + exces * 3, 0, 100);
+      alimentation += exces * 3;
       // L'averse vide vraiment l'air : sans quoi elle ne s'arrête jamais.
-      humidite[index] -= exces * 0.9;
-      couverture[index] += exces * 4;
+      humidite[index] -= exces * fractionParPas(0.9);
+      couverture[index] += parPas(exces * 4);
     }
 
     couverture[index] = clamp(couverture[index], 0, 100);
-    precipitation[index] = clamp(precipitation[index], 0, 100);
+    precipitation[index] = clamp(
+      relaxe(previous.cells.precipitation[index], retombee, alimentation),
+      0,
+      100,
+    );
     // Sous le seuil, une averse s'arrête pour de bon.
     if (precipitation[index] < 3) precipitation[index] = 0;
   }
@@ -438,11 +595,13 @@ export function conditionOf(cell: {
   seuilBrume?: number;
 }): WeatherCondition {
   // L'ordre fait la règle : sans lui la neige deviendrait de la pluie fine.
-  if (cell.precipitation > 3 && cell.temperature < 1) return "neige";
-  if (cell.precipitation > 45 && cell.pression < 1006 && cell.temperature > 8) return "orage";
-  if (cell.precipitation > 3) return "pluie-fine";
-  if (cell.humidite > (cell.seuilBrume ?? 84) && cell.vent < 9) return "brume";
-  if (cell.couverture > 45) return "nuages";
+  if (cell.precipitation > SEUILS.pluie && cell.temperature < SEUILS.gel) return "neige";
+  if (cell.precipitation > SEUILS.orage && cell.temperature > SEUILS.orageTemperature) {
+    return "orage";
+  }
+  if (cell.precipitation > SEUILS.pluie) return "pluie-fine";
+  if (cell.humidite > (cell.seuilBrume ?? 84) && cell.vent < SEUILS.brumeVent) return "brume";
+  if (cell.couverture > SEUILS.couverture) return "nuages";
   return "degage";
 }
 

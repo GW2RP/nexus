@@ -4,13 +4,14 @@ import { REGIONS, TERRAINS, type Region, type Terrain } from "@/lib/domain";
 import { advanceStep, seedState, type WorldState } from "@/lib/weather/engine";
 import { CELL_COUNT, bakeTerrain, type BakedTerrain, type ZoneShape } from "@/lib/weather/grid";
 import { PACK_SCALE_TEMPERATURE, packInt16, packScaled, unpackInt16, unpackScaled } from "@/lib/weather/pack";
-import { stepEnd, stepIndexAt, stepStart } from "@/lib/weather/schedule";
+import { STEPS_PER_DAY, stepEnd, stepIndexAt, stepStart } from "@/lib/weather/schedule";
 import { TerrainZone } from "@/models/terrain-zone";
 import { WeatherStep, type WeatherStepDocument } from "@/models/weather-step";
 import { connectToDatabase } from "@/server/queries/shared";
 
-/** Au-delà, on ne rattrape pas pas à pas : la fonction expirerait. */
-const RATTRAPAGE_MAX = 12;
+/** Au-delà, on ne rattrape pas pas à pas : la fonction expirerait. À douze pas
+ *  par jour, trois jours d'absence se rattrapent encore. */
+const RATTRAPAGE_MAX = 36;
 
 /** Trente jours d'historique suffisent ; le reste ne se lit jamais. */
 const RETENTION_JOURS = 30;
@@ -67,6 +68,7 @@ export function terrainFromDocument(doc: StoredStep): BakedTerrain {
 function documentFrom(state: WorldState, terrain: BakedTerrain) {
   return {
     stepIndex: state.stepIndex,
+    stepsPerDay: STEPS_PER_DAY,
     startsAt: stepStart(state.stepIndex),
     endsAt: stepEnd(state.stepIndex),
     seed: state.seed,
@@ -106,6 +108,16 @@ export async function advanceWeather(
   const maxSteps = options.maxSteps ?? RATTRAPAGE_MAX;
 
   const terrain = await bakeFromZones();
+
+  // Les pas d'une autre cadence sont illisibles : leur numérotation ne veut plus
+  // rien dire, et la reprendre mélangerait deux mondes. On repart proprement.
+  const perimes = await WeatherStep.deleteMany({ stepsPerDay: { $ne: STEPS_PER_DAY } });
+  if (perimes.deletedCount > 0) {
+    console.info(
+      `Cadence changée : ${perimes.deletedCount} pas d'une autre cadence retirés, la simulation repart.`,
+    );
+  }
+
   const dernier = await WeatherStep.findOne({}).sort({ stepIndex: -1 }).lean();
 
   let state: WorldState;

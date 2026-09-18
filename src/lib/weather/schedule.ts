@@ -1,5 +1,6 @@
 /**
- * Le découpage du temps : quatre tranches par jour, à l'heure du serveur de jeu.
+ * Le découpage du temps : un pas toutes les deux heures, à l'heure du serveur
+ * de jeu — douze par jour.
  *
  * Tout part d'un numéro de pas, entier et monotone. C'est lui qui fait
  * l'idempotence de l'avancement : deux déclenchements du même pas écrivent le
@@ -13,8 +14,8 @@
 
 import { GAME_TIME_ZONE } from "@/lib/dates";
 
-export const STEPS_PER_DAY = 4;
-export const HOURS_PER_STEP = 24 / STEPS_PER_DAY;
+export const HOURS_PER_STEP = 2;
+export const STEPS_PER_DAY = 24 / HOURS_PER_STEP;
 
 /** Le premier jour du calendrier tyrien : 1er Zéphyr 1332 = 1er septembre 2026. */
 const EPOCH_DAY = Math.floor(Date.UTC(2026, 8, 1) / 86_400_000);
@@ -37,6 +38,15 @@ export const STEP_SLICE_EYEBROWS: Record<StepSlice, string> = {
   "apres-midi": "APRÈS-MIDI",
   soiree: "SOIRÉE",
 };
+
+/** Les tranches nomment des moments du jour, pas des pas : à deux heures par
+ *  pas, six pas se partagent « nuit » et « matin ». C'est l'heure qui décide. */
+const BORNES_DE_TRANCHE: { depuis: number; slice: StepSlice }[] = [
+  { depuis: 18, slice: "soiree" },
+  { depuis: 12, slice: "apres-midi" },
+  { depuis: 6, slice: "matin" },
+  { depuis: 0, slice: "nuit" },
+];
 
 type Civil = { year: number; month: number; day: number; hour: number; minute: number; second: number };
 
@@ -94,8 +104,12 @@ function fromCivil(year: number, month: number, day: number, hour: number): Date
 export function stepIndexAt(date: Date): number {
   const civil = civilAt(date);
   const days = Math.floor(Date.UTC(civil.year, civil.month - 1, civil.day) / 86_400_000) - EPOCH_DAY;
-  // Les changements d'heure tombent à 2 h ou 3 h, soit toujours dans la tranche
-  // de nuit : aucun numéro n'est ni sauté ni servi deux fois.
+  // À deux heures par pas, le changement d'heure ne passe plus inaperçu : au
+  // printemps l'heure 2 n'existe pas, donc son numéro n'est jamais rendu ; à
+  // l'automne elle a lieu deux fois, donc le même numéro est rendu deux fois.
+  // Ni l'un ni l'autre ne gêne : l'avancement va du dernier écrit jusqu'au dû,
+  // donc un numéro jamais rendu est quand même produit au passage, et un numéro
+  // rendu deux fois se heurte à l'index unique.
   return days * STEPS_PER_DAY + Math.floor(civil.hour / HOURS_PER_STEP);
 }
 
@@ -136,7 +150,18 @@ export function dayOfYearOfStep(stepIndex: number): number {
   return Math.floor((day.getTime() - start) / 86_400_000);
 }
 
-export function sliceOf(stepIndex: number): StepSlice {
+/** L'heure parisienne à laquelle un pas commence, de 0 à 22. */
+export function hourOfStep(stepIndex: number): number {
   const days = Math.floor(stepIndex / STEPS_PER_DAY);
-  return STEP_SLICES[stepIndex - days * STEPS_PER_DAY];
+  return (stepIndex - days * STEPS_PER_DAY) * HOURS_PER_STEP;
+}
+
+export function sliceOf(stepIndex: number): StepSlice {
+  const hour = hourOfStep(stepIndex);
+  return BORNES_DE_TRANCHE.find((borne) => hour >= borne.depuis)!.slice;
+}
+
+/** « 08 h », pour que douze pas par jour restent distincts à l'affichage. */
+export function formatStepHour(stepIndex: number): string {
+  return `${String(hourOfStep(stepIndex)).padStart(2, "0")} h`;
 }

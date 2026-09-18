@@ -8,7 +8,25 @@
 
 import type { Terrain, WeatherCondition } from "@/lib/domain";
 
-export const MAP_TONES = ["eau", "marais", "relief", "aride", "foret", "feu", "bati", "neutre"] as const;
+export const MAP_TONES = [
+  // Les terrains.
+  "eau",
+  "marais",
+  "relief",
+  "aride",
+  "foret",
+  "feu",
+  "bati",
+  "neutre",
+  // Les phénomènes météo, qui ont leurs propres teintes : les confondre avec
+  // celles du terrain rendrait les deux calques illisibles ensemble.
+  "orage",
+  "neige",
+  "pluie",
+  "brume",
+  "vent",
+  "chaleur",
+] as const;
 export type MapTone = (typeof MAP_TONES)[number];
 
 export const TERRAIN_TONES: Record<Terrain, MapTone> = {
@@ -24,13 +42,12 @@ export const TERRAIN_TONES: Record<Terrain, MapTone> = {
   ville: "bati",
 };
 
-/** Ce qui tombe du ciel se lit à la teinte : l'eau pour la pluie, le relief
- *  pour la neige et la brume qui éteignent les couleurs. */
+/** Ce qui tombe du ciel se lit à la teinte. */
 export const CONDITION_TONES: Record<WeatherCondition, MapTone> = {
   degage: "neutre",
   nuages: "neutre",
-  "pluie-fine": "eau",
-  orage: "eau",
-  brume: "relief",
-  neige: "relief",
+  "pluie-fine": "pluie",
+  orage: "orage",
+  brume: "brume",
+  neige: "neige",
 };

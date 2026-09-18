@@ -11,6 +11,7 @@ import { formatTyrianDate } from "@/lib/tyrian-calendar";
 import {
   STEP_SLICE_EYEBROWS,
   civilDayOfStep,
+  formatStepHour,
   sliceOf,
 } from "@/lib/weather/schedule";
 import { getCurrentWeather, getUpcomingWeather } from "@/server/queries/weather";
@@ -64,7 +65,7 @@ function Bulletin({ entry }: { entry: WeatherEntry }) {
 }
 
 export default async function WeatherPage() {
-  const [current, upcoming] = await Promise.all([getCurrentWeather(), getUpcomingWeather(6)]);
+  const [current, upcoming] = await Promise.all([getCurrentWeather(), getUpcomingWeather(12)]);
 
   // Les tranches à venir, regroupées : le moteur est déterministe, donc ce qui
   // s'affiche ici est exactement ce que la tâche planifiée écrira.
@@ -82,7 +83,7 @@ export default async function WeatherPage() {
       <PageHeader
         eyebrow={
           courant
-            ? `${STEP_SLICE_EYEBROWS[sliceOf(courant.stepIndex)]} · ${formatLongDate(new Date(courant.startsAt))} · ${formatTyrianDate(civilDayOfStep(courant.stepIndex))}`
+            ? `${STEP_SLICE_EYEBROWS[sliceOf(courant.stepIndex)]} · ${formatStepHour(courant.stepIndex)} · ${formatLongDate(new Date(courant.startsAt))} · ${formatTyrianDate(civilDayOfStep(courant.stepIndex))}`
             : undefined
         }
         title="Météo des régions"
@@ -111,8 +112,8 @@ export default async function WeatherPage() {
               return (
                 <li key={startsAt} className="border-b border-hairline py-4 last:border-b-0">
                   <p className="font-display text-[11px] font-medium tracking-[1.4px] text-gold-ink">
-                    {STEP_SLICE_EYEBROWS[sliceOf(pas)]} · {formatLongDate(debut)} ·{" "}
-                    {formatTyrianDate(civilDayOfStep(pas))}
+                    {STEP_SLICE_EYEBROWS[sliceOf(pas)]} · {formatStepHour(pas)} ·{" "}
+                    {formatLongDate(debut)} · {formatTyrianDate(civilDayOfStep(pas))}
                   </p>
                   <ul className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
                     {entries.map((entry) => (
