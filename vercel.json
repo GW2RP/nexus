@@ -1,0 +1,8 @@
+{
+  "crons": [
+    { "path": "/api/meteo/avancer", "schedule": "5 23 * * *" },
+    { "path": "/api/meteo/avancer", "schedule": "5 5 * * *" },
+    { "path": "/api/meteo/avancer", "schedule": "5 11 * * *" },
+    { "path": "/api/meteo/avancer", "schedule": "5 17 * * *" }
+  ]
+}

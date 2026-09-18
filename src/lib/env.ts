@@ -20,6 +20,11 @@ export const env = {
   get betterAuthSecret() {
     return required("BETTER_AUTH_SECRET");
   },
+  /** Le secret de la tâche planifiée météo. Absent, la route d'avancement
+   *  refuse tout appel : elle ne s'ouvre pas parce qu'une variable manque. */
+  get cronSecret() {
+    return process.env.CRON_SECRET ?? "";
+  },
   get siteUrl() {
     // Vercel expose l'URL de la préproduction ; en production on force le domaine canonique.
     const explicit = process.env.NEXT_PUBLIC_SITE_URL;

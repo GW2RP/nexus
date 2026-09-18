@@ -37,6 +37,32 @@ est portée par le **zoom 7**, pas par le `max_zoom: 8` que l'API annonce :
 `unproject`. Un emplacement se pose en cliquant la carte, jamais en tapant deux
 nombres.
 
+## La météo
+
+Elle est **simulée**, pas écrite : personne ne pose un bulletin à la main.
+Quatre pas par jour sur une grille de 40 × 56 cellules de 2 048 px, avancée par
+`/api/meteo/avancer` que Vercel déclenche quatre fois. `src/lib/weather/engine.ts`
+est une **fonction pure** — aucune base, et jamais `Math.random()` : le hasard
+sort d'une graine rangée dans l'état, sinon la frise de prévision mentirait.
+
+Deux règles de fuseau, à ne pas défaire :
+
+- La route **ne lit jamais son heure de déclenchement**. Vercel évalue le cron en
+  UTC et dérive d'une heure à l'heure d'été ; on lit l'horloge d'`Europe/Paris`
+  et on rattrape les pas dus.
+- La date d'un pas se lit sur son **jour civil parisien**
+  (`civilDayOfStep`), jamais sur son instant : la tranche de nuit commence à
+  22 h ou 23 h UTC la veille, et `toTyrianDate` calcule en UTC.
+
+Le terrain se cuit depuis les zones à chaque avancement, jamais stocké cuit :
+rien à invalider, donc rien qui puisse être périmé. Une cellule se juge par son
+**centre** — une zone trop petite pour en couvrir un n'existe pas pour la
+simulation, et `/admin/terrains` montre la grille cuite pour que ça se voie.
+
+Les champs de grille voyagent empaquetés en entiers 16 bits. Un tampon trop
+court **lève** : relu en zéros, il donnerait un ciel dégagé partout, crédible et
+faux.
+
 ## Les images
 
 Une image téléversée vit dans Vercel Blob, pas en base. Elle est rangée sous son

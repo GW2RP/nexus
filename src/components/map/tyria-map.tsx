@@ -7,6 +7,8 @@ import { useEffect, useRef } from "react";
 
 import { markerHtml, type MarkerState } from "@/components/map/map-marker-html";
 import type { EventType, PlaceType } from "@/lib/domain";
+import { cellRect } from "@/lib/weather/grid";
+import type { MapTone } from "@/lib/weather/tones";
 import {
   CLAMPED_VIEW,
   COORDINATE_ZOOM,
@@ -29,6 +31,23 @@ export type MapPin = {
   state: MarkerState;
 };
 
+/** Un polygone posé sur la carte : une zone de terrain, ou le tracé en cours. */
+export type MapShape = {
+  id: string;
+  points: { x: number; y: number }[];
+  tone: MapTone;
+  /** Le tracé en cours montre ses sommets, une zone enregistrée non. */
+  showVertices?: boolean;
+};
+
+/** Une cellule de la grille météo, teintée selon ce qu'il y tombe. */
+export type MapCell = {
+  index: number;
+  tone: MapTone;
+  /** De 0 à 1. */
+  fill: number;
+};
+
 type Rect = { left: number; top: number; right: number; bottom: number };
 
 /** Un rectangle en pixels de continent, converti en bornes Leaflet. */
@@ -44,6 +63,8 @@ function toBounds(map: L.Map, rect: Rect): L.LatLngBounds {
  *  d'opacité — ils ne disparaissent pas. */
 export function TyriaMap({
   pins,
+  shapes,
+  cells,
   selectedId,
   onSelect,
   onPick,
@@ -51,6 +72,10 @@ export function TyriaMap({
   className,
 }: {
   pins: MapPin[];
+  /** Les zones de terrain, sous les pins. */
+  shapes?: MapShape[];
+  /** Le calque météo : une cellule par temps à montrer. */
+  cells?: MapCell[];
   selectedId?: string | null;
   onSelect?: (id: string | null) => void;
   /** Un clic sur la carte renvoie le point, en pixels de continent. */
@@ -62,6 +87,8 @@ export function TyriaMap({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef(new Map<string, L.Marker>());
+  const shapesRef = useRef<L.Layer[]>([]);
+  const cellsRef = useRef<L.Layer[]>([]);
   const onSelectRef = useRef(onSelect);
   const onPickRef = useRef(onPick);
 
@@ -141,8 +168,74 @@ export function TyriaMap({
       map.remove();
       mapRef.current = null;
       markers.clear();
+      shapesRef.current = [];
+      cellsRef.current = [];
     };
   }, [interactive]);
+
+  // Les zones de terrain. `interactive: false` est obligatoire : un polygone qui
+  // intercepte les clics empêcherait `map.on("click")` de se déclencher, et
+  // l'éditeur cesserait de poser des sommets dès le troisième.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    for (const layer of shapesRef.current) layer.remove();
+    shapesRef.current = [];
+
+    for (const shape of shapes ?? []) {
+      if (shape.points.length < 2) continue;
+      const polygon = L.polygon(
+        shape.points.map((point) => map.unproject([point.x, point.y], COORDINATE_ZOOM)),
+        {
+          className: `gw2rp-zone gw2rp-zone--${shape.tone}${
+            shape.showVertices ? " gw2rp-zone--trace" : ""
+          }`,
+          interactive: false,
+          weight: 2,
+        },
+      );
+      polygon.addTo(map);
+      shapesRef.current.push(polygon);
+
+      if (!shape.showVertices) continue;
+      shape.points.forEach((point, rank) => {
+        const marker = L.marker(map.unproject([point.x, point.y], COORDINATE_ZOOM), {
+          icon: L.divIcon({
+            html: `<span>${rank + 1}</span>`,
+            className: "gw2rp-vertex",
+            iconSize: [22, 22],
+            iconAnchor: [11, 11],
+          }),
+          interactive: false,
+          keyboard: false,
+        });
+        marker.addTo(map);
+        shapesRef.current.push(marker);
+      });
+    }
+  }, [shapes]);
+
+  // Le calque météo : un rectangle par cellule, jamais les 560 — le ciel dégagé
+  // ne se dessine pas.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    for (const layer of cellsRef.current) layer.remove();
+    cellsRef.current = [];
+
+    for (const cell of cells ?? []) {
+      const rectangle = L.rectangle(toBounds(map, cellRect(cell.index)), {
+        className: `gw2rp-cell gw2rp-cell--${cell.tone}`,
+        fillOpacity: cell.fill,
+        interactive: false,
+        stroke: false,
+      });
+      rectangle.addTo(map);
+      cellsRef.current.push(rectangle);
+    }
+  }, [cells]);
 
   useEffect(() => {
     const map = mapRef.current;

@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 
 import { PlaceGlyph, WeatherGlyph } from "@/components/type-glyph";
 import { MapCanvas } from "@/components/map/map-canvas";
-import type { MapPin } from "@/components/map/tyria-map";
+import type { MapCell, MapPin, MapShape } from "@/components/map/tyria-map";
 import { SearchIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/field";
@@ -17,23 +17,35 @@ import {
   type PlaceType,
 } from "@/lib/domain";
 import { TILE_ATTRIBUTION } from "@/lib/map";
+import { CONDITION_TONES, TERRAIN_TONES } from "@/lib/weather/tones";
 import { cn } from "@/lib/utils";
-import type { EventSummary, PlaceSummary, WeatherEntry } from "@/server/types";
+import type {
+  EventSummary,
+  PlaceSummary,
+  TerrainZoneOutline,
+  WeatherCell,
+  WeatherEntry,
+} from "@/server/types";
 
 export function MapExplorer({
   places,
   events,
   weather,
+  zones,
+  cells,
   initialPlaceSlug,
   canPropose,
 }: {
   places: PlaceSummary[];
   events: EventSummary[];
   weather: WeatherEntry[];
+  zones: TerrainZoneOutline[];
+  cells: WeatherCell[];
   initialPlaceSlug?: string;
   canPropose: boolean;
 }) {
   const [tab, setTab] = useState<"lieux" | "evenements">("lieux");
+  const [layer, setLayer] = useState<"meteo" | "terrains">("meteo");
   const [typeFilter, setTypeFilter] = useState<PlaceType | null>(null);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -51,6 +63,32 @@ export function MapExplorer({
       );
     });
   }, [places, typeFilter, query]);
+
+  const shapes = useMemo<MapShape[]>(
+    () =>
+      layer === "terrains"
+        ? zones.map((zone) => ({
+            id: zone.id,
+            points: zone.points,
+            tone: TERRAIN_TONES[zone.terrain],
+          }))
+        : [],
+    [layer, zones],
+  );
+
+  // Une cellule ne se teinte qu'à proportion de ce qui y tombe, et le ciel
+  // dégagé n'arrive jamais jusqu'ici.
+  const painted = useMemo<MapCell[]>(
+    () =>
+      layer === "meteo"
+        ? cells.map((cell) => ({
+            index: cell.index,
+            tone: CONDITION_TONES[cell.condition],
+            fill: 0.1 + (cell.precipitation / 100) * 0.3,
+          }))
+        : [],
+    [layer, cells],
+  );
 
   const pins = useMemo<MapPin[]>(() => {
     const placePins: MapPin[] = visiblePlaces
@@ -224,7 +262,7 @@ export function MapExplorer({
             href="/meteo"
             className="mt-3 inline-block text-[16px] text-crimson-ink underline-offset-4 hover:underline"
           >
-            Couches et météo →
+            Le détail de la météo →
           </Link>
         </div>
       </aside>
@@ -232,10 +270,34 @@ export function MapExplorer({
       <div className="relative min-h-[420px] flex-1">
         <MapCanvas
           pins={pins}
+          shapes={shapes}
+          cells={painted}
           selectedId={selectedId}
           onSelect={setSelectedId}
           className="size-full bg-map-land"
         />
+
+        <div className="absolute right-4 top-4 z-[500] flex border-2 border-rule bg-surface">
+          {(
+            [
+              ["meteo", "MÉTÉO"],
+              ["terrains", "TERRAINS"],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={layer === value}
+              onClick={() => setLayer(value)}
+              className={cn(
+                "min-h-tap px-3 text-[14px] tracking-[1px]",
+                layer === value ? "bg-surface-selected text-ink" : "text-ink-muted",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
         {weather.length > 0 ? (
           <div className="pointer-events-none absolute left-4 top-4 z-[500] flex flex-col gap-2">

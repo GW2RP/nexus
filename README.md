@@ -45,7 +45,7 @@ valeurs, porté par `data-theme` sur `<html>`.
 | `/evenements` | `?vue=agenda` (défaut) ou `?vue=calendrier` |
 | `/evenements/[slug]` | Fiche et inscription |
 | `/rumeurs` | Tableau des rumeurs |
-| `/meteo` | Météo des régions ; l'écriture est réservée aux conteurs |
+| `/meteo` | Météo des régions, produite par la simulation ; personne ne l'écrit |
 | `/mon-compte` | Personnages, inscriptions et annonces du compte |
 | `/admin/signalements` · `/admin/signalements/[id]` | File et examen |
 | `/admin/journal` | Journal de modération |
@@ -60,8 +60,8 @@ filtrée.
 | --- | --- |
 | Visiteur | Lire tout le contenu public. Ne signale pas, ne s'inscrit pas. |
 | Membre | Créer et modifier ses personnages, lieux, évènements et rumeurs ; s'inscrire ; signaler. |
-| Conteur | En plus : poser la météo d'une région. |
-| Administration | En plus : file des signalements, suppression, avertissement, suspension. |
+| Conteur | En plus : rien pour l'instant — la météo, qui était son seul pouvoir propre, tourne désormais toute seule. |
+| Administration | En plus : file des signalements, suppression, avertissement, suspension, et le dessin des zones de terrain. |
 
 Le rôle n'est pas choisi à l'inscription : il est posé par l'administration.
 C'est aussi le seul chemin pour nommer la première :
@@ -175,17 +175,108 @@ le **zoom 7** qui porte l'échelle de `continent_dims` — la grille servie au z
 référence décale tout le monde de plusieurs milliers de pixels : les lieux
 tombent en pleine mer. La constante est `COORDINATE_ZOOM` dans `src/lib/map.ts`.
 
+## La météo
+
+Elle n'est pas écrite, elle est **simulée**. Quatre pas par jour — nuit, matin,
+après-midi, soirée — sur une grille de **40 × 56 = 2 240 cellules** de 2 048 px.
+
+La maille n'est pas choisie pour le continent mais pour la partie habitée : le
+rectangle du continent est très majoritairement vide, et les six régions du hub
+tiennent dans environ 22 000 × 21 000 px. À 4 096 px la Kryte entière faisait
+trois cellules et un marais n'y pouvait rien changer ; à 2 048 px elle en fait
+une douzaine.
+
+### Ce que fait un pas
+
+Toujours dans le même ordre (`src/lib/weather/engine.ts`, fonction pure, sans
+base) : les centres de pression dérivent d'ouest en est, naissent et s'épuisent —
+c'est **eux** qui font que le temps change seul ; le vent descend la pente de
+pression ; l'advection porte l'humidité de la cellule au vent ; le terrain fait
+son effet ; l'air rend ce qu'il ne peut plus tenir.
+
+Le hasard sort d'une **graine rangée dans l'état**, jamais de `Math.random()`.
+Deux conséquences : un pas est rejouable à l'identique, et la frise de `/meteo`
+n'est pas une promesse — c'est le bulletin que la tâche planifiée écrira,
+calculé en avance et jamais enregistré.
+
+### Ce que fait chaque terrain
+
+| Terrain | Effet |
+| --- | --- |
+| Mer | Nourrit l'humidité, à proportion de sa chaleur et du déficit de l'air ; lisse fortement la température |
+| Marais | Retient l'humidité et sature plus bas que la plaine : c'est lui qui fabrique la brume |
+| Relief | Refroidit selon l'altitude, force la pluie au vent et **assèche sous le vent** |
+| Forêt | Retient un peu d'humidité, casse le vent |
+| Terres arides | Assèchent et creusent l'écart du jour à la nuit |
+| Plaine | La référence — le terrain d'une cellule que personne n'a dessinée |
+
+Les zones se dessinent au polygone depuis `/admin/terrains`. La liste montre la
+**grille cuite** sous les tracés : une zone trop petite pour couvrir le centre
+d'une cellule n'existe pas pour la simulation, et ça se voit au lieu de se
+deviner. Quand deux zones se recouvrent, la dernière dessinée l'emporte.
+
+La `region` d'une zone est facultative, et c'est elle qui donne enfin une
+**géographie** aux six régions, qui n'en avaient aucune. Une cellule sans région
+n'entre dans aucun bulletin — elle n'est pas inventée. Un lieu ou un évènement
+qui a des coordonnées prend le temps de **sa cellule** et garde l'étiquette de
+sa région déclarée : deux lieux d'une même région peuvent donc afficher deux
+temps différents.
+
+### L'avancement
+
+`vercel.json` déclenche `/api/meteo/avancer` quatre fois par jour, protégée par
+`CRON_SECRET` (Vercel l'envoie en `Authorization: Bearer`). Sans secret
+configuré, la route **refuse** : elle ne s'ouvre pas parce qu'une variable
+manque.
+
+Deux pièges de fuseau, tous deux traités :
+
+- **Vercel évalue le cron en UTC**, sans fuseau, donc des horaires fixes dérivent
+  d'une heure au passage à l'heure d'été. La route ne regarde jamais son heure de
+  déclenchement : elle lit l'horloge d'`Europe/Paris` et rattrape les pas dus. Un
+  appel trop tôt ne fait rien, un appel en retard rattrape. Les horaires retenus
+  (23 h 05, 05 h 05, 11 h 05, 17 h 05 UTC) tombent dans la bonne tranche été
+  comme hiver.
+- **`toTyrianDate` calcule en UTC** : la tranche de nuit commence à 00 h 00 à
+  Paris, soit 22 h ou 23 h UTC **la veille**. Lire la date d'un pas sur son
+  instant la décalerait d'un jour une fois sur quatre. `civilDayOfStep`
+  (`src/lib/weather/schedule.ts`) fait foi, pour la saison comme pour l'affichage.
+
+Un pas pèse **44 Ko** : huit champs de 2 240 entiers 16 bits, empaquetés
+(`src/lib/weather/pack.ts`), plus le terrain cuit au moment du pas. Un document
+par cellule et par pas en aurait fait plus de trois millions par an. Trente jours
+d'historique sont conservés, soit environ 5 Mo.
+
+> Un piège coûteux, trouvé à la vérification : une lecture en `.lean()`
+> court-circuite le cast de Mongoose et rend le `Binary` du pilote, dont
+> `length` est une **méthode** et non un nombre. `Buffer.from` en tirait un
+> tampon vide sans broncher, toute la grille se relisait en zéros — et zéro
+> partout donne un ciel dégagé parfaitement crédible. `unpackInt16` **lève**
+> désormais sur un tampon trop court : un défaut qui se déguise en beau temps
+> ne se voit jamais.
+
+La saison suit le **calendrier réel**, pas le tyrien : le lecteur voit les deux
+dates côte à côte, et une tempête de neige un 21 juillet ne s'explique pas. Le
+tyrien reste l'habillage, il ne commande pas le ciel.
+
 ## Scripts
 
 ```bash
-npm run dev         # serveur de développement
-npm run build       # construction de production
-npm run start       # servir la construction
-npm run lint        # ESLint
-npm run typecheck   # TypeScript, sans émission
-npm run db:seed     # jeu de données de départ (développement)
-npm run db:role     # lire et poser le rôle d'un compte
+npm run dev             # serveur de développement
+npm run build           # construction de production
+npm run start           # servir la construction
+npm run lint            # ESLint
+npm run typecheck       # TypeScript, sans émission
+npm run db:seed         # jeu de données de départ (développement)
+npm run db:role         # lire et poser le rôle d'un compte
+npm run meteo:terrains  # zones de terrain de départ, d'après l'API du jeu
+npm run meteo:simuler   # vérifie le moteur ; -- 360 pour une année, -- --base pour avancer
 ```
+
+`meteo:simuler` tient lieu de suite de tests pour la simulation : géométrie,
+horloge aux deux changements d'heure, bornes de chaque grandeur, présence des
+six conditions sur une année, et **déterminisme** — deux passages doivent donner
+le même résultat au chiffre près. Il sort en code 1 si une assertion tombe.
 
 ## Organisation du code
 
@@ -196,12 +287,14 @@ src/
     ui/              primitives shadcn restylées sur les jetons
     content/         cartes, lignes et panneaux du hub
     forms/           formulaires branchés sur les actions serveur
-    map/             Leaflet, pins et panneau de carte
+    map/             Leaflet, pins, calques de zones et éditeur de polygone
   lib/               jetons du domaine, dates tyriennes, SEO, session, droits
+    weather/         la simulation : grille, moteur, horloge, empaquetage
   models/            schémas Mongoose
   server/
     queries/         lecture — renvoie des objets simples, jamais des documents
     actions/         écriture — actions serveur validées par Zod
+    weather/         cuisson du terrain et avancement des pas
 ```
 
 Les composants client n'importent jamais `src/server/**` : l'état de formulaire

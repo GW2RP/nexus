@@ -81,6 +81,24 @@ export const WEATHER_LABELS: Record<WeatherCondition, string> = {
   neige: "Neige",
 };
 
+/** Les terrains que l'administration dessine sur la carte. Ils ne décorent pas :
+ *  chacun tire la simulation dans un sens précis.
+ *
+ *  `plaine` est le terrain d'une cellule que personne n'a couverte, et c'est
+ *  aussi un terrain qui se dessine : c'est ainsi qu'on donne sa géographie à une
+ *  région sans lui inventer un caractère particulier. */
+export const TERRAINS = ["mer", "marais", "relief", "foret", "aride", "plaine"] as const;
+export type Terrain = (typeof TERRAINS)[number];
+
+export const TERRAIN_LABELS: Record<Terrain, string> = {
+  mer: "Mer",
+  marais: "Marais",
+  relief: "Relief",
+  foret: "Forêt",
+  aride: "Terres arides",
+  plaine: "Plaine",
+};
+
 export const REPORT_REASONS = [
   "propos-haineux",
   "harcelement",

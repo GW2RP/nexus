@@ -1,10 +1,12 @@
 import { WeatherGlyph } from "@/components/type-glyph";
 import { REGION_LABELS, WEATHER_LABELS } from "@/lib/domain";
 import { formatTyrianDate } from "@/lib/tyrian-calendar";
+import { civilDayOfStep } from "@/lib/weather/schedule";
 import { cn } from "@/lib/utils";
 import type { WeatherEntry } from "@/server/types";
 
-/** La puce de météo : condition sur une ligne, date tyrienne en dessous. */
+/** La puce de météo : condition sur une ligne, température et date tyrienne en
+ *  dessous. La date réelle vient du contexte où la puce est posée. */
 export function WeatherBadge({
   weather,
   className,
@@ -25,8 +27,8 @@ export function WeatherBadge({
           {WEATHER_LABELS[weather.condition]} sur {REGION_LABELS[weather.region]}
         </span>
         <span className="block text-[15px] text-ink-muted">
-          {formatTyrianDate(new Date(weather.startsAt))}
-          {weather.note ? ` · ${weather.note}` : ""}
+          {weather.temperature} °C · vent {weather.vent} km/h ·{" "}
+          {formatTyrianDate(civilDayOfStep(weather.stepIndex))}
         </span>
       </span>
     </span>

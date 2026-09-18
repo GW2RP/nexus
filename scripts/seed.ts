@@ -13,6 +13,8 @@ import { config } from "dotenv";
 
 config({ path: [".env.local", ".env"], quiet: true });
 
+import mongoose from "mongoose";
+
 import { connectToDatabase } from "@/lib/mongoose";
 import { slugify } from "@/lib/slug";
 import { Character } from "@/models/character";
@@ -20,8 +22,8 @@ import { Event } from "@/models/event";
 import { Place } from "@/models/place";
 import { Registration } from "@/models/registration";
 import { Rumor } from "@/models/rumor";
+import { WeatherStep } from "@/models/weather-step";
 import { User } from "@/models/user";
-import { Weather } from "@/models/weather";
 
 function inDays(days: number, hours: number, minutes = 0): Date {
   const date = new Date();
@@ -48,8 +50,14 @@ async function main() {
     Event.deleteMany({}),
     Rumor.deleteMany({}),
     Registration.deleteMany({}),
-    Weather.deleteMany({}),
+    // Les pas de simulation repartent de zéro : ils dépendent des zones de
+    // terrain, pas du contenu, mais un historique orphelin n'apprend rien.
+    WeatherStep.deleteMany({}),
   ]);
+
+  // La météo était posée à la main dans une collection `weathers`, avant la
+  // simulation. Plus personne ne la déclare, donc Mongo ne l'enlève pas seul.
+  await mongoose.connection.db?.dropCollection("weathers").catch(() => {});
 
   const characters = await Character.insertMany(
     [
@@ -264,25 +272,6 @@ async function main() {
     },
   ]);
 
-  await Weather.insertMany([
-    {
-      region: "kryte",
-      condition: "pluie-fine",
-      intensity: 40,
-      startsAt: inDays(-1, 0),
-      endsAt: inDays(5, 23),
-      note: "crépuscule",
-      authorId,
-    },
-    {
-      region: "shiverpeaks",
-      condition: "neige",
-      intensity: 70,
-      startsAt: inDays(-2, 0),
-      endsAt: inDays(9, 23),
-      authorId,
-    },
-  ]);
 
   console.log(
     `Jeu de départ posé : ${characters.length} personnages, ${places.length} lieux, ${events.length} évènements.`,
