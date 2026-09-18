@@ -105,12 +105,14 @@ export function zoneAt<T extends { points: Point[] }>(
   y: number,
   zones: readonly T[],
 ): T | null {
-  let found: T | null = null;
-  for (const zone of zones) {
+  // On remonte la liste : la première trouvée en partant de la fin *est* la
+  // dernière dessinée, donc on rend la main sans tester les précédentes.
+  for (let i = zones.length - 1; i >= 0; i -= 1) {
+    const zone = zones[i];
     if (zone.points.length < 3) continue;
-    if (pointInPolygon(x, y, zone.points)) found = zone;
+    if (pointInPolygon(x, y, zone.points)) return zone;
   }
-  return found;
+  return null;
 }
 
 /**

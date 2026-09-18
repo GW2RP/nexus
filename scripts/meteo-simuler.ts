@@ -134,6 +134,7 @@ async function main() {
 
   let terrain: BakedTerrain;
   let source: string;
+  let dEssai = true;
   try {
     await connectToDatabase();
     terrain = await bakeFromZones();
@@ -143,6 +144,7 @@ async function main() {
       source = "terrain d'essai (aucune zone en base)";
     } else {
       source = `zones en base (${dessinees} cellules dessinées)`;
+      dEssai = false;
     }
   } catch (error) {
     terrain = terrainDEssai();
@@ -218,12 +220,18 @@ async function main() {
   }
 
   console.log("");
-  const absents = TERRAINS.filter((value) => !terrain.terrain.includes(value));
-  verifie(
-    "chaque terrain porte au moins une cellule",
-    absents.length === 0,
-    `manque ${absents.join(", ") || "rien"}`,
-  );
+  // Le terrain d'essai, lui, doit exercer les dix terrains : sans cellule qui les
+  // porte, leurs coefficients ne seraient jamais éprouvés. La base réelle, elle,
+  // ne doit rien de tel — une administration n'a aucune obligation de dessiner
+  // un volcan.
+  if (dEssai) {
+    const absents = TERRAINS.filter((value) => !terrain.terrain.includes(value));
+    verifie(
+      "le terrain d'essai exerce les dix terrains",
+      absents.length === 0,
+      `manque ${absents.join(", ") || "rien"}`,
+    );
+  }
   verifie("aucune grandeur ne part à l'infini", nonFini === 0, `${nonFini} valeurs`);
   verifie("un système est toujours en vie", systemesVides === 0, `${systemesVides} pas à vide`);
   verifie(
