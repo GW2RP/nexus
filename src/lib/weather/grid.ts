@@ -93,6 +93,29 @@ export function pointInPolygon(x: number, y: number, points: Point[]): boolean {
 }
 
 /**
+ * La zone qui l'emporte en un point, ou `null` si aucune ne le couvre.
+ *
+ * C'est la règle de recouvrement du hub, en un seul endroit : la **dernière**
+ * zone de la liste gagne. `bakeTerrain` s'en sert, et le ping de
+ * l'administration aussi — ainsi ce que le ping annonce est, par construction,
+ * ce que la simulation retiendra.
+ */
+export function zoneAt<T extends { points: Point[] }>(
+  x: number,
+  y: number,
+  zones: readonly T[],
+): T | null {
+  // On remonte la liste : la première trouvée en partant de la fin *est* la
+  // dernière dessinée, donc on rend la main sans tester les précédentes.
+  for (let i = zones.length - 1; i >= 0; i -= 1) {
+    const zone = zones[i];
+    if (zone.points.length < 3) continue;
+    if (pointInPolygon(x, y, zone.points)) return zone;
+  }
+  return null;
+}
+
+/**
  * Le terrain de chaque cellule, déduit des zones dessinées.
  *
  * On teste le **centre** de la cellule : une zone trop petite pour couvrir un
@@ -112,13 +135,11 @@ export function bakeTerrain(zones: ZoneShape[]): BakedTerrain {
 
   for (let index = 0; index < CELL_COUNT; index += 1) {
     const center = cellCenter(index);
-    for (const zone of zones) {
-      if (zone.points.length < 3) continue;
-      if (!pointInPolygon(center.x, center.y, zone.points)) continue;
-      terrain[index] = zone.terrain;
-      region[index] = zone.region;
-      altitude[index] = zone.altitude;
-    }
+    const zone = zoneAt(center.x, center.y, zones);
+    if (!zone) continue;
+    terrain[index] = zone.terrain;
+    region[index] = zone.region;
+    altitude[index] = zone.altitude;
   }
 
   return { terrain, region, altitude };

@@ -87,7 +87,21 @@ export const WEATHER_LABELS: Record<WeatherCondition, string> = {
  *  `plaine` est le terrain d'une cellule que personne n'a couverte, et c'est
  *  aussi un terrain qui se dessine : c'est ainsi qu'on donne sa géographie à une
  *  région sans lui inventer un caractère particulier. */
-export const TERRAINS = ["mer", "marais", "relief", "foret", "aride", "plaine"] as const;
+export const TERRAINS = [
+  "mer",
+  "marais",
+  "relief",
+  "foret",
+  "aride",
+  "plaine",
+  // Les suivants s'ajoutent toujours à la fin : le rang dans ce tableau est
+  // l'entier écrit dans les pas de simulation déjà stockés. Insérer au milieu
+  // relirait tout l'historique de travers.
+  "riviere",
+  "lac",
+  "volcan",
+  "ville",
+] as const;
 export type Terrain = (typeof TERRAINS)[number];
 
 export const TERRAIN_LABELS: Record<Terrain, string> = {
@@ -97,6 +111,10 @@ export const TERRAIN_LABELS: Record<Terrain, string> = {
   foret: "Forêt",
   aride: "Terres arides",
   plaine: "Plaine",
+  riviere: "Rivière",
+  lac: "Lac",
+  volcan: "Volcan",
+  ville: "Ville",
 };
 
 export const REPORT_REASONS = [

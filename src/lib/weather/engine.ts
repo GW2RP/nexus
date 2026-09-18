@@ -83,21 +83,46 @@ const VENT_DOMINANT = 6;
 /** L'écart de température propre à chaque tranche du jour. */
 const AMPLITUDE_TRANCHE = { nuit: -4, matin: -1, "apres-midi": 4, soiree: 1 } as const;
 
-/** Ce que chaque terrain fait au ciel. */
+/**
+ * Ce que chaque terrain fait au ciel.
+ *
+ * `humidite` s'ajoute (ou se retranche) à chaque pas, `inertie` dit à quelle
+ * vitesse la cellule rejoint sa température de fond, `freinVent` multiplie le
+ * vent, `amplitude` multiplie l'écart du jour à la nuit, et `chaleur` est un
+ * décalage en degrés qui ne dépend ni de la saison ni de l'heure.
+ */
 const EFFETS: Record<
   Terrain,
-  { humidite: number; inertie: number; freinVent: number; amplitude: number }
+  {
+    humidite: number;
+    inertie: number;
+    freinVent: number;
+    amplitude: number;
+    /** En degrés, ajouté à la température de fond. */
+    chaleur: number;
+  }
 > = {
   // La mer nourrit l'humidité sans discontinuer et encaisse les écarts.
-  mer: { humidite: 12, inertie: 0.12, freinVent: 1, amplitude: 0.3 },
+  mer: { humidite: 12, inertie: 0.12, freinVent: 1, amplitude: 0.3, chaleur: 0 },
   // Le marais retient ce qu'il a : c'est lui qui garde sa brume au petit matin.
-  marais: { humidite: 9, inertie: 0.25, freinVent: 0.6, amplitude: 0.7 },
+  marais: { humidite: 9, inertie: 0.25, freinVent: 0.6, amplitude: 0.7, chaleur: 0 },
   // Le relief est nu et venté ; son froid vient de l'altitude, pas d'ici.
-  relief: { humidite: -1, inertie: 0.4, freinVent: 1.25, amplitude: 1.1 },
-  foret: { humidite: 2, inertie: 0.3, freinVent: 0.8, amplitude: 0.8 },
+  relief: { humidite: -1, inertie: 0.4, freinVent: 1.25, amplitude: 1.1, chaleur: 0 },
+  foret: { humidite: 2, inertie: 0.3, freinVent: 0.8, amplitude: 0.8, chaleur: 0 },
   // Les terres arides brûlent le jour et gèlent la nuit.
-  aride: { humidite: -6, inertie: 0.45, freinVent: 1.1, amplitude: 1.8 },
-  plaine: { humidite: 0, inertie: 0.35, freinVent: 1, amplitude: 1 },
+  aride: { humidite: -6, inertie: 0.45, freinVent: 1.1, amplitude: 1.8, chaleur: 0 },
+  plaine: { humidite: 0, inertie: 0.35, freinVent: 1, amplitude: 1, chaleur: 0 },
+  // Une rivière est une mer étroite : elle donne de l'eau à l'air et fabrique
+  // sa brume au ras du lit, sans peser sur la température alentour.
+  riviere: { humidite: 6, inertie: 0.28, freinVent: 0.9, amplitude: 0.85, chaleur: 0 },
+  // Un lac a la masse d'eau que la rivière n'a pas : il amortit les écarts.
+  lac: { humidite: 10, inertie: 0.16, freinVent: 1.05, amplitude: 0.45, chaleur: 0 },
+  // Un volcan chauffe par en dessous, tout le temps, et assèche ce qui passe.
+  // Son froid d'altitude, lui, vient du champ `altitude` de la zone.
+  volcan: { humidite: -2, inertie: 0.5, freinVent: 1.15, amplitude: 1.2, chaleur: 6 },
+  // La pierre d'une ville rend la nuit ce qu'elle a pris le jour : plus chaude
+  // que la campagne voisine, moins ventée, et plus sèche.
+  ville: { humidite: -1.5, inertie: 0.22, freinVent: 0.7, amplitude: 0.75, chaleur: 3 },
 };
 
 /** Générateur congruentiel : même graine, même suite, sur toutes les machines. */
@@ -131,7 +156,7 @@ function temperatureCible(
   const tranche = AMPLITUDE_TRANCHE[sliceOf(stepIndex)] * effet.amplitude;
   const altitude = (terrain.altitude[index] / 100) * REFROIDISSEMENT_MAX;
 
-  return base + saison * AMPLITUDE_SAISON + tranche - altitude;
+  return base + saison * AMPLITUDE_SAISON + tranche - altitude + effet.chaleur;
 }
 
 /** L'humidité à partir de laquelle la brume prend. Le marais la fabrique plus
@@ -143,6 +168,12 @@ const SEUIL_BRUME: Record<Terrain, number> = {
   foret: 82,
   aride: 92,
   plaine: 84,
+  // La brume de rivière se lève pour un rien, et celle d'un lac presque autant.
+  riviere: 79,
+  lac: 80,
+  // Un volcan tient son air trop chaud pour que la brume prenne.
+  volcan: 94,
+  ville: 86,
 };
 
 /** Au-delà de ce seuil, l'air ne retient plus : l'air chaud porte davantage. */

@@ -208,12 +208,40 @@ calculé en avance et jamais enregistré.
 | Relief | Refroidit selon l'altitude, force la pluie au vent et **assèche sous le vent** |
 | Forêt | Retient un peu d'humidité, casse le vent |
 | Terres arides | Assèchent et creusent l'écart du jour à la nuit |
-| Plaine | La référence — le terrain d'une cellule que personne n'a dessinée |
+| Rivière | Une mer étroite : un peu d'eau rendue à l'air, et la brume se lève pour un rien |
+| Lac | La masse d'eau que la rivière n'a pas : il amortit presque tout l'écart du jour à la nuit |
+| Volcan | Chauffe par en dessous en permanence (+6 °C) et assèche ; son froid d'altitude vient du champ `altitude` |
+| Ville | La pierre rend la nuit ce qu'elle a pris le jour : +3 °C, peu de vent, plus sec |
+| Plaine | La référence — et le terrain d'une cellule que personne n'a dessinée |
+
+Mesuré à latitude constante, chaque terrain encadré de plaine, sur 240 pas :
+
+| | Température | Écart jour/nuit | Humidité |
+| --- | --- | --- | --- |
+| Plaine (témoin) | 14,7 °C | 0,8 | 41 % |
+| Ville | **+3,0** | **0,3** | 21 % |
+| Lac | +0,1 | **0,1** | 75 % |
+| Volcan | **+5,9** | 1,7 | 16 % |
+| Rivière | +0,0 | 0,5 | 63 % |
+
+Un témoin de plaine est posé de chaque côté de la bande : sans lui, la dérive
+d'ouest en est se ferait passer pour un effet de terrain — c'est elle, et non la
+rivière, qui explique l'essentiel de l'humidité en bout de course.
+
+**L'ordre du tableau `TERRAINS` est gravé.** Le rang d'un terrain est l'entier
+écrit dans les pas déjà stockés : un terrain nouveau s'ajoute **à la fin**,
+jamais au milieu, sinon tout l'historique se relit de travers.
 
 Les zones se dessinent au polygone depuis `/admin/terrains`. La liste montre la
 **grille cuite** sous les tracés : une zone trop petite pour couvrir le centre
 d'une cellule n'existe pas pour la simulation, et ça se voit au lieu de se
 deviner. Quand deux zones se recouvrent, la dernière dessinée l'emporte.
+
+**Cliquer la carte sonde un point** et affiche côte à côte la zone qui couvre ce
+point et celle que la simulation retient pour sa cellule. Les deux se lisent du
+même `zoneAt` (`src/lib/weather/grid.ts`) que la cuisson, donc le relevé ne peut
+pas diverger de ce qui sera simulé. Quand elles diffèrent, l'écran le dit : la
+zone est trop petite, ou tombe entre deux centres de cellule.
 
 La `region` d'une zone est facultative, et c'est elle qui donne enfin une
 **géographie** aux six régions, qui n'en avaient aucune. Une cellule sans région
