@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState } from "react";
 
 import { Field, Select, Textarea } from "@/components/ui/field";
@@ -22,28 +21,12 @@ export function RumorForm({
   const [state, formAction] = useActionState(createRumorAction, idleState);
   const errors = state.fieldErrors ?? {};
 
-  if (characters.length === 0) {
-    return (
-      <p className="text-[17px] leading-[1.5] text-ink-body">
-        Une rumeur est dite par un personnage.{" "}
-        <Link
-          href="/personnages/nouveau"
-          className="text-crimson-ink underline underline-offset-4"
-        >
-          Ouvrez d'abord une fiche au registre
-        </Link>
-        .
-      </p>
-    );
-  }
-
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <Field
         label="Ce que vous avez entendu dire"
         htmlFor="rumor-body"
         required
-        hint="Entre guillemets si c'est une parole rapportée. Elle peut être fausse : c'est le but."
         error={errors.body}
       >
         <Textarea
@@ -56,8 +39,9 @@ export function RumorForm({
         />
       </Field>
 
-      <Field label="Rapportée par" htmlFor="rumor-character" required error={errors.characterId}>
-        <Select id="rumor-character" name="characterId" required defaultValue={characters[0].id}>
+      <Field label="Rapportée par" htmlFor="rumor-character" error={errors.characterId}>
+        <Select id="rumor-character" name="characterId" defaultValue="">
+          <option value="">Sans source — en votre nom</option>
           {characters.map((character) => (
             <option key={character.id} value={character.id}>
               {character.name}

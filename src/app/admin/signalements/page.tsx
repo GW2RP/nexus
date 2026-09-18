@@ -179,7 +179,6 @@ export default async function ReportsPage({
       ) : (
         <EmptyState
           title="Aucun signalement dans cette file"
-          description="Rien à examiner avec ces filtres."
         />
       )}
     </div>

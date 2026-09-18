@@ -27,7 +27,6 @@ export default async function SignInPage({
       <PageHeader
         eyebrow="GW2RP NEXUS"
         title="Se connecter"
-        subtitle="Un compte sert à tenir vos fiches, à vous inscrire aux scènes et à signaler un contenu. Lire le hub n'en demande pas."
       />
       <Card accent className="p-7">
         {/* `suite` vient de l'URL : on n'accepte qu'un chemin interne. */}

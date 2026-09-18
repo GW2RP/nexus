@@ -1,10 +1,10 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { PlaceGlyph, WeatherGlyph } from "@/components/type-glyph";
+import { MapCanvas } from "@/components/map/map-canvas";
 import type { MapPin } from "@/components/map/tyria-map";
 import { SearchIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
@@ -19,14 +19,6 @@ import {
 import { TILE_ATTRIBUTION } from "@/lib/map";
 import { cn } from "@/lib/utils";
 import type { EventSummary, PlaceSummary, WeatherEntry } from "@/server/types";
-
-// Leaflet touche à `window` : la carte est montée côté client uniquement.
-const TyriaMap = dynamic(() => import("@/components/map/tyria-map"), {
-  ssr: false,
-  loading: () => (
-    <div className="hatch size-full" role="status" aria-label="Chargement de la carte" />
-  ),
-});
 
 export function MapExplorer({
   places,
@@ -238,7 +230,7 @@ export function MapExplorer({
       </aside>
 
       <div className="relative min-h-[420px] flex-1">
-        <TyriaMap
+        <MapCanvas
           pins={pins}
           selectedId={selectedId}
           onSelect={setSelectedId}

@@ -17,19 +17,18 @@ import { canEditContent, canReportContent } from "@/lib/permissions";
 import { SITE_URL, breadcrumbJsonLd, buildMetadata, jsonLdScript } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
 import { listEvents } from "@/server/queries/events";
-import { getPlaceBySlug, listPlaceSlugs } from "@/server/queries/places";
+import { getPlaceBySlug } from "@/server/queries/places";
 import { getWeatherForRegion } from "@/server/queries/weather";
 
 type Props = { params: Promise<{ slug: string }> };
 
-export async function generateStaticParams() {
-  try {
-    const slugs = await listPlaceSlugs();
-    return slugs.slice(0, 200).map(({ slug }) => ({ slug }));
-  } catch {
-    return [];
-  }
-}
+/** Ces fiches se lisent différemment selon la personne connectée — bouton de
+ *  modification, drapeau de signalement, état d'inscription. Elles sont donc
+ *  rendues à chaque requête. Déclarer en plus `generateStaticParams` mettait la
+ *  route en contradiction avec elle-même : Next tentait de générer une page
+ *  statique pour un slug inconnu, et la lecture de la session y échouait avec
+ *  `DYNAMIC_SERVER_USAGE`. */
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
@@ -195,7 +194,6 @@ export default async function PlacePage({ params }: Props) {
             ) : (
               <EmptyState
                 title="Rien d'annoncé ici"
-                description="Aucune scène n'est prévue dans ce lieu pour l'instant."
               />
             )}
           </section>

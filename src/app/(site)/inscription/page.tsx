@@ -27,7 +27,6 @@ export default async function SignUpPage({
       <PageHeader
         eyebrow="GW2RP NEXUS"
         title="Créer un compte"
-        subtitle="Vous entrez comme membre : vos personnages, vos lieux, vos évènements et vos rumeurs vous appartiennent."
       />
       <Card accent className="p-7">
         <SignUpForm next={suite?.startsWith("/") ? suite : "/"} />

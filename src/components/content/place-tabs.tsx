@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 
-import { PlaceGlyph } from "@/components/type-glyph";
+import { MapCanvas } from "@/components/map/map-canvas";
 import { FramedMedia } from "@/components/ui/framed-media";
-import { CONTINENT_SIZE } from "@/lib/map";
 import { PLACE_TYPE_LABELS, REGION_LABELS } from "@/lib/domain";
 import { cn } from "@/lib/utils";
 import type { PlaceDetail } from "@/server/types";
@@ -30,26 +29,31 @@ export function PlaceTabs({ place }: { place: PlaceDetail }) {
       ) : null}
 
       {tab === "tyrie" || !hasPlan ? (
-        <FramedMedia placeholder="TUILES OFFICIELLES DU JEU" aspect="16 / 9">
-          {place.coordinates ? (
-            <span
-              className="absolute inline-flex size-[34px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-gold bg-surface text-gold-ink"
-              style={{
-                left: `${((place.coordinates.x / CONTINENT_SIZE) * 100).toFixed(2)}%`,
-                top: `${((place.coordinates.y / CONTINENT_SIZE) * 100).toFixed(2)}%`,
-              }}
-            >
-              <PlaceGlyph type={place.type} size={16} />
-            </span>
-          ) : (
-            <span className="absolute inset-x-4 bottom-4 border border-rule bg-surface px-3 py-2 text-center text-[15px] text-ink-muted">
-              Ce lieu n'a pas encore de point sur la carte.
-            </span>
-          )}
-          <span className="absolute left-4 top-4 inline-flex items-center gap-2 border border-rule bg-surface px-3 py-2 text-[15px] text-ink-body">
-            {[PLACE_TYPE_LABELS[place.type], REGION_LABELS[place.region]].join(" · ")}
-          </span>
-        </FramedMedia>
+        place.coordinates ? (
+          <div className="framed">
+            <div className="h-[420px] w-full overflow-hidden border border-rule">
+              <MapCanvas
+                pins={[
+                  {
+                    id: place.id,
+                    kind: "lieu",
+                    type: place.type,
+                    name: place.name,
+                    meta: [PLACE_TYPE_LABELS[place.type], REGION_LABELS[place.region]].join(" · "),
+                    href: `/lieux/${place.slug}`,
+                    x: place.coordinates.x,
+                    y: place.coordinates.y,
+                    state: "selectionne",
+                  },
+                ]}
+                interactive={false}
+                className="size-full bg-map-land"
+              />
+            </div>
+          </div>
+        ) : (
+          <FramedMedia placeholder="LIEU SANS POINT SUR LA CARTE" aspect="16 / 9" />
+        )
       ) : (
         <>
           <FramedMedia

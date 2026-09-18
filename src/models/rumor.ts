@@ -2,11 +2,13 @@ import { Schema, model, models, type InferSchemaType, type Model } from "mongoos
 
 import { REGIONS } from "@/lib/domain";
 
-/** Une rumeur est dite par un personnage, pas par un joueur : elle peut être fausse. */
+/** Une rumeur peut être fausse : c'est le but. Elle est le plus souvent dite par
+ *  un personnage, mais elle peut aussi n'avoir aucune source — on l'attribue
+ *  alors au compte qui l'a colportée le premier. */
 const rumorSchema = new Schema(
   {
     body: { type: String, required: true, trim: true, maxlength: 600 },
-    characterId: { type: Schema.Types.ObjectId, ref: "Character", required: true, index: true },
+    characterId: { type: Schema.Types.ObjectId, ref: "Character", index: true },
     placeId: { type: Schema.Types.ObjectId, ref: "Place" },
     /** Lieu d'écoute libre quand ce n'est pas un lieu du registre. */
     heardAtLabel: { type: String, trim: true, maxlength: 160 },

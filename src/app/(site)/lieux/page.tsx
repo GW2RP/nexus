@@ -29,8 +29,6 @@ export const metadata: Metadata = buildMetadata({
   keywords: ["lieux RP Guild Wars 2", "taverne RP Tyrie", "siège de guilde GW2"],
 });
 
-export const revalidate = 300;
-
 export default async function PlacesPage({
   searchParams,
 }: {
@@ -75,11 +73,7 @@ export default async function PlacesPage({
 
       <PageHeader
         title="Registre des lieux"
-        subtitle={
-          total > 0
-            ? `${total} lieu${total > 1 ? "x" : ""} posé${total > 1 ? "s" : ""} sur la carte de Tyrie.`
-            : "Aucun lieu n'a encore été posé sur la carte."
-        }
+        subtitle={total > 0 ? `${total} lieu${total > 1 ? "x" : ""}` : undefined}
         action={
           <Button asChild size="lead">
             <Link href={canContribute(user) ? "/lieux/nouveau" : "/connexion"}>
@@ -126,7 +120,6 @@ export default async function PlacesPage({
       ) : (
         <EmptyState
           title="Aucun lieu ne correspond"
-          description="Retirez un filtre, ou posez le vôtre : un lieu porte son emplacement en Tyrie et, si vous en avez un, son plan intérieur."
           action={
             <Button asChild variant="outline">
               <Link href={canContribute(user) ? "/lieux/nouveau" : "/connexion"}>

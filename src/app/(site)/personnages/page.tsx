@@ -22,8 +22,6 @@ export const metadata: Metadata = buildMetadata({
   keywords: ["personnages RP GW2", "fiche de personnage Guild Wars 2", "registre RP"],
 });
 
-export const revalidate = 300;
-
 const SORT_OPTIONS = [
   { value: "recents", label: "Fiches récentes" },
   { value: "alphabetique", label: "Ordre alphabétique" },
@@ -80,12 +78,8 @@ export default async function CharactersPage({
         title="Registre des personnages"
         subtitle={
           counts.total > 0
-            ? `${counts.total} fiche${counts.total > 1 ? "s" : ""} tenue${
-                counts.total > 1 ? "s" : ""
-              } par la communauté · ${counts.recent} nouvelle${
-                counts.recent > 1 ? "s" : ""
-              } cette saison`
-            : "Aucune fiche n'a encore été tenue."
+            ? `${counts.total} fiche${counts.total > 1 ? "s" : ""} · ${counts.recent} cette saison`
+            : undefined
         }
         action={
           <Button asChild size="lead">
@@ -128,7 +122,6 @@ export default async function CharactersPage({
       ) : (
         <EmptyState
           title="Aucune fiche ne correspond"
-          description="Retirez un filtre, ou ouvrez le registre avec votre propre personnage. L'âge se note en années, pour toutes les races."
           action={
             <Button asChild variant="outline">
               <Link href={canContribute(user) ? "/personnages/nouveau" : "/connexion"}>

@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { ImageField } from "@/components/forms/image-field";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { FormMessage } from "@/components/ui/form-message";
 import { SectionHeading } from "@/components/ui/section-heading";
@@ -224,29 +225,18 @@ export function EventForm({
             </Field>
           ) : null}
 
-          <Field
-            label="Adresse de la bannière"
-            htmlFor="bannerUrl"
-            hint="Une image en 16:5, 1600 × 500 px au moins."
+          <ImageField
+            label="Bannière de l'évènement"
+            name="bannerUrl"
+            altName="bannerAlt"
+            folder="evenements"
+            aspect="16 / 5"
+            hint="Format 16:5, 1600 × 500 px au moins. 5 Mo au plus."
+            defaultUrl={event?.bannerUrl}
+            defaultAlt={event?.bannerAlt}
             error={errors.bannerUrl}
-          >
-            <Input
-              id="bannerUrl"
-              name="bannerUrl"
-              type="url"
-              defaultValue={event?.bannerUrl ?? ""}
-              placeholder="https://…"
-            />
-          </Field>
-
-          <Field label="Alternative textuelle" htmlFor="bannerAlt" error={errors.bannerAlt}>
-            <Input
-              id="bannerAlt"
-              name="bannerAlt"
-              maxLength={240}
-              defaultValue={event?.bannerAlt ?? ""}
-            />
-          </Field>
+            altError={errors.bannerAlt}
+          />
         </div>
       </section>
 

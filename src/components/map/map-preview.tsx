@@ -1,49 +1,57 @@
-import Link from "next/link";
+"use client";
 
-import { PlaceGlyph, WeatherGlyph } from "@/components/type-glyph";
-import { REGION_LABELS, WEATHER_LABELS } from "@/lib/domain";
-import { CONTINENT_SIZE } from "@/lib/map";
-import type { PlaceSummary, WeatherEntry } from "@/server/types";
+import { useMemo } from "react";
 
-/** L'aperçu de la carte sur l'accueil : un cadre, la hachure, et les lieux
- *  déjà posés. Ce n'est pas la carte — c'est l'invitation à l'ouvrir. */
+import { MapCanvas } from "@/components/map/map-canvas";
+import type { MapPin } from "@/components/map/tyria-map";
+import { PLACE_TYPE_LABELS, REGION_LABELS } from "@/lib/domain";
+import type { EventSummary, PlaceSummary } from "@/server/types";
+
+/** L'aperçu de la carte sur l'accueil : les mêmes tuiles et les mêmes pins que
+ *  la carte plein écran, mais on la regarde sans la manipuler. */
 export function MapPreview({
   places,
-  weather,
+  events,
 }: {
   places: PlaceSummary[];
-  weather: WeatherEntry[];
+  events: EventSummary[];
 }) {
-  const pinned = places.filter((place) => place.coordinates).slice(0, 12);
+  const pins = useMemo<MapPin[]>(() => {
+    const placePins: MapPin[] = places
+      .filter((place) => place.coordinates)
+      .map((place) => ({
+        id: place.id,
+        kind: "lieu",
+        type: place.type,
+        name: place.name,
+        meta: [PLACE_TYPE_LABELS[place.type], REGION_LABELS[place.region]].join(" · "),
+        href: `/lieux/${place.slug}`,
+        x: place.coordinates!.x,
+        y: place.coordinates!.y,
+        state: "lieu",
+      }));
+
+    const eventPins: MapPin[] = events
+      .filter((event) => event.coordinates)
+      .map((event) => ({
+        id: `evenement-${event.id}`,
+        kind: "evenement",
+        type: event.type,
+        name: event.title,
+        meta: event.locationLabel,
+        href: `/evenements/${event.slug}`,
+        x: event.coordinates!.x,
+        y: event.coordinates!.y,
+        state: event.liveStatus === "en-cours" ? "en-cours" : "annonce",
+      }));
+
+    return [...placePins, ...eventPins];
+  }, [places, events]);
 
   return (
     <div className="framed">
-      <div className="hatch relative aspect-[706/302] w-full overflow-hidden border border-rule">
-        <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center font-display text-[12px] uppercase tracking-[2px] text-ink-subtle">
-          [ TUILES OFFICIELLES DU JEU ]
-        </span>
-
-        {weather[0] ? (
-          <span className="absolute left-3.5 top-3.5 inline-flex items-center gap-2 border border-rule bg-surface px-3 py-2 text-[15px] text-ink-body">
-            <WeatherGlyph condition={weather[0].condition} size={15} />
-            {WEATHER_LABELS[weather[0].condition]} sur {REGION_LABELS[weather[0].region]}
-          </span>
-        ) : null}
-
-        {pinned.map((place) => (
-          <Link
-            key={place.id}
-            href={`/carte?lieu=${place.slug}`}
-            aria-label={`${place.name} sur la carte`}
-            className="absolute inline-flex size-[30px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-[1.5px] border-gold-eyebrow bg-surface text-gold-ink"
-            style={{
-              left: `${((place.coordinates!.x / CONTINENT_SIZE) * 100).toFixed(2)}%`,
-              top: `${((place.coordinates!.y / CONTINENT_SIZE) * 100).toFixed(2)}%`,
-            }}
-          >
-            <PlaceGlyph type={place.type} size={15} />
-          </Link>
-        ))}
+      <div className="aspect-[706/360] w-full overflow-hidden border border-rule">
+        <MapCanvas pins={pins} interactive={false} className="size-full bg-map-land" />
       </div>
     </div>
   );

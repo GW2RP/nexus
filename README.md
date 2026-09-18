@@ -17,6 +17,7 @@ Le hub n'est affilié ni à ArenaNet, LLC ni à NCSOFT.
 | Base | MongoDB Atlas — Mongoose pour le métier, driver natif pour l'authentification |
 | Authentification | Better Auth, courriel + mot de passe |
 | Carte | Leaflet en `CRS.Simple` sur les tuiles officielles du jeu |
+| Images | Vercel Blob, téléversées depuis le navigateur |
 
 ## Le design system
 
@@ -62,9 +63,17 @@ filtrée.
 | Conteur | En plus : poser la météo d'une région. |
 | Administration | En plus : file des signalements, suppression, avertissement, suspension. |
 
-Le rôle n'est pas choisi à l'inscription : il est posé par l'administration
-(champ `role` de la collection `user`). Toute action de modération est inscrite
-au journal avec son auteur, sa date et son motif.
+Le rôle n'est pas choisi à l'inscription : il est posé par l'administration.
+C'est aussi le seul chemin pour nommer la première :
+
+```bash
+npm run db:role                                   # liste les comptes et leur rôle
+npm run db:role -- vous@exemple.fr administration
+npm run db:role -- conteur@exemple.fr conteur
+```
+
+Toute action de modération est inscrite au journal avec son auteur, sa date et
+son motif.
 
 ## Démarrer
 
@@ -84,13 +93,6 @@ Le jeu de départ vide les collections de contenu et les remplit avec quelques
 personnages, lieux, évènements et rumeurs. Il attribue tout au premier compte
 créé. Il n'a rien à faire en production.
 
-Pour vous donner le rôle d'administration sur votre propre compte :
-
-```js
-// mongosh
-db.user.updateOne({ email: "vous@exemple.fr" }, { $set: { role: "administration" } })
-```
-
 ### Variables d'environnement
 
 | Variable | Rôle |
@@ -99,6 +101,7 @@ db.user.updateOne({ email: "vous@exemple.fr" }, { $set: { role: "administration"
 | `MONGODB_DB` | Nom de la base dans le cluster (`gw2rp` par défaut). |
 | `BETTER_AUTH_SECRET` | Secret de signature des sessions : `openssl rand -base64 32`. |
 | `NEXT_PUBLIC_SITE_URL` | URL canonique sans barre oblique finale. En production : `https://www.gw2rp.eu`. |
+| `BLOB_READ_WRITE_TOKEN` | Jeton du magasin Vercel Blob, pour le téléversement des images. Posé automatiquement quand un magasin est rattaché au projet. |
 | `NEXT_PUBLIC_MAP_TILE_URL` | Facultatif — service de tuiles. Par défaut celui du jeu. |
 
 ## Déployer sur Vercel
@@ -110,10 +113,14 @@ db.user.updateOne({ email: "vous@exemple.fr" }, { $set: { role: "administration"
    pour que la canonique reste unique.
 3. Sur Atlas, autorisez les adresses sortantes de Vercel (ou `0.0.0.0/0` avec un
    utilisateur à droits limités) dans **Network Access**.
+4. Créez un magasin **Blob** dans Storage et rattachez-le au projet : c'est lui
+   qui reçoit les bannières, les portraits et les plans. `BLOB_READ_WRITE_TOKEN`
+   est alors posé pour vous.
 
-Rien d'autre à configurer : `next build` sort une application standard, les
-pages de contenu se revalident toutes les cinq minutes et l'administration est
-rendue à la demande.
+Rien d'autre à configurer : `next build` sort une application standard. Les
+pages se lisant différemment selon la personne connectée — bouton de
+modification, drapeau de signalement, état d'inscription — elles sont rendues à
+chaque requête plutôt que mises en cache.
 
 ## Le référencement
 
@@ -128,6 +135,18 @@ Graph et sa carte Twitter, montées par `buildMetadata` (`src/lib/seo.ts`).
   `noindex`.
 - La carte de partage par défaut est générée par `src/app/opengraph-image.tsx`.
 
+## La carte
+
+Les tuiles viennent du service officiel du jeu, lues en `CRS.Simple`. Les
+coordonnées d'un lieu sont des **pixels de continent**, que l'auteur pose en
+cliquant la carte plutôt qu'en les tapant.
+
+Un piège à connaître : l'API annonce `max_zoom: 8` pour le continent, mais c'est
+le **zoom 7** qui porte l'échelle de `continent_dims` — la grille servie au zoom
+3 fait bien 20 × 28 tuiles, soit 81920/16/256 et 114688/16/256. Se tromper de
+référence décale tout le monde de plusieurs milliers de pixels : les lieux
+tombent en pleine mer. La constante est `COORDINATE_ZOOM` dans `src/lib/map.ts`.
+
 ## Scripts
 
 ```bash
@@ -137,6 +156,7 @@ npm run start       # servir la construction
 npm run lint        # ESLint
 npm run typecheck   # TypeScript, sans émission
 npm run db:seed     # jeu de données de départ (développement)
+npm run db:role     # lire et poser le rôle d'un compte
 ```
 
 ## Organisation du code
@@ -161,9 +181,8 @@ partagé vit dans `src/lib/action-state.ts`.
 
 ## Points laissés ouverts
 
-- **Téléversement d'images** : les bannières, portraits et plans se saisissent
-  aujourd'hui par leur adresse. Un stockage (Vercel Blob ou S3) reste à brancher,
-  avec ses limites de format, de poids et de dimensions.
+- **Plans intérieurs** : le modèle porte l'image et ses points numérotés, mais
+  aucun écran ne permet encore de les poser — ils se saisissent en base.
 - **Courriels** : la vérification d'adresse et la réinitialisation de mot de
   passe attendent un service d'envoi. `requireEmailVerification` est à `false`
   tant qu'il n'y en a pas.
@@ -171,3 +190,6 @@ partagé vit dans `src/lib/action-state.ts`.
   sans pouvoir suspendre un compte, reste à trancher.
 - **Attribution des tuiles** : le bloc en bas à droite de la carte affiche
   l'attribution d'ArenaNet ; son libellé exact reste à valider.
+- **Cache** : tout est rendu à la requête. Un jour où le trafic le demandera,
+  `cacheComponents` permettrait de garder une coquille statique et de ne
+  streamer que les morceaux qui dépendent de la personne connectée.

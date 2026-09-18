@@ -16,22 +16,19 @@ import { canContribute, canEditContent, canReportContent } from "@/lib/permissio
 import { SITE_URL, breadcrumbJsonLd, buildMetadata, jsonLdScript } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
 import { formatTyrianDate } from "@/lib/tyrian-calendar";
-import { getCharacterBySlug, listCharacterSlugs } from "@/server/queries/characters";
+import { getCharacterBySlug } from "@/server/queries/characters";
 import { listEvents } from "@/server/queries/events";
 import { listRumors } from "@/server/queries/rumors";
 
 type Props = { params: Promise<{ slug: string }> };
 
-export async function generateStaticParams() {
-  try {
-    const slugs = await listCharacterSlugs();
-    return slugs.slice(0, 200).map(({ slug }) => ({ slug }));
-  } catch {
-    // La base n'est pas joignable au moment de la construction : les fiches
-    // seront rendues à la demande.
-    return [];
-  }
-}
+/** Ces fiches se lisent différemment selon la personne connectée — bouton de
+ *  modification, drapeau de signalement, état d'inscription. Elles sont donc
+ *  rendues à chaque requête. Déclarer en plus `generateStaticParams` mettait la
+ *  route en contradiction avec elle-même : Next tentait de générer une page
+ *  statique pour un slug inconnu, et la lecture de la session y échouait avec
+ *  `DYNAMIC_SERVER_USAGE`. */
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
@@ -218,7 +215,6 @@ export default async function CharacterPage({ params }: Props) {
             ) : (
               <EmptyState
                 title="On ne dit rien encore"
-                description="Aucune rumeur ne cite ce personnage. C'est parfois le plus sûr."
               />
             )}
           </section>

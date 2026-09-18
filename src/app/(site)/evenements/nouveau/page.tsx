@@ -31,7 +31,6 @@ export default async function NewEventPage() {
       <PageHeader
         eyebrow="AGENDA"
         title="Proposer un évènement"
-        subtitle="Les heures sont celles du serveur de jeu. L'agenda affiche la date réelle en premier et la date tyrienne en second."
       />
       <EventForm places={places} characters={characters} />
     </div>

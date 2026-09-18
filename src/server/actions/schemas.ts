@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { CONTINENT_HEIGHT, CONTINENT_WIDTH } from "@/lib/map";
 import {
   EVENT_TYPES,
   GENDERS,
@@ -64,8 +65,8 @@ export const placeSchema = z.object({
   description: optionalText(20000),
   bannerUrl: optionalUrl("L'adresse de la bannière doit être une URL."),
   bannerAlt: optionalText(240),
-  coordinateX: optionalInteger(0, 32768),
-  coordinateY: optionalInteger(0, 32768),
+  coordinateX: optionalInteger(0, CONTINENT_WIDTH),
+  coordinateY: optionalInteger(0, CONTINENT_HEIGHT),
   keeperCharacterId: optionalText(40),
 });
 
@@ -97,7 +98,8 @@ export const eventSchema = z
 
 export const rumorSchema = z.object({
   body: trimmed(600).min(20, "Une rumeur tient en au moins vingt caractères."),
-  characterId: trimmed(40).min(1, "Une rumeur est dite par un personnage : choisissez-en un."),
+  // Une rumeur peut n'avoir aucune source : elle est alors signée par le compte.
+  characterId: optionalText(40),
   placeId: optionalText(40),
   heardAtLabel: optionalText(160),
   region: optionalEnum(REGIONS),

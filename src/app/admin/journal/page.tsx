@@ -25,10 +25,7 @@ export default async function ModerationLogPage() {
 
   return (
     <div className="mx-auto max-w-[1100px]">
-      <PageHeader
-        title="Journal de modération"
-        subtitle="Toute action de modération y est inscrite avec son auteur, sa date et son motif. Rien ne s'y efface."
-      />
+      <PageHeader title="Journal de modération" />
 
       {entries.length > 0 ? (
         <ul className="flex flex-col">
@@ -53,7 +50,6 @@ export default async function ModerationLogPage() {
       ) : (
         <EmptyState
           title="Le journal est vide"
-          description="Aucune décision de modération n'a encore été prise."
         />
       )}
     </div>

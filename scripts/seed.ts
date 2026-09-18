@@ -129,7 +129,7 @@ async function main() {
           "Salle basse voûtée, deux âtres, une mezzanine réservée aux capitaines.",
         description:
           "Trois générations de Fossebrune ont tenu cette salle basse voûtée, assez loin des quais pour échapper aux rondes, assez près pour que l'odeur de saumure entre avec les clients.\n\nLa maison sert une bière brune coupée d'épices de Maguuma et refuse obstinément le vin d'Orr.",
-        coordinates: { x: 17_200, y: 15_400 },
+        coordinates: { x: 43_968, y: 27_136 },
         keeperCharacterId: byName.get("Maren Fossebrune")?._id,
         floorPlan: {
           points: [
@@ -147,7 +147,7 @@ async function main() {
         district: "Hoelbrak",
         access: "Sur invitation",
         summary: "Siège de la Guilde du Corbeau, où l'on parle plus qu'on ne chasse.",
-        coordinates: { x: 19_800, y: 12_600 },
+        coordinates: { x: 53_376, y: 30_528 },
       },
       {
         name: "Ruines de Loncevallée",
@@ -156,7 +156,7 @@ async function main() {
         district: "Champs de Gendarran",
         access: "Ouvert à tous",
         summary: "Des murs sans toit, et quelque chose qui bouge la nuit.",
-        coordinates: { x: 18_400, y: 16_900 },
+        coordinates: { x: 48_320, y: 29_696 },
       },
       {
         name: "Terrasse marchande",
@@ -165,7 +165,7 @@ async function main() {
         district: "Rata Sum",
         access: "Ouvert à tous",
         summary: "Artefacts douteux, golems d'occasion et thé de Maguuma.",
-        coordinates: { x: 15_100, y: 19_200 },
+        coordinates: { x: 38_656, y: 37_374 },
       },
     ].map((place) => ({ ...place, slug: slugify(place.name), authorId })),
   );
@@ -189,7 +189,7 @@ async function main() {
         endsAt: inDays(3, 23, 30),
         placeId: placeByName.get("Taverne du Lion Noir")?._id,
         region: "kryte",
-        coordinates: { x: 17_200, y: 15_400 },
+        coordinates: { x: 43_968, y: 27_136 },
         capacity: 20,
         organiserCharacterId: byName.get("Maren Fossebrune")?._id,
       },
@@ -201,7 +201,7 @@ async function main() {
         endsAt: inDays(6, 23, 30),
         placeId: placeByName.get("Ruines de Loncevallée")?._id,
         region: "kryte",
-        coordinates: { x: 18_400, y: 16_900 },
+        coordinates: { x: 48_320, y: 29_696 },
         capacity: 12,
         organiserCharacterId: byName.get("Korrik Forgefer")?._id,
       },
@@ -212,7 +212,7 @@ async function main() {
         startsAt: inDays(10, 19),
         placeId: placeByName.get("Terrasse marchande")?._id,
         region: "maguuma",
-        coordinates: { x: 15_100, y: 19_200 },
+        coordinates: { x: 38_656, y: 37_374 },
         organiserCharacterId: byName.get("Zixx")?._id,
       },
       {
@@ -222,7 +222,7 @@ async function main() {
         startsAt: inDays(4, 18),
         placeId: placeByName.get("Grand hall du Corbeau")?._id,
         region: "shiverpeaks",
-        coordinates: { x: 19_800, y: 12_600 },
+        coordinates: { x: 53_376, y: 30_528 },
         capacity: 30,
       },
     ].map((event) => ({ ...event, slug: slugify(event.title), authorId })),
