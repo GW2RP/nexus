@@ -26,10 +26,13 @@ function toLocalInput(iso?: string | null): string {
 }
 
 export function EventForm({
+  ownerId,
   event,
   places,
   characters,
 }: {
+  /** L\'auteur du contenu : les images sont rangées sous lui. */
+  ownerId: string;
   event?: EventDetail;
   places: { id: string; name: string; region: string }[];
   characters: CharacterSummary[];
@@ -230,6 +233,7 @@ export function EventForm({
             name="bannerUrl"
             altName="bannerAlt"
             folder="evenements"
+            ownerId={ownerId}
             aspect="16 / 5"
             hint="Format 16:5, 1600 × 500 px au moins. 5 Mo au plus."
             defaultUrl={event?.bannerUrl}

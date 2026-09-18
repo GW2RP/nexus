@@ -28,7 +28,7 @@ export default async function NewPlacePage() {
         eyebrow="REGISTRE DES LIEUX"
         title="Proposer un lieu"
       />
-      <PlaceForm characters={characters} />
+      <PlaceForm ownerId={user.id} characters={characters} />
     </div>
   );
 }

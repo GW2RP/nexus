@@ -37,7 +37,7 @@ export default async function EditEventPage({ params }: Props) {
   return (
     <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 lg:px-gutter-desktop">
       <PageHeader eyebrow="AGENDA" title={`Modifier ${event.title}`} />
-      <EventForm event={event} places={places} characters={characters} />
+      <EventForm ownerId={event.authorId} event={event} places={places} characters={characters} />
     </div>
   );
 }

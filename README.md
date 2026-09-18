@@ -122,6 +122,28 @@ pages se lisant différemment selon la personne connectée — bouton de
 modification, drapeau de signalement, état d'inscription — elles sont rendues à
 chaque requête plutôt que mises en cache.
 
+## Les images
+
+Une image téléversée vit dans Vercel Blob, pas dans MongoDB. Supprimer la fiche
+qui la portait ne l'emporte pas : `deleteUploadedImages` (`src/lib/blob.ts`) s'en
+charge, à la suppression d'un contenu comme au remplacement d'une image.
+
+Chaque image est rangée sous son auteur : `<dossier>/<id de l'auteur>/<fichier>`.
+La route `/api/televersement` refuse de signer un jeton pour un autre chemin.
+
+Trois règles y tiennent :
+
+- Une adresse qui ne vient pas du magasin — saisie à la main, ou d'avant le
+  téléversement — n'est jamais envoyée à la suppression.
+- Une adresse rangée sous un autre membre non plus : recopier l'adresse d'autrui
+  dans un champ image ne la fait pas effacer, elle part au journal du serveur.
+- Un échec du stockage ne fait pas échouer la suppression du contenu : perdre
+  une image est moins grave que laisser une fiche en place. L'échec part au
+  journal du serveur.
+
+« Masquer » et « suspendre », en modération, gardent les images : le contenu
+peut être rétabli. Seule une suppression les emporte.
+
 ## Le référencement
 
 Chaque page expose son titre, sa description, sa canonique, ses balises Open
@@ -134,6 +156,12 @@ Graph et sa carte Twitter, montées par `buildMetadata` (`src/lib/seo.ts`).
 - Les pages de création, d'édition, de connexion et d'administration sont en
   `noindex`.
 - La carte de partage par défaut est générée par `src/app/opengraph-image.tsx`.
+- Une adresse morte — fiche supprimée, slug inventé — sert la page « page
+  introuvable » avec un statut **200** et non 404. C'est le comportement
+  documenté de Next pour une réponse en flux, et `loading.tsx` en déclenche une
+  sur toutes les pages du hub. Next y injecte `<meta name="robots"
+  content="noindex">`, donc l'adresse n'est pas indexée. Un vrai 404
+  demanderait de vérifier l'existence dans `proxy.ts`, avant que le corps parte.
 
 ## La carte
 
@@ -183,6 +211,7 @@ partagé vit dans `src/lib/action-state.ts`.
 
 - **Plans intérieurs** : le modèle porte l'image et ses points numérotés, mais
   aucun écran ne permet encore de les poser — ils se saisissent en base.
+- **Suppression d'une rumeur** : l'action existe, mais aucun écran ne l'offre.
 - **Courriels** : la vérification d'adresse et la réinitialisation de mot de
   passe attendent un service d'envoi. `requireEmailVerification` est à `false`
   tant qu'il n'y en a pas.

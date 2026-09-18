@@ -25,7 +25,14 @@ const GENDER_LABELS: Record<(typeof GENDERS)[number], string> = {
   neutre: "Neutre / non précisé",
 };
 
-export function CharacterForm({ character }: { character?: CharacterDetail }) {
+export function CharacterForm({
+  ownerId,
+  character,
+}: {
+  /** L'auteur du contenu : les images sont rangées sous lui. */
+  ownerId: string;
+  character?: CharacterDetail;
+}) {
   const [state, formAction] = useActionState(
     character ? updateCharacterAction : createCharacterAction,
     idleState,
@@ -228,6 +235,7 @@ export function CharacterForm({ character }: { character?: CharacterDetail }) {
           name="portraitUrl"
           altName="portraitAlt"
           folder="personnages"
+          ownerId={ownerId}
           aspect="3 / 4"
           hint="Format 3:4, 900 × 1200 px au moins. 5 Mo au plus."
           defaultUrl={character?.portraitUrl}

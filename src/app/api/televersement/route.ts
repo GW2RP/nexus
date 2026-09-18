@@ -1,7 +1,8 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
 
-import { canContribute } from "@/lib/permissions";
+import { isPathnameOwnedBy } from "@/lib/blob";
+import { canContribute, isAdmin } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 
 /** Le téléversement des images passe par le navigateur : le fichier va droit au
@@ -36,6 +37,18 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (!canContribute(user)) {
       return NextResponse.json(
         { error: "Le téléversement demande un compte actif." },
+        { status: 403 },
+      );
+    }
+
+    // Le chemin range l'image sous l'auteur du contenu — `lieux/<auteur>/…`.
+    // C'est ce cloisonnement qui rend la suppression sûre, donc il se vérifie
+    // ici : personne n'écrit dans le dossier d'un autre, sauf l'administration
+    // qui peut déjà modifier le contenu de tout le monde.
+    const pathname = body.payload?.pathname ?? "";
+    if (!isPathnameOwnedBy(pathname, user.id) && !isAdmin(user)) {
+      return NextResponse.json(
+        { error: "Cette image ne peut pas être rangée là." },
         { status: 403 },
       );
     }

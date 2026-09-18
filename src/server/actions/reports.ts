@@ -4,11 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { Model } from "mongoose";
 
+import { deleteUploadedImages } from "@/lib/blob";
 import type { ReportTarget } from "@/lib/domain";
 import { Character } from "@/models/character";
 import { Event } from "@/models/event";
 import { ModerationLog } from "@/models/moderation-log";
 import { Place } from "@/models/place";
+import { Registration } from "@/models/registration";
 import { Report } from "@/models/report";
 import { Rumor } from "@/models/rumor";
 import { User } from "@/models/user";
@@ -31,6 +33,12 @@ const MODELS: Record<ReportTarget, Model<any>> = {
   lieu: Place,
   evenement: Event,
 };
+
+/** Les images qu'un contenu porte, quel que soit son type. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function imagesOf(document: any): (string | null | undefined)[] {
+  return [document?.portraitUrl, document?.bannerUrl, document?.logoUrl, document?.floorPlan?.imageUrl];
+}
 
 /** L'extrait est figé au moment du signalement : le contenu peut changer ensuite,
  *  l'équipe doit voir ce qui a été signalé. */
@@ -108,7 +116,20 @@ export async function resolveReportAction(
 
     switch (parsed.data.decision) {
       case "supprimer":
-        if (target) await target.deleteOne();
+        if (target) {
+          // Une suppression de modération emporte l'image, comme celle d'un
+          // auteur. « Masquer » et « suspendre » la gardent : le contenu peut
+          // être rétabli.
+          const images = imagesOf(target);
+          const authorId = target.authorId as string;
+          // Un évènement supprimé laisserait sinon ses inscriptions derrière lui,
+          // comme le fait déjà `deleteEventAction`.
+          if (targetType === "evenement") {
+            await Registration.deleteMany({ eventId: target._id });
+          }
+          await target.deleteOne();
+          await deleteUploadedImages(images, authorId);
+        }
         break;
       case "masquer":
         if (target) {

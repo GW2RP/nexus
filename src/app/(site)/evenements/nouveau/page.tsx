@@ -32,7 +32,7 @@ export default async function NewEventPage() {
         eyebrow="AGENDA"
         title="Proposer un évènement"
       />
-      <EventForm places={places} characters={characters} />
+      <EventForm ownerId={user.id} places={places} characters={characters} />
     </div>
   );
 }

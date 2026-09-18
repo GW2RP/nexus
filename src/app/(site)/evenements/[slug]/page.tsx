@@ -6,6 +6,7 @@ import { RegistrationPanel } from "@/components/content/registration-panel";
 import { WeatherBadge } from "@/components/content/weather-badge";
 import { ReportDialog } from "@/components/report-dialog";
 import { RoundPortrait } from "@/components/ui/framed-media";
+import { DeleteContent } from "@/components/content/delete-content";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -17,6 +18,7 @@ import { GAME_TIME_ZONE, formatGameTime, formatLongDate } from "@/lib/dates";
 import { canContribute, canEditContent, canReportContent } from "@/lib/permissions";
 import { SITE_URL, breadcrumbJsonLd, buildMetadata, jsonLdScript } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
+import { deleteEventAction } from "@/server/actions/events";
 import { formatTyrianDate, formatTyrianSeason } from "@/lib/tyrian-calendar";
 import { listCharactersOf } from "@/server/queries/characters";
 import { getEventBySlug } from "@/server/queries/events";
@@ -301,9 +303,20 @@ export default async function EventPage({ params }: Props) {
 
           <div className="flex flex-wrap items-center gap-3">
             {isOwner ? (
-              <Button asChild variant="outline">
-                <Link href={`/evenements/${event.slug}/modifier`}>MODIFIER L'ANNONCE</Link>
-              </Button>
+              <>
+                <Button asChild variant="outline">
+                  <Link href={`/evenements/${event.slug}/modifier`}>MODIFIER L'ANNONCE</Link>
+                </Button>
+                <DeleteContent
+                  id={event.id}
+                  action={deleteEventAction}
+                  title={event.title}
+                  question="Supprimer cette annonce ?"
+                  consequence="L'annonce quitte l'agenda et la carte, avec sa bannière et les inscriptions déjà prises. Les personnes inscrites ne sont pas prévenues. C'est irréversible."
+                  excerpt={event.summary}
+                  verb="SUPPRIMER L'ANNONCE"
+                />
+              </>
             ) : null}
             {canReportContent(user, event.authorId) ? (
               <ReportDialog

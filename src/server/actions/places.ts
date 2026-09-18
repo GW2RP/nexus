@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { deleteUploadedImages } from "@/lib/blob";
 import { canEditContent } from "@/lib/permissions";
 import { uniqueSlug } from "@/lib/slug";
 import { Place } from "@/models/place";
@@ -71,9 +72,17 @@ export async function updatePlaceAction(
     const parsed = parseForm(placeSchema, formData);
     if (!parsed.ok) return parsed.state;
 
+    // Remplacer ou retirer une image abandonne l'ancienne dans le stockage,
+    // exactement comme une suppression de fiche.
+    const previousBanner = existing.bannerUrl;
+
     existing.set(toDocument(parsed.data));
     await existing.save();
     slug = existing.slug;
+
+    if (previousBanner && previousBanner !== existing.bannerUrl) {
+      await deleteUploadedImages([previousBanner], existing.authorId);
+    }
   } catch (error) {
     return toActionState(error);
   }
@@ -96,7 +105,10 @@ export async function deletePlaceAction(
     if (!canEditContent(user, existing.authorId)) {
       return errorState("Ce lieu appartient à quelqu'un d'autre.");
     }
+
+    const images = [existing.bannerUrl, existing.logoUrl, existing.floorPlan?.imageUrl];
     await existing.deleteOne();
+    await deleteUploadedImages(images, existing.authorId);
   } catch (error) {
     return toActionState(error);
   }

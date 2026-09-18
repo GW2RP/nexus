@@ -33,7 +33,7 @@ export default async function EditPlacePage({ params }: Props) {
   return (
     <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 lg:px-gutter-desktop">
       <PageHeader eyebrow="REGISTRE DES LIEUX" title={`Modifier ${place.name}`} />
-      <PlaceForm place={place} characters={characters} />
+      <PlaceForm ownerId={place.authorId} place={place} characters={characters} />
     </div>
   );
 }
