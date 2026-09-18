@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
+import { env } from "@/lib/env";
 import { advanceWeather } from "@/server/weather/simulation";
 
 /** Le rattrapage peut enchaîner plusieurs pas : la valeur par défaut est courte. */
@@ -18,7 +19,7 @@ export const dynamic = "force-dynamic";
  * les pas dus. Un appel trop tôt ne fait rien, un appel en retard rattrape.
  */
 export async function GET(request: Request): Promise<NextResponse> {
-  const secret = process.env.CRON_SECRET;
+  const secret = env.cronSecret;
   // Sans secret configuré, on refuse : une route qui fait avancer le monde ne
   // s'ouvre pas parce qu'une variable manque.
   if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {

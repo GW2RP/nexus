@@ -15,11 +15,12 @@ const systemSchema = new Schema(
   { _id: false },
 );
 
-/** Un pas de simulation : les 560 cellules du continent à un moment donné.
+/** Un pas de simulation : les 2 240 cellules du continent à un moment donné.
  *
- *  Les champs voyagent empaquetés en entiers 16 bits (`src/lib/weather/pack.ts`)
- *  plutôt qu'en tableaux BSON : 8 Ko au lieu de 50, et un document par pas au
- *  lieu d'un par cellule — sans quoi l'historique ferait 800 000 documents par an. */
+ *  Dix champs voyagent empaquetés en entiers 16 bits (`src/lib/weather/pack.ts`)
+ *  plutôt qu'en tableaux BSON : 44 Ko au lieu de 208. Et un document par pas au
+ *  lieu d'un par cellule, sans quoi l'historique ferait plus de trois millions
+ *  de documents par an. */
 const weatherStepSchema = new Schema(
   {
     /** Le numéro de pas, absolu depuis l'époque. Son unicité fait l'idempotence

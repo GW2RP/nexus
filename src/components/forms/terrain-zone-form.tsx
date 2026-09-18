@@ -10,10 +10,10 @@ import { FormMessage } from "@/components/ui/form-message";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { SubmitButton } from "@/components/ui/submit-button";
 import {
-  DRAWN_TERRAINS,
   REGIONS,
   REGION_LABELS,
   TERRAIN_LABELS,
+  TERRAINS,
   type Terrain,
 } from "@/lib/domain";
 import { idleState } from "@/lib/action-state";
@@ -59,7 +59,7 @@ export function TerrainZoneForm({ zone }: { zone?: TerrainZoneOutline }) {
                 value={terrain}
                 onChange={(event) => setTerrain(event.target.value as Terrain)}
               >
-                {DRAWN_TERRAINS.map((value) => (
+                {TERRAINS.map((value) => (
                   <option key={value} value={value}>
                     {TERRAIN_LABELS[value]}
                   </option>
