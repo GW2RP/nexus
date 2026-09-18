@@ -199,6 +199,16 @@
     stroke: var(--gold-ink);
   }
 
+  .gw2rp-zone--feu {
+    fill: var(--crimson);
+    stroke: var(--crimson-edge);
+  }
+
+  .gw2rp-zone--bati {
+    fill: var(--ink-subtle);
+    stroke: var(--gold-ink);
+  }
+
   .gw2rp-zone--neutre {
     fill: var(--rule);
     stroke: var(--ink-subtle);
@@ -222,6 +232,14 @@
 
   .gw2rp-cell--foret {
     fill: var(--success);
+  }
+
+  .gw2rp-cell--feu {
+    fill: var(--crimson);
+  }
+
+  .gw2rp-cell--bati {
+    fill: var(--ink-subtle);
   }
 
   .gw2rp-cell--neutre {

@@ -8,7 +8,7 @@
 
 import type { Terrain, WeatherCondition } from "@/lib/domain";
 
-export const MAP_TONES = ["eau", "marais", "relief", "aride", "foret", "neutre"] as const;
+export const MAP_TONES = ["eau", "marais", "relief", "aride", "foret", "feu", "bati", "neutre"] as const;
 export type MapTone = (typeof MAP_TONES)[number];
 
 export const TERRAIN_TONES: Record<Terrain, MapTone> = {
@@ -18,6 +18,10 @@ export const TERRAIN_TONES: Record<Terrain, MapTone> = {
   foret: "foret",
   aride: "aride",
   plaine: "neutre",
+  riviere: "eau",
+  lac: "eau",
+  volcan: "feu",
+  ville: "bati",
 };
 
 /** Ce qui tombe du ciel se lit à la teinte : l'eau pour la pluie, le relief

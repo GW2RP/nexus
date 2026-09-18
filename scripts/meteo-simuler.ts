@@ -15,14 +15,13 @@ import { config } from "dotenv";
 
 config({ path: [".env.local", ".env"], quiet: true });
 
-import { WEATHER_CONDITIONS, type WeatherCondition } from "@/lib/domain";
+import { TERRAINS, WEATHER_CONDITIONS, type WeatherCondition } from "@/lib/domain";
 import { CONTINENT_HEIGHT, CONTINENT_WIDTH } from "@/lib/map";
 import { connectToDatabase } from "@/lib/mongoose";
 import { advanceStep, readCell, seedState } from "@/lib/weather/engine";
 import {
   CELL_COUNT,
   bakeTerrain,
-  cellIndexAt,
   pointInPolygon,
   type BakedTerrain,
   type ZoneShape,
@@ -59,6 +58,13 @@ function terrainDEssai(): BakedTerrain {
     { terrain: "relief", region: "shiverpeaks", altitude: 80, points: rect(0.4, 0, 0.55, 1) },
     { terrain: "marais", region: "maguuma", altitude: 0, points: rect(0.7, 0.55, 0.95, 0.8) },
     { terrain: "aride", region: "desert", altitude: 0, points: rect(0.6, 0.05, 0.95, 0.3) },
+    { terrain: "foret", region: "kryte", altitude: 0, points: rect(0.27, 0.6, 0.38, 0.9) },
+    // Les quatre derniers terrains sont ici pour que le filet les couvre : sans
+    // cellule qui les porte, leurs coefficients ne seraient jamais éprouvés.
+    { terrain: "riviere", region: "kryte", altitude: 0, points: rect(0.56, 0.32, 0.6, 0.95) },
+    { terrain: "lac", region: "ascalon", altitude: 0, points: rect(0.62, 0.36, 0.7, 0.48) },
+    { terrain: "volcan", region: "orr", altitude: 60, points: rect(0.28, 0.1, 0.36, 0.2) },
+    { terrain: "ville", region: "kryte", altitude: 0, points: rect(0.3, 0.42, 0.37, 0.5) },
   ];
   return bakeTerrain(zones);
 }
@@ -158,7 +164,13 @@ async function main() {
     ["mer", premiere("mer")],
     ["marais", premiere("marais")],
     ["relief", premiere("relief")],
-    ["plaine", cellIndexAt(CONTINENT_WIDTH / 2, CONTINENT_HEIGHT / 2)],
+    ["riviere", premiere("riviere")],
+    ["lac", premiere("lac")],
+    ["volcan", premiere("volcan")],
+    ["ville", premiere("ville")],
+    // Le centre du continent tombe en pleine bande de relief : on prend la
+    // première vraie cellule de plaine, comme pour les autres témoins.
+    ["plaine", premiere("plaine")],
   ];
   const temoins = candidats.filter(([, index]) => index >= 0);
 
@@ -206,6 +218,12 @@ async function main() {
   }
 
   console.log("");
+  const absents = TERRAINS.filter((value) => !terrain.terrain.includes(value));
+  verifie(
+    "chaque terrain porte au moins une cellule",
+    absents.length === 0,
+    `manque ${absents.join(", ") || "rien"}`,
+  );
   verifie("aucune grandeur ne part à l'infini", nonFini === 0, `${nonFini} valeurs`);
   verifie("un système est toujours en vie", systemesVides === 0, `${systemesVides} pas à vide`);
   verifie(

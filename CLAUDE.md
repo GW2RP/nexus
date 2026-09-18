@@ -57,7 +57,13 @@ Deux règles de fuseau, à ne pas défaire :
 Le terrain se cuit depuis les zones à chaque avancement, jamais stocké cuit :
 rien à invalider, donc rien qui puisse être périmé. Une cellule se juge par son
 **centre** — une zone trop petite pour en couvrir un n'existe pas pour la
-simulation, et `/admin/terrains` montre la grille cuite pour que ça se voie.
+simulation. `/admin/terrains` montre la grille cuite pour que ça se voie, et un
+clic sonde un point : la zone qui le couvre, et celle que la simulation retient
+pour sa cellule. Les deux passent par `zoneAt`, celui de la cuisson, sinon le
+relevé pourrait mentir.
+
+**L'ordre de `TERRAINS` est gravé** : le rang d'un terrain est l'entier écrit
+dans les pas stockés. Un terrain nouveau s'ajoute à la fin, jamais au milieu.
 
 Les champs de grille voyagent empaquetés en entiers 16 bits. Un tampon trop
 court **lève** : relu en zéros, il donnerait un ciel dégagé partout, crédible et
