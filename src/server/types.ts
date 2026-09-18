@@ -125,7 +125,10 @@ export type EventDetail = EventSummary & {
 export type RumorSummary = {
   id: string;
   body: string;
+  /** Le personnage qui la dit, quand elle en a un. */
   character: { id: string; slug: string; name: string } | null;
+  /** Le compte qui l'a colportée : c'est lui qu'on cite quand il n'y a pas de source. */
+  author: AuthorSummary | null;
   place: { id: string; slug: string; name: string } | null;
   heardAtLabel: string | null;
   region: Region | null;

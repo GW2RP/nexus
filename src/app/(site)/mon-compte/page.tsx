@@ -79,7 +79,6 @@ export default async function AccountPage() {
             ) : (
               <EmptyState
                 title="Aucune fiche à votre nom"
-                description="Un personnage est ce qui vous permet de colporter une rumeur et de vous inscrire lisiblement à une scène."
                 action={
                   <Button asChild variant="outline">
                     <Link href="/personnages/nouveau">CRÉER UN PERSONNAGE</Link>
@@ -100,7 +99,6 @@ export default async function AccountPage() {
             ) : (
               <EmptyState
                 title="Aucune scène à venir"
-                description="Vous n'êtes inscrit à rien pour l'instant."
                 action={
                   <Button asChild variant="outline">
                     <Link href="/evenements">VOIR L'AGENDA</Link>

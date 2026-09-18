@@ -20,11 +20,22 @@ Atlas, domaine `www.gw2rp.eu`.
   le lecteur d'écran doit lire ce qui est écrit.
 - **Rien d'inventé.** Une donnée absente affiche un placeholder explicite avec
   sa dimension attendue, jamais un faux contenu ni un faux chiffre.
+- **Pas de texte d'explication.** Un état vide porte son titre et rien d'autre ;
+  une section ne se présente pas, elle se montre. Si une phrase n'apprend rien
+  que l'écran ne dise déjà, elle saute.
 - **Les dates** : la date réelle en premier, la date tyrienne en second. Les
   heures sont celles du serveur de jeu (`Europe/Paris`) et sont affichées comme
   telles.
 - **L'interface est en français**, contenu, libellés, messages d'erreur et
   commentaires de code compris.
+
+## La carte
+
+Les coordonnées sont des pixels de continent. L'échelle de `continent_dims`
+est portée par le **zoom 7**, pas par le `max_zoom: 8` que l'API annonce :
+`COORDINATE_ZOOM` dans `src/lib/map.ts` fait foi pour tout `project` /
+`unproject`. Un emplacement se pose en cliquant la carte, jamais en tapant deux
+nombres.
 
 ## Frontières
 
@@ -34,6 +45,9 @@ Atlas, domaine `www.gw2rp.eu`.
   jamais des documents Mongoose.
 - Les écritures passent par des actions serveur validées par Zod
   (`src/server/actions`), qui vérifient le rôle avant d'écrire.
+- Une page qui lit la session est rendue à la requête. Ne jamais lui adjoindre
+  `generateStaticParams` ni `revalidate` : la route se met en contradiction avec
+  elle-même et échoue en `DYNAMIC_SERVER_USAGE`.
 
 ## Avant de pousser
 

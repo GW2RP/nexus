@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { ImageField } from "@/components/forms/image-field";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { FormMessage } from "@/components/ui/form-message";
 import { SectionHeading } from "@/components/ui/section-heading";
@@ -222,36 +223,18 @@ export function CharacterForm({ character }: { character?: CharacterDetail }) {
 
       <section>
         <SectionHeading title="Portrait" compact />
-        <div className="flex flex-col gap-4">
-          <Field
-            label="Adresse du portrait"
-            htmlFor="portraitUrl"
-            hint="Une image en 3:4, 900 × 1200 px au moins. Sans portrait, le registre affiche un placeholder."
-            error={errors.portraitUrl}
-          >
-            <Input
-              id="portraitUrl"
-              name="portraitUrl"
-              type="url"
-              defaultValue={character?.portraitUrl ?? ""}
-              placeholder="https://…"
-            />
-          </Field>
-
-          <Field
-            label="Alternative textuelle"
-            htmlFor="portraitAlt"
-            hint="Ce que voit quelqu'un qui n'a pas l'image. Exigée dès qu'un portrait est posé."
-            error={errors.portraitAlt}
-          >
-            <Input
-              id="portraitAlt"
-              name="portraitAlt"
-              maxLength={240}
-              defaultValue={character?.portraitAlt ?? ""}
-            />
-          </Field>
-        </div>
+        <ImageField
+          label="Portrait"
+          name="portraitUrl"
+          altName="portraitAlt"
+          folder="personnages"
+          aspect="3 / 4"
+          hint="Format 3:4, 900 × 1200 px au moins. 5 Mo au plus."
+          defaultUrl={character?.portraitUrl}
+          defaultAlt={character?.portraitAlt}
+          error={errors.portraitUrl}
+          altError={errors.portraitAlt}
+        />
       </section>
 
       <FormMessage state={state} />

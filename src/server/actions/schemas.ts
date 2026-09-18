@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { CONTINENT_HEIGHT, CONTINENT_WIDTH } from "@/lib/map";
 import {
   EVENT_TYPES,
   GENDERS,
@@ -28,13 +29,33 @@ const optionalUrl = (message: string) =>
 const optionalEnum = <T extends readonly [string, ...string[]]>(values: T) =>
   z.preprocess(emptyToNull, z.enum(values).nullable().optional());
 
+/** Une image sans alternative textuelle rend la fiche illisible à qui ne la voit
+ *  pas. Le formulaire l'exige déjà ; sans cette règle, une soumission qui
+ *  contourne le navigateur passerait quand même. */
+const ALT_REQUIRED = "Une image demande son alternative textuelle.";
+
+function altAccompaniesImage<T extends Record<string, unknown>>(
+  urlKey: keyof T & string,
+  altKey: keyof T & string,
+) {
+  return {
+    check: (value: T) => {
+      const url = value[urlKey];
+      const alt = value[altKey];
+      if (!url || typeof url !== "string") return true;
+      return typeof alt === "string" && alt.trim().length > 0;
+    },
+    options: { message: ALT_REQUIRED, path: [altKey] },
+  };
+}
+
 const optionalInteger = (min: number, max: number, message?: string) =>
   z.preprocess(
     emptyToNull,
     z.coerce.number().int(message ?? "Ce champ attend un nombre entier.").min(min).max(max).nullable().optional(),
   );
 
-export const characterSchema = z.object({
+const characterFields = z.object({
   name: trimmed(80).min(2, "Le nom fait au moins deux caractères."),
   race: z.enum(RACES),
   gender: z.enum(GENDERS).default("neutre"),
@@ -54,7 +75,16 @@ export const characterSchema = z.object({
   portraitAlt: optionalText(240),
 });
 
-export const placeSchema = z.object({
+const characterAlt = altAccompaniesImage<z.infer<typeof characterFields>>(
+  "portraitUrl",
+  "portraitAlt",
+);
+export const characterSchema = characterFields.refine(
+  characterAlt.check,
+  characterAlt.options,
+);
+
+const placeFields = z.object({
   name: trimmed(120).min(2, "Le nom fait au moins deux caractères."),
   type: z.enum(PLACE_TYPES),
   region: z.enum(REGIONS),
@@ -64,10 +94,13 @@ export const placeSchema = z.object({
   description: optionalText(20000),
   bannerUrl: optionalUrl("L'adresse de la bannière doit être une URL."),
   bannerAlt: optionalText(240),
-  coordinateX: optionalInteger(0, 32768),
-  coordinateY: optionalInteger(0, 32768),
+  coordinateX: optionalInteger(0, CONTINENT_WIDTH),
+  coordinateY: optionalInteger(0, CONTINENT_HEIGHT),
   keeperCharacterId: optionalText(40),
 });
+
+const placeAlt = altAccompaniesImage<z.infer<typeof placeFields>>("bannerUrl", "bannerAlt");
+export const placeSchema = placeFields.refine(placeAlt.check, placeAlt.options);
 
 export const eventSchema = z
   .object({
@@ -93,11 +126,16 @@ export const eventSchema = z
   .refine((value) => !value.endsAt || value.endsAt > value.startsAt, {
     message: "La fin vient après le début.",
     path: ["endsAt"],
+  })
+  .refine((value) => !value.bannerUrl || Boolean(value.bannerAlt?.trim()), {
+    message: ALT_REQUIRED,
+    path: ["bannerAlt"],
   });
 
 export const rumorSchema = z.object({
   body: trimmed(600).min(20, "Une rumeur tient en au moins vingt caractères."),
-  characterId: trimmed(40).min(1, "Une rumeur est dite par un personnage : choisissez-en un."),
+  // Une rumeur peut n'avoir aucune source : elle est alors signée par le compte.
+  characterId: optionalText(40),
   placeId: optionalText(40),
   heardAtLabel: optionalText(160),
   region: optionalEnum(REGIONS),

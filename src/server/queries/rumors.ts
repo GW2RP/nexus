@@ -5,7 +5,13 @@ import type { Region } from "@/lib/domain";
 import { Character } from "@/models/character";
 import { Place } from "@/models/place";
 import { Rumor, type RumorDocument } from "@/models/rumor";
-import { type QueryFilter, PAGE_SIZE, connectToDatabase, toIso } from "@/server/queries/shared";
+import {
+  type QueryFilter,
+  PAGE_SIZE,
+  connectToDatabase,
+  loadAuthors,
+  toIso,
+} from "@/server/queries/shared";
 import type { RumorSummary } from "@/server/types";
 
 export type RumorSort = "recentes" | "reprises";
@@ -29,13 +35,20 @@ async function hydrate(
   const characterIds = docs.map((doc) => doc.characterId).filter(Boolean);
   const placeIds = docs.map((doc) => doc.placeId).filter(Boolean);
 
-  const [characters, places] = await Promise.all([
+  type NamedDoc = { _id: unknown; name: string; slug: string };
+
+  const [characters, places, authors] = await Promise.all([
     characterIds.length
-      ? Character.find({ _id: { $in: characterIds } }).select({ name: 1, slug: 1 }).lean()
-      : Promise.resolve([]),
+      ? (Character.find({ _id: { $in: characterIds } })
+          .select({ name: 1, slug: 1 })
+          .lean() as unknown as Promise<NamedDoc[]>)
+      : Promise.resolve([] as NamedDoc[]),
     placeIds.length
-      ? Place.find({ _id: { $in: placeIds } }).select({ name: 1, slug: 1 }).lean()
-      : Promise.resolve([]),
+      ? (Place.find({ _id: { $in: placeIds } })
+          .select({ name: 1, slug: 1 })
+          .lean() as unknown as Promise<NamedDoc[]>)
+      : Promise.resolve([] as NamedDoc[]),
+    loadAuthors(docs.map((doc) => doc.authorId)),
   ]);
 
   const characterById = new Map(characters.map((item) => [String(item._id), item]));
@@ -50,6 +63,7 @@ async function hydrate(
       character: character
         ? { id: String(character._id), slug: character.slug, name: character.name }
         : null,
+      author: authors.get(doc.authorId) ?? null,
       place: place ? { id: String(place._id), slug: place.slug, name: place.name } : null,
       heardAtLabel: doc.heardAtLabel ?? null,
       region: (doc.region ?? null) as Region | null,

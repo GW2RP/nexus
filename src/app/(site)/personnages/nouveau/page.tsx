@@ -24,7 +24,6 @@ export default async function NewCharacterPage() {
       <PageHeader
         eyebrow="REGISTRE DES PERSONNAGES"
         title="Créer un personnage"
-        subtitle="Rien n'est inventé à l'affichage : ce que vous laissez vide reste vide, avec un placeholder explicite."
       />
       <CharacterForm />
     </div>

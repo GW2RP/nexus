@@ -32,8 +32,6 @@ export const metadata: Metadata = buildMetadata({
   keywords: ["agenda RP Guild Wars 2", "évènements roleplay GW2", "soirée RP Tyrie"],
 });
 
-export const revalidate = 300;
-
 export default async function EventsPage({
   searchParams,
 }: {
@@ -168,11 +166,6 @@ export default async function EventsPage({
       {events.length === 0 ? (
         <EmptyState
           title="Aucun évènement annoncé"
-          description={
-            onlyMine
-              ? "Vous n'êtes inscrit à aucune scène pour l'instant."
-              : "Rien n'est prévu avec ces filtres. Retirez-en un, ou proposez la première scène."
-          }
           action={
             <Button asChild variant="outline">
               <Link href={canContribute(user) ? "/evenements/nouveau" : "/connexion"}>

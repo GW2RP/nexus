@@ -27,7 +27,6 @@ export default async function NewPlacePage() {
       <PageHeader
         eyebrow="REGISTRE DES LIEUX"
         title="Proposer un lieu"
-        subtitle="Un lieu porte son emplacement en Tyrie, et le plan intérieur que vous téléversez si vous en avez un."
       />
       <PlaceForm characters={characters} />
     </div>

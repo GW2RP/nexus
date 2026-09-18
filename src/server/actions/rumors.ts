@@ -25,20 +25,28 @@ export async function createRumorAction(
     const parsed = parseForm(rumorSchema, formData);
     if (!parsed.ok) return parsed.state;
 
-    // Une rumeur est dite par un personnage : il doit être au registre de ce compte.
-    const characterId = objectIdOrNull(parsed.data.characterId);
-    const character = characterId
-      ? await Character.findOne({ _id: characterId, authorId: user.id })
+    // Une rumeur peut être dite sans source. Quand un personnage est indiqué,
+    // il doit appartenir au compte qui colporte.
+    const characterId = parsed.data.characterId
+      ? objectIdOrNull(parsed.data.characterId)
       : null;
-    if (!characterId || !character) {
-      return errorState("Choisissez un de vos personnages pour colporter cette rumeur.", {
+    if (parsed.data.characterId && !characterId) {
+      return errorState("Ce personnage n'est pas au registre de votre compte.", {
         characterId: "Ce personnage n'est pas au registre de votre compte.",
       });
+    }
+    if (characterId) {
+      const character = await Character.findOne({ _id: characterId, authorId: user.id });
+      if (!character) {
+        return errorState("Ce personnage n'est pas au registre de votre compte.", {
+          characterId: "Ce personnage n'est pas au registre de votre compte.",
+        });
+      }
     }
 
     await Rumor.create({
       ...parsed.data,
-      characterId,
+      characterId: characterId ?? undefined,
       placeId: objectIdOrNull(parsed.data.placeId ?? null) ?? undefined,
       authorId: user.id,
       echoedBy: [],

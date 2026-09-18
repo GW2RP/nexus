@@ -16,8 +16,6 @@ export const metadata: Metadata = buildMetadata({
   keywords: ["carte Guild Wars 2 RP", "lieux RP Tyrie", "météo tyrienne"],
 });
 
-export const revalidate = 300;
-
 export default async function MapPage({
   searchParams,
 }: {

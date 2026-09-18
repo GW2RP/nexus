@@ -26,8 +26,6 @@ export const metadata: Metadata = buildMetadata({
   keywords: ["rumeurs RP Guild Wars 2", "tableau des rumeurs GW2", "RP Tyrie"],
 });
 
-export const revalidate = 120;
-
 export default async function RumorsPage({
   searchParams,
 }: {
@@ -60,10 +58,7 @@ export default async function RumorsPage({
 
   return (
     <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 lg:px-gutter-desktop">
-      <PageHeader
-        title="Tableau des rumeurs"
-        subtitle="Ce qui se dit dans les tavernes et sur les quais. Vrai, faux, ou pas encore décidé."
-      />
+      <PageHeader title="Tableau des rumeurs" />
 
       <div className="mb-8 flex flex-wrap items-center gap-6">
         <FilterChips
@@ -116,10 +111,7 @@ export default async function RumorsPage({
               />
             </>
           ) : (
-            <EmptyState
-              title="Le tableau est vide"
-              description="Rien ne se dit encore. Une rumeur est dite par un personnage, pas par un joueur : elle peut être fausse, et c'est le but."
-            />
+            <EmptyState title="Le tableau est vide" />
           )}
         </div>
 
@@ -174,23 +166,6 @@ export default async function RumorsPage({
             </section>
           ) : null}
 
-          <section aria-labelledby="comment-ca-marche">
-            <SectionHeading id="comment-ca-marche" title="Comment ça marche" compact />
-            <ul className="flex flex-col gap-3 text-[17px] leading-[1.5] text-ink-body">
-              <li>
-                Une rumeur est dite par un personnage, pas par un joueur : elle peut être
-                fausse, et c'est le but.
-              </li>
-              <li>
-                La reprendre la fait monter dans les plus reprises — et elle circulera
-                davantage en jeu.
-              </li>
-              <li>
-                Viser un joueur plutôt qu'un personnage, c'est le drapeau : l'équipe regarde
-                sous 24 h.
-              </li>
-            </ul>
-          </section>
         </aside>
       </div>
     </div>

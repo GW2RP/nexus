@@ -26,7 +26,6 @@ export function RumorItem({
   const [, echoAction] = useActionState(echoRumorAction, idleState);
 
   const attribution = [
-    rumor.character ? null : "Rapportée anonymement",
     formatRelativePast(new Date(rumor.createdAt)),
     rumor.place?.name ?? rumor.heardAtLabel,
   ].filter(Boolean);
@@ -55,6 +54,8 @@ export function RumorItem({
               </Link>{" "}
               ·{" "}
             </>
+          ) : rumor.author ? (
+            <>Colportée par {rumor.author.name} · </>
           ) : null}
           {attribution.join(" · ")}
         </span>

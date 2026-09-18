@@ -23,18 +23,13 @@ export const metadata: Metadata = buildMetadata({
   keywords: ["météo tyrienne", "saisons Guild Wars 2 RP"],
 });
 
-export const revalidate = 300;
-
 export default async function WeatherPage() {
   const user = await getCurrentUser();
   const [current, upcoming] = await Promise.all([getCurrentWeather(), getUpcomingWeather(12)]);
 
   return (
     <div className="mx-auto max-w-[1080px] px-gutter-mobile py-10 lg:px-gutter-desktop">
-      <PageHeader
-        title="Météo des régions"
-        subtitle="La condition courante d'une région s'affiche sur la carte et sur les fiches d'évènement qui s'y déroulent."
-      />
+      <PageHeader title="Météo des régions" />
 
       <div className="flex flex-col gap-12 lg:flex-row lg:gap-14">
         <div className="min-w-0 flex-1">
@@ -51,7 +46,6 @@ export default async function WeatherPage() {
             ) : (
               <EmptyState
                 title="Le ciel est vide"
-                description="Aucune météo n'est posée sur les régions. Les conteurs peuvent en placer une."
               />
             )}
           </section>
@@ -88,7 +82,7 @@ export default async function WeatherPage() {
                 ))}
               </ul>
             ) : (
-              <EmptyState title="Rien d'annoncé" description="La frise se remplit à mesure." />
+              <EmptyState title="Rien d'annoncé" />
             )}
           </section>
         </div>

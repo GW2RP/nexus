@@ -31,8 +31,6 @@ export const metadata: Metadata = buildMetadata({
   ],
 });
 
-export const revalidate = 300;
-
 export default async function HomePage() {
   const user = await getCurrentUser();
 
@@ -94,7 +92,6 @@ export default async function HomePage() {
         ) : (
           <EmptyState
             title="Aucun évènement annoncé"
-            description="Personne n'a encore posé de scène pour les jours qui viennent. La première annonce ouvrira l'agenda."
             action={
               <Button asChild variant="outline">
                 <Link href={user ? "/evenements/nouveau" : "/connexion"}>
@@ -115,14 +112,9 @@ export default async function HomePage() {
         />
         <div className="flex flex-col gap-7 lg:flex-row lg:items-stretch">
           <div className="flex-2 lg:basis-0">
-            <MapPreview places={places} weather={weather} />
+            <MapPreview places={places} events={events} />
           </div>
           <div className="flex flex-1 flex-col lg:basis-0">
-            <p className="mb-5 text-[18px] leading-[1.55] text-ink-body">
-              Les lieux et les évènements sont épinglés sur les cartes du jeu. L'overlay
-              météo évolue au fil des saisons tyriennes et se répercute sur les scènes en
-              cours.
-            </p>
             {weather.length > 0 ? (
               <div className="mb-5 flex flex-wrap gap-3">
                 {weather.slice(0, 2).map((entry) => (
@@ -163,10 +155,7 @@ export default async function HomePage() {
               ))}
             </ul>
           ) : (
-            <EmptyState
-              title="Le tableau est vide"
-              description="Rien ne se dit encore dans les tavernes. Une rumeur est dite par un personnage, pas par un joueur : elle peut être fausse, et c'est le but."
-            />
+            <EmptyState title="Le tableau est vide" />
           )}
         </div>
 
@@ -184,10 +173,7 @@ export default async function HomePage() {
               ))}
             </ul>
           ) : (
-            <EmptyState
-              title="Le registre est vide"
-              description="Aucune fiche n'a encore été tenue. La vôtre y ouvrira la première page."
-            />
+            <EmptyState title="Le registre est vide" />
           )}
         </div>
       </section>
