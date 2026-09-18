@@ -99,7 +99,7 @@ export async function updateEventAction(
     slug = existing.slug;
 
     if (previousBanner && previousBanner !== existing.bannerUrl) {
-      await deleteUploadedImages([previousBanner]);
+      await deleteUploadedImages([previousBanner], existing.authorId);
     }
   } catch (error) {
     return toActionState(error);
@@ -124,7 +124,7 @@ export async function deleteEventAction(
     }
     const banner = existing.bannerUrl;
     await Promise.all([Registration.deleteMany({ eventId: existing._id }), existing.deleteOne()]);
-    await deleteUploadedImages([banner]);
+    await deleteUploadedImages([banner], existing.authorId);
   } catch (error) {
     return toActionState(error);
   }

@@ -19,6 +19,7 @@ export function ImageField({
   name,
   altName,
   folder,
+  ownerId,
   hint,
   aspect = "16 / 5",
   defaultUrl,
@@ -33,6 +34,9 @@ export function ImageField({
   altName: string;
   /** Le dossier de rangement dans le stockage : « personnages », « lieux »… */
   folder: string;
+  /** L'auteur du contenu : l'image est rangée sous lui, et seule la suppression
+   *  de son contenu pourra l'emporter. */
+  ownerId: string;
   hint?: string;
   aspect?: string;
   defaultUrl?: string | null;
@@ -57,7 +61,7 @@ export function ImageField({
     setBusy(true);
     try {
       const extension = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-      const result = await upload(`${folder}/${Date.now()}.${extension}`, file, {
+      const result = await upload(`${folder}/${ownerId}/${Date.now()}.${extension}`, file, {
         access: "public",
         handleUploadUrl: "/api/televersement",
         contentType: file.type,

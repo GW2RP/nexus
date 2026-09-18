@@ -30,7 +30,7 @@ export default async function EditCharacterPage({ params }: Props) {
   return (
     <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 lg:px-gutter-desktop">
       <PageHeader eyebrow="REGISTRE DES PERSONNAGES" title={`Modifier ${character.name}`} />
-      <CharacterForm character={character} />
+      <CharacterForm ownerId={character.authorId} character={character} />
     </div>
   );
 }

@@ -25,7 +25,7 @@ export default async function NewCharacterPage() {
         eyebrow="REGISTRE DES PERSONNAGES"
         title="Créer un personnage"
       />
-      <CharacterForm />
+      <CharacterForm ownerId={user.id} />
     </div>
   );
 }

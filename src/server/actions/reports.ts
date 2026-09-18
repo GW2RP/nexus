@@ -10,6 +10,7 @@ import { Character } from "@/models/character";
 import { Event } from "@/models/event";
 import { ModerationLog } from "@/models/moderation-log";
 import { Place } from "@/models/place";
+import { Registration } from "@/models/registration";
 import { Report } from "@/models/report";
 import { Rumor } from "@/models/rumor";
 import { User } from "@/models/user";
@@ -120,8 +121,14 @@ export async function resolveReportAction(
           // auteur. « Masquer » et « suspendre » la gardent : le contenu peut
           // être rétabli.
           const images = imagesOf(target);
+          const authorId = target.authorId as string;
+          // Un évènement supprimé laisserait sinon ses inscriptions derrière lui,
+          // comme le fait déjà `deleteEventAction`.
+          if (targetType === "evenement") {
+            await Registration.deleteMany({ eventId: target._id });
+          }
           await target.deleteOne();
-          await deleteUploadedImages(images);
+          await deleteUploadedImages(images, authorId);
         }
         break;
       case "masquer":

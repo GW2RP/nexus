@@ -39,10 +39,16 @@ nombres.
 
 ## Les images
 
-Une image téléversée vit dans Vercel Blob, pas en base. Tout chemin qui retire
-une image d'un contenu — suppression de la fiche, remplacement, suppression de
-modération — passe par `deleteUploadedImages`. Il ne touche jamais une adresse
-étrangère au magasin, et ne fait jamais échouer son appelant.
+Une image téléversée vit dans Vercel Blob, pas en base. Elle est rangée sous son
+auteur : `<dossier>/<id de l'auteur>/<fichier>`. La route de téléversement refuse
+tout autre chemin, et `deleteUploadedImages` refuse de supprimer une adresse
+rangée sous quelqu'un d'autre — sans quoi il suffirait de recopier l'adresse
+d'autrui dans un champ image pour la faire effacer.
+
+Tout chemin qui retire une image d'un contenu — suppression de la fiche,
+remplacement, suppression de modération — passe par `deleteUploadedImages`. Il ne
+touche jamais une adresse étrangère au magasin, et ne fait jamais échouer son
+appelant.
 
 ## Frontières
 

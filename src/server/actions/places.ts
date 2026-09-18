@@ -81,7 +81,7 @@ export async function updatePlaceAction(
     slug = existing.slug;
 
     if (previousBanner && previousBanner !== existing.bannerUrl) {
-      await deleteUploadedImages([previousBanner]);
+      await deleteUploadedImages([previousBanner], existing.authorId);
     }
   } catch (error) {
     return toActionState(error);
@@ -108,7 +108,7 @@ export async function deletePlaceAction(
 
     const images = [existing.bannerUrl, existing.logoUrl, existing.floorPlan?.imageUrl];
     await existing.deleteOne();
-    await deleteUploadedImages(images);
+    await deleteUploadedImages(images, existing.authorId);
   } catch (error) {
     return toActionState(error);
   }

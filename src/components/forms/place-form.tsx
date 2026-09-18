@@ -21,9 +21,12 @@ import { createPlaceAction, updatePlaceAction } from "@/server/actions/places";
 import type { CharacterSummary, PlaceDetail } from "@/server/types";
 
 export function PlaceForm({
+  ownerId,
   place,
   characters,
 }: {
+  /** L\'auteur du contenu : les images sont rangées sous lui. */
+  ownerId: string;
   place?: PlaceDetail;
   characters: CharacterSummary[];
 }) {
@@ -173,6 +176,7 @@ export function PlaceForm({
           name="bannerUrl"
           altName="bannerAlt"
           folder="lieux"
+          ownerId={ownerId}
           aspect="16 / 5"
           hint="Format 16:5, 1600 × 500 px au moins. 5 Mo au plus."
           defaultUrl={place?.bannerUrl}

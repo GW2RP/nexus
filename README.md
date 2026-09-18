@@ -128,10 +128,15 @@ Une image téléversée vit dans Vercel Blob, pas dans MongoDB. Supprimer la fic
 qui la portait ne l'emporte pas : `deleteUploadedImages` (`src/lib/blob.ts`) s'en
 charge, à la suppression d'un contenu comme au remplacement d'une image.
 
-Deux règles y tiennent :
+Chaque image est rangée sous son auteur : `<dossier>/<id de l'auteur>/<fichier>`.
+La route `/api/televersement` refuse de signer un jeton pour un autre chemin.
+
+Trois règles y tiennent :
 
 - Une adresse qui ne vient pas du magasin — saisie à la main, ou d'avant le
   téléversement — n'est jamais envoyée à la suppression.
+- Une adresse rangée sous un autre membre non plus : recopier l'adresse d'autrui
+  dans un champ image ne la fait pas effacer, elle part au journal du serveur.
 - Un échec du stockage ne fait pas échouer la suppression du contenu : perdre
   une image est moins grave que laisser une fiche en place. L'échec part au
   journal du serveur.

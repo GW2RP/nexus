@@ -68,7 +68,7 @@ export async function updateCharacterAction(
     slug = existing.slug;
 
     if (previousPortrait && previousPortrait !== existing.portraitUrl) {
-      await deleteUploadedImages([previousPortrait]);
+      await deleteUploadedImages([previousPortrait], existing.authorId);
     }
   } catch (error) {
     return toActionState(error);
@@ -95,7 +95,7 @@ export async function deleteCharacterAction(
     const portrait = existing.portraitUrl;
     await existing.deleteOne();
     // L'image vit dans le stockage, pas dans la base : elle resterait servie.
-    await deleteUploadedImages([portrait]);
+    await deleteUploadedImages([portrait], existing.authorId);
   } catch (error) {
     return toActionState(error);
   }
