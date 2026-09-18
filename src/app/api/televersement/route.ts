@@ -12,14 +12,42 @@ import { getCurrentUser } from "@/lib/session";
 const ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp", "image/avif"];
 const MAX_BYTES = 5 * 1024 * 1024;
 
+
 export async function POST(request: Request): Promise<NextResponse> {
-  const body = (await request.json()) as HandleUploadBody;
+  // Un corps vide ou mal formé ressort en 400 avec un message à nous : sans
+  // cette garde il remontait en 500, et le message brut de `JSON.parse` est en
+  // anglais et parle de l'intérieur du programme.
+  let body: HandleUploadBody;
+  try {
+    body = (await request.json()) as HandleUploadBody;
+  } catch {
+    return NextResponse.json(
+      { error: "Requête de téléversement illisible." },
+      { status: 400 },
+    );
+  }
+
+  // Le droit de publier se vérifie avant d'appeler `handleUpload`, qui échouerait
+  // d'abord sur la configuration du magasin et noierait le vrai refus.
+  // La requête de fin de téléversement vient de Vercel Blob, sans session : elle
+  // ne passe pas par là.
+  if (body.type === "blob.generate-client-token") {
+    const user = await getCurrentUser();
+    if (!canContribute(user)) {
+      return NextResponse.json(
+        { error: "Le téléversement demande un compte actif." },
+        { status: 403 },
+      );
+    }
+  }
 
   try {
     const result = await handleUpload({
       body,
       request,
       onBeforeGenerateToken: async () => {
+        // Deuxième verrou : `handleUpload` est le seul à savoir quand le jeton
+        // est réellement émis.
         const user = await getCurrentUser();
         if (!canContribute(user)) {
           throw new Error("Le téléversement demande un compte actif.");
@@ -41,8 +69,13 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     return NextResponse.json(result);
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Le téléversement n'a pas abouti.";
-    return NextResponse.json({ error: message }, { status: 400 });
+    // Jeton absent, magasin injoignable… : le détail regarde l'exploitation,
+    // pas la personne qui téléverse.
+    console.error("Téléversement impossible :", error);
+    return NextResponse.json(
+      { error: "Le téléversement n'a pas abouti. Réessayez dans un moment." },
+      { status: 400 },
+    );
   }
 }
+
