@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { EventRow } from "@/components/content/event-row";
 import { RumorItem } from "@/components/content/rumor-item";
 import { ReportDialog } from "@/components/report-dialog";
+import { DeleteContent } from "@/components/content/delete-content";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { RaceChip } from "@/components/ui/chip";
@@ -15,6 +16,7 @@ import { REGION_LABELS, raceLabel } from "@/lib/domain";
 import { canContribute, canEditContent, canReportContent } from "@/lib/permissions";
 import { SITE_URL, breadcrumbJsonLd, buildMetadata, jsonLdScript } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
+import { deleteCharacterAction } from "@/server/actions/characters";
 import { formatTyrianDate } from "@/lib/tyrian-calendar";
 import { getCharacterBySlug } from "@/server/queries/characters";
 import { listEvents } from "@/server/queries/events";
@@ -160,9 +162,20 @@ export default async function CharacterPage({ params }: Props) {
 
           <div className="mt-7 flex flex-wrap items-center gap-3">
             {isOwner ? (
-              <Button asChild variant="outline">
-                <Link href={`/personnages/${character.slug}/modifier`}>MODIFIER MA FICHE</Link>
-              </Button>
+              <>
+                <Button asChild variant="outline">
+                  <Link href={`/personnages/${character.slug}/modifier`}>MODIFIER MA FICHE</Link>
+                </Button>
+                <DeleteContent
+                  id={character.id}
+                  action={deleteCharacterAction}
+                  title={character.name}
+                  question="Supprimer cette fiche ?"
+                  consequence="La fiche quitte le registre, avec son portrait. Les rumeurs qu'elle disait restent au tableau, sans source. C'est irréversible."
+                  excerpt={character.summary}
+                  verb="SUPPRIMER LA FICHE"
+                />
+              </>
             ) : null}
             {canReportContent(user, character.authorId) ? (
               <ReportDialog

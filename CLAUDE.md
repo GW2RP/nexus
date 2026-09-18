@@ -37,6 +37,13 @@ est portée par le **zoom 7**, pas par le `max_zoom: 8` que l'API annonce :
 `unproject`. Un emplacement se pose en cliquant la carte, jamais en tapant deux
 nombres.
 
+## Les images
+
+Une image téléversée vit dans Vercel Blob, pas en base. Tout chemin qui retire
+une image d'un contenu — suppression de la fiche, remplacement, suppression de
+modération — passe par `deleteUploadedImages`. Il ne touche jamais une adresse
+étrangère au magasin, et ne fait jamais échouer son appelant.
+
 ## Frontières
 
 - `src/server/**` ne s'importe jamais depuis un composant client. L'état de

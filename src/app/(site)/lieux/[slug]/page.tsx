@@ -6,6 +6,7 @@ import { EventRow } from "@/components/content/event-row";
 import { PlaceTabs } from "@/components/content/place-tabs";
 import { WeatherBadge } from "@/components/content/weather-badge";
 import { ReportDialog } from "@/components/report-dialog";
+import { DeleteContent } from "@/components/content/delete-content";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { PlaceTypeChip } from "@/components/ui/chip";
@@ -16,6 +17,7 @@ import { PLACE_TYPE_LABELS, REGION_LABELS } from "@/lib/domain";
 import { canEditContent, canReportContent } from "@/lib/permissions";
 import { SITE_URL, breadcrumbJsonLd, buildMetadata, jsonLdScript } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
+import { deletePlaceAction } from "@/server/actions/places";
 import { listEvents } from "@/server/queries/events";
 import { getPlaceBySlug } from "@/server/queries/places";
 import { getWeatherForRegion } from "@/server/queries/weather";
@@ -139,9 +141,20 @@ export default async function PlacePage({ params }: Props) {
 
         <div className="flex flex-wrap items-center gap-3">
           {isOwner ? (
-            <Button asChild variant="outline">
-              <Link href={`/lieux/${place.slug}/modifier`}>MODIFIER LA FICHE</Link>
-            </Button>
+            <>
+              <Button asChild variant="outline">
+                <Link href={`/lieux/${place.slug}/modifier`}>MODIFIER LA FICHE</Link>
+              </Button>
+              <DeleteContent
+                id={place.id}
+                action={deletePlaceAction}
+                title={place.name}
+                question="Supprimer ce lieu ?"
+                consequence="Le lieu quitte le registre et la carte, avec sa bannière et son plan. Les évènements qui s'y tenaient restent à l'agenda, sans lieu. C'est irréversible."
+                excerpt={place.summary}
+                verb="SUPPRIMER LE LIEU"
+              />
+            </>
           ) : null}
           {canReportContent(user, place.authorId) ? (
             <ReportDialog

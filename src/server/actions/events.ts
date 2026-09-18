@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { deleteUploadedImages } from "@/lib/blob";
 import { canEditContent } from "@/lib/permissions";
 import { uniqueSlug } from "@/lib/slug";
 import { Event } from "@/models/event";
@@ -89,9 +90,17 @@ export async function updateEventAction(
     const parsed = parseForm(eventSchema, formData);
     if (!parsed.ok) return parsed.state;
 
+    // Remplacer ou retirer une image abandonne l'ancienne dans le stockage,
+    // exactement comme une suppression de fiche.
+    const previousBanner = existing.bannerUrl;
+
     existing.set(await toDocument(parsed.data));
     await existing.save();
     slug = existing.slug;
+
+    if (previousBanner && previousBanner !== existing.bannerUrl) {
+      await deleteUploadedImages([previousBanner]);
+    }
   } catch (error) {
     return toActionState(error);
   }
@@ -113,7 +122,9 @@ export async function deleteEventAction(
     if (!canEditContent(user, existing.authorId)) {
       return errorState("Cet évènement appartient à quelqu'un d'autre.");
     }
+    const banner = existing.bannerUrl;
     await Promise.all([Registration.deleteMany({ eventId: existing._id }), existing.deleteOne()]);
+    await deleteUploadedImages([banner]);
   } catch (error) {
     return toActionState(error);
   }
