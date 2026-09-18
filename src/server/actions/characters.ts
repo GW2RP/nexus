@@ -8,6 +8,7 @@ import { uniqueSlug } from "@/lib/slug";
 import { Character } from "@/models/character";
 import {
   errorState,
+  objectIdOrNull,
   parseForm,
   requireContributor,
   toActionState,
@@ -47,8 +48,8 @@ export async function updateCharacterAction(
   let slug: string;
   try {
     const user = await requireContributor();
-    const id = String(formData.get("id") ?? "");
-    const existing = await Character.findById(id);
+    const id = objectIdOrNull(formData.get("id"));
+    const existing = id ? await Character.findById(id) : null;
     if (!existing) return errorState("Cette fiche n'existe plus.");
     if (!canEditContent(user, existing.authorId)) {
       return errorState("Cette fiche appartient à quelqu'un d'autre.");
@@ -75,8 +76,8 @@ export async function deleteCharacterAction(
 ): Promise<ActionState> {
   try {
     const user = await requireContributor();
-    const id = String(formData.get("id") ?? "");
-    const existing = await Character.findById(id);
+    const id = objectIdOrNull(formData.get("id"));
+    const existing = id ? await Character.findById(id) : null;
     if (!existing) return errorState("Cette fiche n'existe plus.");
     if (!canEditContent(user, existing.authorId)) {
       return errorState("Cette fiche appartient à quelqu'un d'autre.");

@@ -8,6 +8,7 @@ import { uniqueSlug } from "@/lib/slug";
 import { Place } from "@/models/place";
 import {
   errorState,
+  objectIdOrNull,
   parseForm,
   requireContributor,
   toActionState,
@@ -24,7 +25,7 @@ function toDocument(data: ReturnType<typeof placeSchema.parse>): Record<string, 
   const { coordinateX, coordinateY, keeperCharacterId, ...rest } = data;
   return {
     ...rest,
-    keeperCharacterId: keeperCharacterId || undefined,
+    keeperCharacterId: objectIdOrNull(keeperCharacterId ?? null) ?? undefined,
     coordinates:
       typeof coordinateX === "number" && typeof coordinateY === "number"
         ? { x: coordinateX, y: coordinateY }
@@ -60,8 +61,8 @@ export async function updatePlaceAction(
   let slug: string;
   try {
     const user = await requireContributor();
-    const id = String(formData.get("id") ?? "");
-    const existing = await Place.findById(id);
+    const id = objectIdOrNull(formData.get("id"));
+    const existing = id ? await Place.findById(id) : null;
     if (!existing) return errorState("Ce lieu n'existe plus.");
     if (!canEditContent(user, existing.authorId)) {
       return errorState("Ce lieu appartient à quelqu'un d'autre.");
@@ -89,8 +90,8 @@ export async function deletePlaceAction(
 ): Promise<ActionState> {
   try {
     const user = await requireContributor();
-    const id = String(formData.get("id") ?? "");
-    const existing = await Place.findById(id);
+    const id = objectIdOrNull(formData.get("id"));
+    const existing = id ? await Place.findById(id) : null;
     if (!existing) return errorState("Ce lieu n'existe plus.");
     if (!canEditContent(user, existing.authorId)) {
       return errorState("Ce lieu appartient à quelqu'un d'autre.");

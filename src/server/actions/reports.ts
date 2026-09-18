@@ -14,6 +14,7 @@ import { Rumor } from "@/models/rumor";
 import { User } from "@/models/user";
 import {
   errorState,
+  objectIdOrNull,
   parseForm,
   requireAdmin,
   requireContributor,
@@ -54,7 +55,10 @@ export async function createReportAction(
     const parsed = parseForm(reportSchema, formData);
     if (!parsed.ok) return parsed.state;
 
-    const target = await MODELS[parsed.data.targetType].findById(parsed.data.targetId).lean();
+    const targetId = objectIdOrNull(parsed.data.targetId);
+    if (!targetId) return errorState("Ce contenu n'existe plus.");
+
+    const target = await MODELS[parsed.data.targetType].findById(targetId).lean();
     if (!target) return errorState("Ce contenu n'existe plus.");
     // On ne signale jamais son propre contenu : l'auteur voit « Modifier » à la place.
     if ((target as { authorId?: string }).authorId === user.id) {
@@ -63,14 +67,15 @@ export async function createReportAction(
 
     const already = await Report.findOne({
       targetType: parsed.data.targetType,
-      targetId: parsed.data.targetId,
+      targetId,
       reporterId: user.id,
     });
     if (already) return successState("Vous aviez déjà signalé ce contenu. L'équipe le regarde.");
 
     await Report.create({
       ...parsed.data,
-      targetExcerpt: await excerptOf(parsed.data.targetType, parsed.data.targetId),
+      targetId,
+      targetExcerpt: await excerptOf(parsed.data.targetType, targetId),
       reporterId: user.id,
       status: "en-attente",
     });
@@ -93,7 +98,8 @@ export async function resolveReportAction(
     const parsed = parseForm(resolveReportSchema, formData);
     if (!parsed.ok) return parsed.state;
 
-    const report = await Report.findById(parsed.data.reportId);
+    const reportId = objectIdOrNull(parsed.data.reportId);
+    const report = reportId ? await Report.findById(reportId) : null;
     if (!report) return errorState("Ce signalement n'existe plus.");
 
     const targetType = report.targetType as ReportTarget;

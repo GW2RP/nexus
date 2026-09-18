@@ -7,6 +7,7 @@ import { Character } from "@/models/character";
 import { Rumor } from "@/models/rumor";
 import {
   errorState,
+  objectIdOrNull,
   parseForm,
   requireContributor,
   successState,
@@ -25,11 +26,11 @@ export async function createRumorAction(
     if (!parsed.ok) return parsed.state;
 
     // Une rumeur est dite par un personnage : il doit être au registre de ce compte.
-    const character = await Character.findOne({
-      _id: parsed.data.characterId,
-      authorId: user.id,
-    });
-    if (!character) {
+    const characterId = objectIdOrNull(parsed.data.characterId);
+    const character = characterId
+      ? await Character.findOne({ _id: characterId, authorId: user.id })
+      : null;
+    if (!characterId || !character) {
       return errorState("Choisissez un de vos personnages pour colporter cette rumeur.", {
         characterId: "Ce personnage n'est pas au registre de votre compte.",
       });
@@ -37,7 +38,8 @@ export async function createRumorAction(
 
     await Rumor.create({
       ...parsed.data,
-      placeId: parsed.data.placeId || undefined,
+      characterId,
+      placeId: objectIdOrNull(parsed.data.placeId ?? null) ?? undefined,
       authorId: user.id,
       echoedBy: [],
       echoCount: 0,
@@ -52,29 +54,47 @@ export async function createRumorAction(
 }
 
 /** « J'ai entendu ça aussi » : la reprise fait monter la rumeur. On ne reprend
- *  qu'une fois, et on peut se rétracter. */
+ *  qu'une fois, et on peut se rétracter.
+ *
+ *  La bascule se fait en une seule écriture, par un pipeline d'agrégation : lire
+ *  puis réécrire le document perdrait une reprise sur deux quand plusieurs
+ *  comptes reprennent la même rumeur en même temps. */
 export async function echoRumorAction(
   _previous: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
   try {
     const user = await requireContributor();
-    const rumorId = String(formData.get("rumorId") ?? "");
+    const rumorId = objectIdOrNull(formData.get("rumorId"));
+    if (!rumorId) return errorState("Cette rumeur n'est plus au tableau.");
 
-    const rumor = await Rumor.findById(rumorId);
-    if (!rumor) return errorState("Cette rumeur n'est plus au tableau.");
+    const current = { $ifNull: ["$echoedBy", []] };
+    const updated = await Rumor.findByIdAndUpdate(
+      rumorId,
+      [
+        {
+          $set: {
+            echoedBy: {
+              $cond: [
+                { $in: [user.id, current] },
+                { $setDifference: [current, [user.id]] },
+                { $concatArrays: [current, [user.id]] },
+              ],
+            },
+          },
+        },
+        { $set: { echoCount: { $size: "$echoedBy" } } },
+      ],
+      // Mongoose 9 exige `updatePipeline` pour accepter un pipeline en guise de
+      // mise à jour, et `new` y est remplacé par `returnDocument`.
+      { returnDocument: "after", updatePipeline: true },
+    );
 
-    const echoes = new Set(rumor.echoedBy ?? []);
-    const alreadyEchoed = echoes.has(user.id);
-    if (alreadyEchoed) echoes.delete(user.id);
-    else echoes.add(user.id);
-
-    rumor.echoedBy = [...echoes];
-    rumor.echoCount = echoes.size;
-    await rumor.save();
+    if (!updated) return errorState("Cette rumeur n'est plus au tableau.");
 
     revalidatePath("/rumeurs");
-    return successState(alreadyEchoed ? "Vous ne la reprenez plus." : "Vous l'avez reprise.");
+    const nowEchoed = (updated.echoedBy ?? []).includes(user.id);
+    return successState(nowEchoed ? "Vous l'avez reprise." : "Vous ne la reprenez plus.");
   } catch (error) {
     return toActionState(error);
   }
@@ -86,9 +106,8 @@ export async function deleteRumorAction(
 ): Promise<ActionState> {
   try {
     const user = await requireContributor();
-    const rumorId = String(formData.get("rumorId") ?? "");
-
-    const rumor = await Rumor.findById(rumorId);
+    const rumorId = objectIdOrNull(formData.get("rumorId"));
+    const rumor = rumorId ? await Rumor.findById(rumorId) : null;
     if (!rumor) return errorState("Cette rumeur n'est plus au tableau.");
     if (!canEditContent(user, rumor.authorId)) {
       return errorState("Cette rumeur appartient à quelqu'un d'autre.");

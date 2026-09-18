@@ -1,5 +1,6 @@
 import "server-only";
 
+import { Types } from "mongoose";
 import type { ZodType } from "zod";
 
 import { errorState, type ActionState } from "@/lib/action-state";
@@ -9,6 +10,14 @@ import { getCurrentUser, type SessionUser } from "@/lib/session";
 import { connectToDatabase } from "@/lib/mongoose";
 
 export { errorState, idleState, successState, type ActionState } from "@/lib/action-state";
+
+/** Un identifiant lu dans un champ caché n'est pas forcément un ObjectId.
+ *  Sans cette vérification, Mongoose lève une `CastError` dont le message
+ *  technique, en anglais, remonterait jusqu'à l'écran. */
+export function objectIdOrNull(value: FormDataEntryValue | string | null): string | null {
+  if (typeof value !== "string" || !Types.ObjectId.isValid(value)) return null;
+  return value;
+}
 
 /** Une action réservée aux comptes : refuse le visiteur et le compte suspendu. */
 export async function requireContributor(): Promise<SessionUser> {

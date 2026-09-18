@@ -6,6 +6,7 @@ import { ROLES, type Role } from "@/lib/domain";
 import { User } from "@/models/user";
 import {
   errorState,
+  objectIdOrNull,
   requireAdmin,
   successState,
   toActionState,
@@ -19,11 +20,11 @@ export async function setUserRoleAction(
 ): Promise<ActionState> {
   try {
     await requireAdmin();
-    const userId = String(formData.get("userId") ?? "");
+    const userId = objectIdOrNull(formData.get("userId"));
     const role = String(formData.get("role") ?? "") as Role;
     if (!ROLES.includes(role)) return errorState("Ce rôle n'existe pas.");
 
-    const updated = await User.findByIdAndUpdate(userId, { role });
+    const updated = userId ? await User.findByIdAndUpdate(userId, { role }) : null;
     if (!updated) return errorState("Ce compte n'existe plus.");
   } catch (error) {
     return toActionState(error);
@@ -40,8 +41,10 @@ export async function liftSuspensionAction(
 ): Promise<ActionState> {
   try {
     await requireAdmin();
-    const userId = String(formData.get("userId") ?? "");
-    const updated = await User.findByIdAndUpdate(userId, { $unset: { suspendedUntil: "" } });
+    const userId = objectIdOrNull(formData.get("userId"));
+    const updated = userId
+      ? await User.findByIdAndUpdate(userId, { $unset: { suspendedUntil: "" } })
+      : null;
     if (!updated) return errorState("Ce compte n'existe plus.");
   } catch (error) {
     return toActionState(error);

@@ -39,9 +39,9 @@ export function formatShortDate(date: Date): string {
   return shortDateFormatter.format(date);
 }
 
-/** « sam. » */
+/** « sam. » — l'abréviation et son point viennent du format français. */
 export function formatWeekday(date: Date): string {
-  return weekdayFormatter.format(date).replace(/\.$/, ".");
+  return weekdayFormatter.format(date);
 }
 
 /** « 20h30 » — la forme que le design system utilise partout. */

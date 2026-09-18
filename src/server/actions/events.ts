@@ -10,6 +10,7 @@ import { Place } from "@/models/place";
 import { Registration } from "@/models/registration";
 import {
   errorState,
+  objectIdOrNull,
   parseForm,
   requireContributor,
   successState,
@@ -29,15 +30,17 @@ async function toDocument(data: EventInput) {
   const { practicalNotes, placeId, organiserCharacterId, ...rest } = data;
   const document: Record<string, unknown> = {
     ...rest,
-    placeId: placeId || undefined,
-    organiserCharacterId: organiserCharacterId || undefined,
+    // Ces identifiants viennent de listes déroulantes : un identifiant tordu
+    // est ignoré plutôt que de faire lever une CastError à Mongoose.
+    placeId: objectIdOrNull(placeId ?? null) ?? undefined,
+    organiserCharacterId: objectIdOrNull(organiserCharacterId ?? null) ?? undefined,
     practicalNotes: practicalNotes
       ? practicalNotes.split("\n").map((line) => line.trim()).filter(Boolean)
       : [],
   };
 
-  if (placeId) {
-    const place = await Place.findById(placeId).select({ region: 1, coordinates: 1 }).lean();
+  if (document.placeId) {
+    const place = await Place.findById(document.placeId).select({ region: 1, coordinates: 1 }).lean();
     if (place) {
       document.region = place.region;
       if (typeof place.coordinates?.x === "number") document.coordinates = place.coordinates;
@@ -76,8 +79,8 @@ export async function updateEventAction(
   let slug: string;
   try {
     const user = await requireContributor();
-    const id = String(formData.get("id") ?? "");
-    const existing = await Event.findById(id);
+    const id = objectIdOrNull(formData.get("id"));
+    const existing = id ? await Event.findById(id) : null;
     if (!existing) return errorState("Cet évènement n'existe plus.");
     if (!canEditContent(user, existing.authorId)) {
       return errorState("Cet évènement appartient à quelqu'un d'autre.");
@@ -104,8 +107,8 @@ export async function deleteEventAction(
 ): Promise<ActionState> {
   try {
     const user = await requireContributor();
-    const id = String(formData.get("id") ?? "");
-    const existing = await Event.findById(id);
+    const id = objectIdOrNull(formData.get("id"));
+    const existing = id ? await Event.findById(id) : null;
     if (!existing) return errorState("Cet évènement n'existe plus.");
     if (!canEditContent(user, existing.authorId)) {
       return errorState("Cet évènement appartient à quelqu'un d'autre.");
@@ -128,10 +131,10 @@ export async function registerToEventAction(
 ): Promise<ActionState> {
   try {
     const user = await requireContributor();
-    const eventId = String(formData.get("eventId") ?? "");
-    const characterId = String(formData.get("characterId") ?? "") || undefined;
+    const eventId = objectIdOrNull(formData.get("eventId"));
+    const characterId = objectIdOrNull(formData.get("characterId")) ?? undefined;
 
-    const event = await Event.findById(eventId);
+    const event = eventId ? await Event.findById(eventId) : null;
     if (!event) return errorState("Cet évènement n'existe plus.");
 
     const existing = await Registration.findOne({ eventId: event._id, userId: user.id });
@@ -166,9 +169,9 @@ export async function unregisterFromEventAction(
 ): Promise<ActionState> {
   try {
     const user = await requireContributor();
-    const eventId = String(formData.get("eventId") ?? "");
+    const eventId = objectIdOrNull(formData.get("eventId"));
 
-    const event = await Event.findById(eventId);
+    const event = eventId ? await Event.findById(eventId) : null;
     if (!event) return errorState("Cet évènement n'existe plus.");
 
     const registration = await Registration.findOne({ eventId: event._id, userId: user.id });
