@@ -22,7 +22,7 @@ import { deleteEventAction } from "@/server/actions/events";
 import { formatTyrianDate, formatTyrianSeason } from "@/lib/tyrian-calendar";
 import { listCharactersOf } from "@/server/queries/characters";
 import { getEventBySlug } from "@/server/queries/events";
-import { getWeatherForRegion } from "@/server/queries/weather";
+import { getWeatherAt, getWeatherForRegion } from "@/server/queries/weather";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -71,7 +71,11 @@ export default async function EventPage({ params }: Props) {
 
   const [characters, weather] = await Promise.all([
     user ? listCharactersOf(user.id) : Promise.resolve([]),
-    event.region ? getWeatherForRegion(event.region) : Promise.resolve(null),
+    event.coordinates && event.region
+      ? getWeatherAt(event.coordinates, event.region)
+      : event.region
+        ? getWeatherForRegion(event.region)
+        : Promise.resolve(null),
   ]);
 
   const startsAt = new Date(event.startsAt);

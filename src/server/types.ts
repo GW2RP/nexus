@@ -7,6 +7,7 @@ import type {
   ReportReason,
   ReportStatus,
   ReportTarget,
+  Terrain,
   WeatherCondition,
 } from "@/lib/domain";
 
@@ -138,14 +139,47 @@ export type RumorSummary = {
   createdAt: string;
 };
 
+/** Un bulletin, lu sur la simulation. Les grandeurs sont déjà arrondies :
+ *  rien de ce qui arrive au composant ne demande de calcul. */
 export type WeatherEntry = {
   id: string;
+  /** Le numéro du pas. La date tyrienne se lit sur son jour civil parisien,
+   *  jamais sur `startsAt` : la tranche de nuit commence à 22 h ou 23 h UTC la
+   *  veille, et la date sauterait d'un jour une fois sur quatre. */
+  stepIndex: number;
   region: Region;
   condition: WeatherCondition;
-  intensity: number;
+  /** En degrés. */
+  temperature: number;
+  /** De 0 à 100. */
+  humidite: number;
+  /** En hectopascals. */
+  pression: number;
+  /** En kilomètres à l'heure. */
+  vent: number;
+  /** De 0 à 100 : à 100, on voit jusqu'à l'horizon. */
+  visibilite: number;
+  /** De 0 à 100. */
+  precipitation: number;
   startsAt: string;
   endsAt: string;
-  note: string | null;
+};
+
+/** Une cellule de la grille, pour le calque de la carte. */
+export type WeatherCell = {
+  index: number;
+  condition: WeatherCondition;
+  precipitation: number;
+};
+
+/** Le tracé d'une zone, pour le calque de la carte et l'administration. */
+export type TerrainZoneOutline = {
+  id: string;
+  name: string;
+  terrain: Terrain;
+  region: Region | null;
+  altitude: number;
+  points: { x: number; y: number }[];
 };
 
 export type ReportRow = {

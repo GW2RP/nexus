@@ -9,7 +9,9 @@
     "lint": "eslint",
     "db:seed": "tsx scripts/seed.ts",
     "typecheck": "tsc --noEmit",
-    "db:role": "tsx scripts/set-role.ts"
+    "db:role": "tsx scripts/set-role.ts",
+    "meteo:terrains": "tsx scripts/seed-terrains.ts",
+    "meteo:simuler": "tsx --conditions=react-server scripts/meteo-simuler.ts"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.23",

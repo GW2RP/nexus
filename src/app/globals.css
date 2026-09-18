@@ -156,6 +156,91 @@
     );
   }
 
+  /* Les zones de terrain et le calque météo de la carte.
+     Leaflet pose `fill` et `stroke` en attributs de présentation : une règle CSS
+     les emporte, donc les teintes restent des jetons et ne s'écrivent jamais
+     dans le code. */
+  .gw2rp-zone {
+    fill-opacity: 0.1;
+    stroke-opacity: 0.6;
+  }
+
+  /* Le tracé en cours se distingue d'une zone enregistrée : trait plein, tireté,
+     parce qu'on a besoin de le suivre pendant qu'on le pose. */
+  .gw2rp-zone--trace {
+    fill-opacity: 0.18;
+    stroke-opacity: 1;
+    stroke-width: 3;
+    stroke-dasharray: 7 5;
+  }
+
+  .gw2rp-zone--eau {
+    fill: var(--rain);
+    stroke: var(--rain-edge);
+  }
+
+  .gw2rp-zone--marais {
+    fill: var(--success);
+    stroke: var(--success-edge);
+  }
+
+  .gw2rp-zone--relief {
+    fill: var(--ink-muted);
+    stroke: var(--ink);
+  }
+
+  .gw2rp-zone--aride {
+    fill: var(--gold);
+    stroke: var(--gold-ink);
+  }
+
+  .gw2rp-zone--foret {
+    fill: var(--success);
+    stroke: var(--gold-ink);
+  }
+
+  .gw2rp-zone--neutre {
+    fill: var(--rule);
+    stroke: var(--ink-subtle);
+  }
+
+  .gw2rp-cell--eau {
+    fill: var(--rain);
+  }
+
+  .gw2rp-cell--marais {
+    fill: var(--success);
+  }
+
+  .gw2rp-cell--relief {
+    fill: var(--ink-muted);
+  }
+
+  .gw2rp-cell--aride {
+    fill: var(--gold);
+  }
+
+  .gw2rp-cell--foret {
+    fill: var(--success);
+  }
+
+  .gw2rp-cell--neutre {
+    fill: var(--ink-subtle);
+  }
+
+  /* Les sommets du tracé en cours : des pastilles numérotées, donc rondes. */
+  .gw2rp-vertex {
+    display: grid;
+    place-items: center;
+    border: 2px solid var(--crimson-edge);
+    border-radius: 999px;
+    background: var(--crimson);
+    color: var(--on-crimson);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+  }
+
   /* Le double cadre : signature du système. */
   .framed {
     border: var(--border-frame) solid var(--rule);

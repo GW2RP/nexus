@@ -1,112 +1,138 @@
 import type { Metadata } from "next";
 
-import { WeatherBadge } from "@/components/content/weather-badge";
-import { WeatherForm } from "@/components/forms/weather-form";
 import { WeatherGlyph } from "@/components/type-glyph";
-import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { REGION_LABELS, WEATHER_LABELS } from "@/lib/domain";
 import { formatLongDate } from "@/lib/dates";
-import { isStoryteller } from "@/lib/permissions";
 import { buildMetadata } from "@/lib/seo";
-import { getCurrentUser } from "@/lib/session";
 import { formatTyrianDate } from "@/lib/tyrian-calendar";
+import {
+  STEP_SLICE_EYEBROWS,
+  civilDayOfStep,
+  sliceOf,
+} from "@/lib/weather/schedule";
 import { getCurrentWeather, getUpcomingWeather } from "@/server/queries/weather";
+import type { WeatherEntry } from "@/server/types";
 
 export const metadata: Metadata = buildMetadata({
   title: "Météo des régions",
   description:
-    "La météo tyrienne en cours et la frise des saisons à venir : dégagé, nuages, pluie fine, orage, brume ou neige, région par région.",
+    "La météo tyrienne en cours et les tranches à venir : dégagé, nuages, pluie fine, orage, brume ou neige, région par région.",
   path: "/meteo",
   keywords: ["météo tyrienne", "saisons Guild Wars 2 RP"],
 });
 
+// La page lit le dernier pas de simulation : elle se rend à la requête.
+export const dynamic = "force-dynamic";
+
+function Grandeur({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border-t border-hairline pt-2">
+      <dt className="font-display text-[11px] font-medium tracking-[1.4px] text-gold-ink">
+        {label}
+      </dt>
+      <dd className="mt-1 text-[18px] text-ink">{value}</dd>
+    </div>
+  );
+}
+
+function Bulletin({ entry }: { entry: WeatherEntry }) {
+  return (
+    <article className="border-2 border-rule bg-surface p-5">
+      <header className="flex items-start gap-3">
+        <WeatherGlyph condition={entry.condition} size={24} className="mt-1 text-rain" />
+        <div className="min-w-0">
+          <h3 className="font-display text-[20px] font-semibold tracking-[1px]">
+            {REGION_LABELS[entry.region]}
+          </h3>
+          <p className="mt-1 text-[17px] text-ink-body">{WEATHER_LABELS[entry.condition]}</p>
+        </div>
+      </header>
+
+      <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3">
+        <Grandeur label="TEMPÉRATURE" value={`${entry.temperature} °C`} />
+        <Grandeur label="VENT" value={`${entry.vent} km/h`} />
+        <Grandeur label="HUMIDITÉ" value={`${entry.humidite} %`} />
+        <Grandeur label="PRESSION" value={`${entry.pression} hPa`} />
+        <Grandeur label="PRÉCIPITATIONS" value={`${entry.precipitation} %`} />
+        <Grandeur label="VISIBILITÉ" value={`${entry.visibilite} %`} />
+      </dl>
+    </article>
+  );
+}
+
 export default async function WeatherPage() {
-  const user = await getCurrentUser();
-  const [current, upcoming] = await Promise.all([getCurrentWeather(), getUpcomingWeather(12)]);
+  const [current, upcoming] = await Promise.all([getCurrentWeather(), getUpcomingWeather(6)]);
+
+  // Les tranches à venir, regroupées : le moteur est déterministe, donc ce qui
+  // s'affiche ici est exactement ce que la tâche planifiée écrira.
+  const tranches = new Map<string, WeatherEntry[]>();
+  for (const entry of upcoming) {
+    const list = tranches.get(entry.startsAt);
+    if (list) list.push(entry);
+    else tranches.set(entry.startsAt, [entry]);
+  }
+
+  const courant = current[0] ?? null;
 
   return (
     <div className="mx-auto max-w-[1080px] px-gutter-mobile py-10 lg:px-gutter-desktop">
-      <PageHeader title="Météo des régions" />
+      <PageHeader
+        eyebrow={
+          courant
+            ? `${STEP_SLICE_EYEBROWS[sliceOf(courant.stepIndex)]} · ${formatLongDate(new Date(courant.startsAt))} · ${formatTyrianDate(civilDayOfStep(courant.stepIndex))}`
+            : undefined
+        }
+        title="Météo des régions"
+      />
 
-      <div className="flex flex-col gap-12 lg:flex-row lg:gap-14">
-        <div className="min-w-0 flex-1">
-          <section className="mb-10" aria-labelledby="en-cours">
-            <SectionHeading id="en-cours" title="En ce moment" />
-            {current.length > 0 ? (
-              <ul className="flex flex-wrap gap-4">
-                {current.map((entry) => (
-                  <li key={entry.id}>
-                    <WeatherBadge weather={entry} />
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <EmptyState
-                title="Le ciel est vide"
-              />
-            )}
-          </section>
+      <section className="mb-12" aria-labelledby="en-cours">
+        <SectionHeading id="en-cours" title="En ce moment" />
+        {current.length > 0 ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {current.map((entry) => (
+              <Bulletin key={entry.id} entry={entry} />
+            ))}
+          </div>
+        ) : (
+          <EmptyState title="Le ciel est vide" />
+        )}
+      </section>
 
-          <section aria-labelledby="frise">
-            <SectionHeading id="frise" title="La frise de saison" />
-            {upcoming.length > 0 ? (
-              <ul className="flex flex-col">
-                {upcoming.map((entry) => (
-                  <li
-                    key={entry.id}
-                    className="flex items-start gap-4 border-b border-hairline py-4 last:border-b-0"
-                  >
-                    <WeatherGlyph
-                      condition={entry.condition}
-                      size={20}
-                      className="mt-1 text-rain"
-                    />
-                    <div className="min-w-0">
-                      <p className="font-display text-[18px] font-semibold tracking-[1px]">
-                        {WEATHER_LABELS[entry.condition]} sur {REGION_LABELS[entry.region]}
-                      </p>
-                      <p className="mt-1 text-[16px] text-ink-muted">
-                        {formatLongDate(new Date(entry.startsAt))} →{" "}
-                        {formatLongDate(new Date(entry.endsAt))} ·{" "}
-                        {formatTyrianDate(new Date(entry.startsAt))} · intensité{" "}
-                        {entry.intensity} %
-                      </p>
-                      {entry.note ? (
-                        <p className="mt-1 text-[17px] text-ink-body">{entry.note}</p>
-                      ) : null}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <EmptyState title="Rien d'annoncé" />
-            )}
-          </section>
-        </div>
-
-        <aside className="lg:w-[360px] lg:shrink-0">
-          <Card accent className="p-6">
-            <h2 className="mb-2 font-display text-[18px] font-semibold tracking-[1px]">
-              POSER UNE MÉTÉO
-            </h2>
-            <p className="mb-4 text-[17px] leading-[1.5] text-ink-body">
-              L'écriture est réservée aux conteurs et à l'administration. Une entrée couvre une
-              région et une période.
-            </p>
-            {isStoryteller(user) ? (
-              <WeatherForm />
-            ) : (
-              <p className="text-[17px] leading-[1.5] text-ink-muted">
-                Votre rôle ne permet pas de poser la météo. Demandez-le à l'équipe si vous
-                menez des scènes qui en ont besoin.
-              </p>
-            )}
-          </Card>
-        </aside>
-      </div>
+      <section aria-labelledby="a-venir">
+        <SectionHeading id="a-venir" title="Les tranches à venir" />
+        {tranches.size > 0 ? (
+          <ul className="flex flex-col">
+            {[...tranches].map(([startsAt, entries]) => {
+              const debut = new Date(startsAt);
+              const pas = entries[0].stepIndex;
+              return (
+                <li key={startsAt} className="border-b border-hairline py-4 last:border-b-0">
+                  <p className="font-display text-[11px] font-medium tracking-[1.4px] text-gold-ink">
+                    {STEP_SLICE_EYEBROWS[sliceOf(pas)]} · {formatLongDate(debut)} ·{" "}
+                    {formatTyrianDate(civilDayOfStep(pas))}
+                  </p>
+                  <ul className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
+                    {entries.map((entry) => (
+                      <li key={entry.id} className="flex items-center gap-2">
+                        <WeatherGlyph condition={entry.condition} size={18} className="text-rain" />
+                        <span className="text-[17px] text-ink">
+                          {REGION_LABELS[entry.region]} · {WEATHER_LABELS[entry.condition]} ·{" "}
+                          {entry.temperature} °C
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <EmptyState title="Rien à annoncer" />
+        )}
+      </section>
     </div>
   );
 }

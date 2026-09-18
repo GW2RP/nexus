@@ -9,7 +9,7 @@ import {
   REGIONS,
   REPORT_REASONS,
   REPORT_TARGETS,
-  WEATHER_CONDITIONS,
+  TERRAINS,
 } from "@/lib/domain";
 
 /** Un formulaire HTML envoie « » pour un champ vidé et pour une option « aucun ».
@@ -141,19 +141,33 @@ export const rumorSchema = z.object({
   region: optionalEnum(REGIONS),
 });
 
-export const weatherSchema = z
-  .object({
-    region: z.enum(REGIONS),
-    condition: z.enum(WEATHER_CONDITIONS),
-    intensity: z.coerce.number().int().min(0).max(100).default(50),
-    startsAt: z.coerce.date({ message: "La date de début est attendue." }),
-    endsAt: z.coerce.date({ message: "La date de fin est attendue." }),
-    note: optionalText(240),
-  })
-  .refine((value) => value.endsAt > value.startsAt, {
-    message: "La fin vient après le début.",
-    path: ["endsAt"],
-  });
+/** Un sommet du tracé, borné par le continent lui-même. */
+const vertexSchema = z.object({
+  x: z.number().int().min(0).max(CONTINENT_WIDTH),
+  y: z.number().int().min(0).max(CONTINENT_HEIGHT),
+});
+
+/** Le tracé arrive en une seule chaîne JSON : le nombre de sommets est variable,
+ *  et deux champs par sommet ne se nomment pas. Un JSON illisible doit dire
+ *  pourquoi en français plutôt que de remonter une erreur de moteur. */
+const drawnPolygon = z.preprocess((value) => {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}, z.array(vertexSchema, { message: "Le tracé de la zone est illisible." })
+  .min(3, "Une zone demande au moins trois sommets.")
+  .max(120, "Une zone ne dépasse pas cent vingt sommets."));
+
+export const terrainZoneSchema = z.object({
+  name: trimmed(80).min(2, "Le nom fait au moins deux caractères."),
+  terrain: z.enum(TERRAINS),
+  region: optionalEnum(REGIONS),
+  altitude: z.coerce.number().int().min(0).max(100).default(0),
+  points: drawnPolygon,
+});
 
 export const reportSchema = z.object({
   targetType: z.enum(REPORT_TARGETS),

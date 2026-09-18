@@ -20,7 +20,7 @@ import { getCurrentUser } from "@/lib/session";
 import { deletePlaceAction } from "@/server/actions/places";
 import { listEvents } from "@/server/queries/events";
 import { getPlaceBySlug } from "@/server/queries/places";
-import { getWeatherForRegion } from "@/server/queries/weather";
+import { getWeatherAt, getWeatherForRegion } from "@/server/queries/weather";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -67,7 +67,11 @@ export default async function PlacePage({ params }: Props) {
 
   const [events, weather] = await Promise.all([
     listEvents({ placeId: place.id, limit: 6, viewerId: user?.id ?? null }),
-    getWeatherForRegion(place.region),
+    // Le lieu a des coordonnées : on prend le temps de sa cellule, pas la
+    // moyenne de sa région. La brume d'un marais n'est pas celle de la Kryte.
+    place.coordinates
+      ? getWeatherAt(place.coordinates, place.region)
+      : getWeatherForRegion(place.region),
   ]);
 
   const isOwner = canEditContent(user, place.authorId);
@@ -226,7 +230,11 @@ export default async function PlacePage({ params }: Props) {
 
           {weather ? (
             <section aria-labelledby="meteo-locale">
-              <SectionHeading id="meteo-locale" title="Météo sur la région" compact />
+              <SectionHeading
+                id="meteo-locale"
+                title={place.coordinates ? "Météo sur place" : "Météo sur la région"}
+                compact
+              />
               <WeatherBadge weather={weather} />
             </section>
           ) : null}
