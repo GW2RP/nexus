@@ -1,0 +1,39 @@
+import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+
+import { EventForm } from "@/components/forms/event-form";
+import { PageHeader } from "@/components/ui/page-header";
+import { canContribute } from "@/lib/permissions";
+import { buildMetadata } from "@/lib/seo";
+import { getCurrentUser } from "@/lib/session";
+import { listCharactersOf } from "@/server/queries/characters";
+import { listPlaceOptions } from "@/server/queries/places";
+
+export const metadata: Metadata = buildMetadata({
+  title: "Proposer un évènement",
+  description: "Annoncer une scène à l'agenda du hub GW2RP Nexus.",
+  path: "/evenements/nouveau",
+  noIndex: true,
+});
+
+export default async function NewEventPage() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/connexion?suite=/evenements/nouveau");
+  if (!canContribute(user)) redirect("/evenements");
+
+  const [places, characters] = await Promise.all([
+    listPlaceOptions(),
+    listCharactersOf(user.id),
+  ]);
+
+  return (
+    <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 lg:px-gutter-desktop">
+      <PageHeader
+        eyebrow="AGENDA"
+        title="Proposer un évènement"
+        subtitle="Les heures sont celles du serveur de jeu. L'agenda affiche la date réelle en premier et la date tyrienne en second."
+      />
+      <EventForm places={places} characters={characters} />
+    </div>
+  );
+}

@@ -1,0 +1,165 @@
+/* Tyrie RP — feuille d'entrée.
+ * Tailwind CSS v4 + shadcn/ui, branchés sur les jetons du design system.
+ * Les valeurs ne sont jamais recopiées ici : tout pointe vers tokens.css.
+ */
+
+@import "tailwindcss";
+/* Les jetons entrent dans la couche `base` : les styles de texte qu'ils portent
+   (.hero, .body, .meta…) restent donc surchargeables par un utilitaire Tailwind. */
+@import "./tokens.css" layer(base);
+
+/* Le thème sombre est porté par data-theme, pas par la classe .dark de shadcn.
+   On aligne la variante pour que les utilitaires dark: continuent de fonctionner. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme inline {
+  --color-ground: var(--ground);
+  --color-surface: var(--surface);
+  --color-surface-inset: var(--surface-inset);
+  --color-surface-selected: var(--surface-selected);
+
+  --color-ink: var(--ink);
+  --color-ink-body: var(--ink-body);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-subtle: var(--ink-subtle);
+
+  --color-rule: var(--rule);
+  --color-hairline: var(--hairline);
+
+  --color-gold: var(--gold);
+  --color-gold-ink: var(--gold-ink);
+  --color-gold-eyebrow: var(--gold-eyebrow);
+
+  --color-crimson: var(--crimson);
+  --color-crimson-edge: var(--crimson-edge);
+  --color-crimson-ink: var(--crimson-ink);
+  --color-on-crimson: var(--on-crimson);
+
+  --color-chip: var(--chip-bg);
+  --color-chip-edge: var(--chip-edge);
+
+  --color-success: var(--success);
+  --color-success-edge: var(--success-edge);
+  --color-neutral-badge: var(--neutral-badge);
+
+  --color-rain: var(--rain);
+  --color-rain-edge: var(--rain-edge);
+
+  --color-map-land: var(--map-land);
+  --color-map-land-edge: var(--map-land-edge);
+  --color-map-hatch-a: var(--map-hatch-a);
+  --color-map-hatch-b: var(--map-hatch-b);
+
+  --color-scrim: var(--scrim);
+
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+
+  --radius-none: var(--radius-none);
+  --radius-round: var(--radius-round);
+
+  --spacing-gutter-desktop: var(--gutter-desktop);
+  --spacing-gutter-app: var(--gutter-app);
+  --spacing-gutter-mobile: var(--gutter-mobile);
+  --spacing-tap: var(--tap-min);
+}
+
+/* --- shadcn/ui ------------------------------------------------------------
+   Un seul bloc : les jetons changent déjà de valeur avec data-theme,
+   donc il n'y a pas de duplication pour le thème sombre. */
+
+:root {
+  --background: var(--ground);
+  --foreground: var(--ink);
+
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+
+  --primary: var(--crimson);
+  --primary-foreground: var(--on-crimson);
+
+  --secondary: var(--chip-bg);
+  --secondary-foreground: var(--gold-ink);
+
+  --muted: var(--surface-inset);
+  --muted-foreground: var(--ink-muted);
+
+  --accent: var(--surface-selected);
+  --accent-foreground: var(--ink);
+
+  --destructive: var(--crimson);
+  --destructive-foreground: var(--on-crimson);
+
+  --border: var(--rule);
+  --input: var(--rule);
+  --ring: var(--gold);
+
+  --radius: 0;
+}
+
+/* Les polices sont chargées par next/font : on rebranche les familles des jetons
+   sur les variables qu'il expose, en gardant les mêmes replis. */
+:root {
+  --font-display: var(--font-cinzel, "Cinzel"), "Trajan Pro", Georgia, serif;
+  --font-body: var(--font-garamond, "EB Garamond"), Georgia, "Times New Roman", serif;
+}
+
+@layer base {
+  * {
+    border-color: var(--rule);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-body);
+  }
+
+  /* Le focus n'est jamais supprimé : contour doré, décalé de 2 px. */
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
+
+  /* Le système ne porte aucune animation. Si une transition est ajoutée, elle se coupe ici. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* La hachure à 135° des placeholders et des zones de carte. */
+  .hatch {
+    background: repeating-linear-gradient(
+      135deg,
+      var(--map-hatch-a) 0 11px,
+      var(--map-hatch-b) 11px 22px
+    );
+  }
+
+  .hatch-tight {
+    background: repeating-linear-gradient(
+      135deg,
+      var(--map-hatch-a) 0 8px,
+      var(--map-hatch-b) 8px 16px
+    );
+  }
+
+  /* Le double cadre : signature du système. */
+  .framed {
+    border: var(--border-frame) solid var(--rule);
+    padding: 10px;
+    background: var(--surface);
+  }
+}
