@@ -302,8 +302,14 @@ Deux pièges de fuseau, tous deux traités :
 
 Un pas porte la **cadence** qui l'a produit (`stepsPerDay`). Changer la cadence
 renumérote tout : le pas 215 de la nouvelle grille n'a rien à voir avec le 215 de
-l'ancienne, et reprendre le fil mélangerait deux mondes. L'avancement retire donc
-les pas d'une autre cadence avant de lire le dernier, et le dit dans le journal.
+l'ancienne, et reprendre le fil mélangerait deux mondes. L'avancement écarte donc
+un dernier pas d'une autre cadence, repart du pas courant, et retire les périmés
+en le disant dans le journal.
+
+L'appel qui n'a **rien à produire** — un sur deux, à battement horaire pour des
+pas de deux heures — rend la main sur une seule lecture : il ne cuit pas le
+terrain et n'écrit pas une ligne. Le ménage et la cuisson attendent le chemin qui
+écrit déjà.
 
 Un pas pèse **44 Ko** : huit champs de 2 240 entiers 16 bits, empaquetés
 (`src/lib/weather/pack.ts`), plus le terrain cuit au moment du pas. Un document

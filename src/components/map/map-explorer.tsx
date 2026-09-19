@@ -87,30 +87,36 @@ export function MapExplorer({
 
   // Une cellule prend la teinte du phénomène qui l'emporte, et le ciel sans rien
   // à montrer n'arrive jamais jusqu'ici.
-  const painted = useMemo<MapCell[]>(
+  const dominants = useMemo(
     () =>
       voirMeteo
         ? cells.flatMap((cell) => {
             const dominant = PHENOMENES.find((value) => cell.phenomenes.includes(value));
-            if (!dominant) return [];
-            return [
-              {
-                index: cell.index,
-                tone: PHENOMENE_TONES[dominant],
-                fill: 0.14 + (cell.precipitation / 100) * 0.26,
-              },
-            ];
+            return dominant ? [{ cell, dominant }] : [];
           })
         : [],
     [voirMeteo, cells],
   );
 
-  /** Ce qu'il y a réellement à l'écran : on ne nomme pas un phénomène absent. */
+  const painted = useMemo<MapCell[]>(
+    () =>
+      dominants.map(({ cell, dominant }) => ({
+        index: cell.index,
+        tone: PHENOMENE_TONES[dominant],
+        fill: 0.14 + (cell.precipitation / 100) * 0.26,
+      })),
+    [dominants],
+  );
+
+  /** Ce qu'il y a réellement à l'écran, donc les teintes **dessinées** et non
+   *  tout ce que portent les cellules : une cellule n'a qu'une teinte, celle du
+   *  phénomène qui l'emporte, et nommer un phénomène masqué donnerait une entrée
+   *  de légende dont la couleur n'apparaît nulle part. Le cumul reste lisible sur
+   *  `/meteo`, qui donne des nombres plutôt que des couleurs. */
   const presents = useMemo<Phenomene[]>(() => {
-    const vus = new Set<Phenomene>();
-    for (const cell of cells) for (const value of cell.phenomenes) vus.add(value);
+    const vus = new Set(dominants.map(({ dominant }) => dominant));
     return PHENOMENES.filter((value) => vus.has(value));
-  }, [cells]);
+  }, [dominants]);
 
   const pins = useMemo<MapPin[]>(() => {
     const placePins: MapPin[] = visiblePlaces

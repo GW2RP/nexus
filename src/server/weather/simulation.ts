@@ -9,9 +9,11 @@ import { TerrainZone } from "@/models/terrain-zone";
 import { WeatherStep, type WeatherStepDocument } from "@/models/weather-step";
 import { connectToDatabase } from "@/server/queries/shared";
 
-/** Au-delà, on ne rattrape pas pas à pas : la fonction expirerait. À douze pas
- *  par jour, trois jours d'absence se rattrapent encore. */
-const RATTRAPAGE_MAX = 36;
+/** Au-delà, on ne rattrape pas pas à pas : la fonction expirerait. La règle est
+ *  en jours, donc le plafond se déduit de la cadence — sans quoi il faudrait
+ *  penser à le retoucher à chaque fois qu'elle change. */
+const RATTRAPAGE_JOURS = 3;
+const RATTRAPAGE_MAX = RATTRAPAGE_JOURS * STEPS_PER_DAY;
 
 /** Trente jours d'historique suffisent ; le reste ne se lit jamais. */
 const RETENTION_JOURS = 30;
@@ -100,17 +102,30 @@ function documentFrom(state: WorldState, terrain: BakedTerrain) {
  */
 export async function advanceWeather(
   options: { now?: Date; maxSteps?: number } = {},
-): Promise<{ produced: number[]; terrainCells: number }> {
+): Promise<{ produced: number[] }> {
   await connectToDatabase();
 
   const now = options.now ?? new Date();
   const cible = stepIndexAt(now);
   const maxSteps = options.maxSteps ?? RATTRAPAGE_MAX;
 
+  // Le dernier pas d'abord, et rien d'autre. Un battement horaire pour des pas
+  // de deux heures fait qu'un appel sur deux n'a rien à produire : celui-là doit
+  // rendre la main sur une seule lecture, sans cuire le terrain ni écrire une
+  // ligne.
+  let dernier = await WeatherStep.findOne({}).sort({ stepIndex: -1 }).lean();
+
+  // Un pas d'une autre cadence est illisible : sa numérotation ne veut plus rien
+  // dire, et la reprendre mélangerait deux mondes. On l'écarte ici pour que le
+  // pas dû se calcule sur la bonne grille ; le ménage se fait plus bas, sur le
+  // chemin qui écrit déjà.
+  if (dernier && dernier.stepsPerDay !== STEPS_PER_DAY) dernier = null;
+
+  if (dernier && dernier.stepIndex >= cible) return { produced: [] };
+
   const terrain = await bakeFromZones();
 
-  // Les pas d'une autre cadence sont illisibles : leur numérotation ne veut plus
-  // rien dire, et la reprendre mélangerait deux mondes. On repart proprement.
+  // Ici seulement : l'appel qui n'a rien à produire n'aura rien écrit.
   const perimes = await WeatherStep.deleteMany({ stepsPerDay: { $ne: STEPS_PER_DAY } });
   if (perimes.deletedCount > 0) {
     console.info(
@@ -118,27 +133,19 @@ export async function advanceWeather(
     );
   }
 
-  const dernier = await WeatherStep.findOne({}).sort({ stepIndex: -1 }).lean();
-
-  let state: WorldState;
-  let depart: number;
-
-  if (!dernier || dernier.stepIndex >= cible) {
-    if (dernier && dernier.stepIndex >= cible) {
-      return { produced: [], terrainCells: terrain.terrain.length };
-    }
+  if (!dernier) {
     // Rien en base : on amorce le monde sur le pas courant.
-    state = seedState(cible, terrain);
+    const amorce = seedState(cible, terrain);
     await WeatherStep.updateOne(
       { stepIndex: cible },
-      { $setOnInsert: documentFrom(state, terrain) },
+      { $setOnInsert: documentFrom(amorce, terrain) },
       { upsert: true },
     );
-    return { produced: [cible], terrainCells: terrain.terrain.length };
+    return { produced: [cible] };
   }
 
-  state = stateFromDocument(dernier as StoredStep);
-  depart = dernier.stepIndex;
+  let state: WorldState = stateFromDocument(dernier as StoredStep);
+  let depart = dernier.stepIndex;
 
   // Une absence longue ne se rejoue pas pas à pas : on reprend le fil plus près.
   if (cible - depart > maxSteps) depart = cible - maxSteps;
@@ -159,5 +166,5 @@ export async function advanceWeather(
     await WeatherStep.deleteMany({ endsAt: { $lt: limite } });
   }
 
-  return { produced, terrainCells: terrain.terrain.length };
+  return { produced };
 }
