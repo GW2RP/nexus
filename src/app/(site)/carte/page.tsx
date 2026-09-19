@@ -6,7 +6,7 @@ import { buildMetadata } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
 import { listEvents } from "@/server/queries/events";
 import { listPlacesForMap } from "@/server/queries/places";
-import { getCurrentWeather, getWeatherCells, listTerrainZones } from "@/server/queries/weather";
+import { getCurrentWeather, getWeatherAreas, listTerrainZones } from "@/server/queries/weather";
 
 export const metadata: Metadata = buildMetadata({
   title: "La carte de Tyrie",
@@ -24,12 +24,12 @@ export default async function MapPage({
   const { lieu } = await searchParams;
   const user = await getCurrentUser();
 
-  const [places, events, weather, zones, cells] = await Promise.all([
+  const [places, events, weather, zones, areas] = await Promise.all([
     listPlacesForMap(),
     listEvents({ viewerId: user?.id ?? null, limit: 60 }),
     getCurrentWeather(),
     listTerrainZones(),
-    getWeatherCells(),
+    getWeatherAreas(),
   ]);
 
   return (
@@ -40,7 +40,7 @@ export default async function MapPage({
         events={events}
         weather={weather}
         zones={zones}
-        cells={cells}
+        areas={areas}
         initialPlaceSlug={lieu}
         canPropose={canContribute(user)}
       />

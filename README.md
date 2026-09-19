@@ -184,7 +184,7 @@ vrai, et chaque pin garde un centre à soi où cliquer.
 ## La météo
 
 Elle n'est pas écrite, elle est **simulée**. Un pas **toutes les deux heures**,
-soit douze par jour, sur une grille de **40 × 56 = 2 240 cellules** de 2 048 px.
+soit douze par jour, sur une grille de **80 × 112 = 8 960 cellules** de 1 024 px.
 
 La tranche — nuit, matin, après-midi, soirée — se lit désormais sur l'**heure**
 du pas et non sur son rang : à six heures de pas une tranche valait un pas, à
@@ -195,8 +195,21 @@ sache laquelle est laquelle.
 La maille n'est pas choisie pour le continent mais pour la partie habitée : le
 rectangle du continent est très majoritairement vide, et les six régions du hub
 tiennent dans environ 22 000 × 21 000 px. À 4 096 px la Kryte entière faisait
-trois cellules et un marais n'y pouvait rien changer ; à 2 048 px elle en fait
-une douzaine.
+trois cellules et un marais n'y pouvait rien changer ; à 1 024 px elle en fait
+une cinquantaine, et un relief s'y dessine au détail.
+
+**La finesse ne change pas le climat.** Les grandeurs spatiales du moteur sont
+écrites pour une maille de référence et converties, comme les taux le sont pour
+la cadence — sans quoi diviser la maille rétrécirait les dépressions de moitié et
+ralentirait les fronts d'autant. Mesuré au passage de 2 048 à 1 024 px : vent
+fort 3,14 → 3,13 %, forte chaleur 16,7 → 16,3 %, pression inchangée au
+hectopascal.
+
+Ce que la finesse change, c'est la **concentration** : humidité médiane 58 → 64,
+pointe de précipitation 63 → 100, surface qui précipite 20,5 → 14,8 %. Même eau,
+moins étalée — une averse plus nette sur un territoire plus petit. La grille
+pèse en retour quatre fois plus : **176 Ko par pas**, soit 62 Mo conservés sur
+trente jours au lieu de 16.
 
 ### Ce que fait un pas
 
@@ -365,6 +378,29 @@ plus qu'une bruine.
 
 La légende ne liste que les phénomènes **effectivement présents** au pas courant :
 rien d'inventé, et aucune entrée morte un jour de beau temps.
+
+**La carte ne montre pas la maille.** Les cellules d'un même phénomène sont
+recousues en **une seule zone** (`src/lib/weather/contours.ts`), qui porte son
+symbole au milieu. Une grille annonce sa résolution ; un contour dit où il pleut,
+et c'est la seule chose à savoir. Le tracé se fait au bord : on garde les côtés
+de cellule qui séparent la tache de l'extérieur, on jette ceux qui séparent deux
+cellules de la même tache, et on recoud le reste en anneaux fermés. Une tache
+peut être percée, donc elle rend plusieurs anneaux — le premier la cerne, les
+suivants la percent — et le symbole tombe toujours sur une cellule de la tache,
+jamais dans un trou.
+
+L'invariant qui le prouve : sur une tache tirée au hasard, l'aire du contour
+moins celle des trous vaut **exactement** le nombre de cellules. Relevé à
+l'écran, les 8 960 cellules de la grille se ramènent à une dizaine de zones de
+quatre à seize sommets.
+
+**La sonde.** L'interrupteur `SONDER` relève le temps au point cliqué : sa
+condition, ses phénomènes, sa région, son terrain et ses six grandeurs. La grille
+entière ne peut pas voyager jusqu'au navigateur — 8 960 cellules et dix
+grandeurs — alors qu'un relevé tient en quelques nombres, d'où la route de
+lecture `/api/meteo/point`, publique comme la météo elle-même. La sonde se met en
+marche pour ne pas voler le clic qui choisit un lieu, et s'éteindre retire le
+relevé avec sa croix : un repère que plus rien ne nomme n'apprend rien.
 
 **Sur un téléphone, rien ne se pose sur la carte** sauf les deux interrupteurs.
 La légende et les bulletins de région descendent dans une bande sous la carte —

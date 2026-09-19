@@ -30,6 +30,10 @@ const weatherStepSchema = new Schema(
      *  `jours × cadence + rang` : changer de cadence renumérote tout, donc un
      *  pas d'une autre cadence n'est pas seulement vieux, il est illisible. */
     stepsPerDay: { type: Number, required: true },
+    /** La finesse de maille qui l'a produit. Les champs sont empaquetés pour un
+     *  nombre de cellules donné : relus sur une autre grille, ils ne veulent
+     *  rien dire. `unpackInt16` lèverait — mieux vaut ne pas les relire. */
+    cellSize: { type: Number, required: true },
     startsAt: { type: Date, required: true, index: true },
     endsAt: { type: Date, required: true },
     seed: { type: Number, required: true },

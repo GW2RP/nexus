@@ -4,9 +4,10 @@ import { cache } from "react";
 
 import { REGIONS, WEATHER_CONDITIONS, type Region, type Terrain, type WeatherCondition } from "@/lib/domain";
 import { advanceStep, readCell, type WorldState } from "@/lib/weather/engine";
-import { phenomenesOf } from "@/lib/weather/phenomena";
-import { CELL_COUNT, cellIndexAt, type BakedTerrain } from "@/lib/weather/grid";
-import { stepEnd, stepStart } from "@/lib/weather/schedule";
+import { PHENOMENES, phenomenesOf, type Phenomene } from "@/lib/weather/phenomena";
+import { contourDe, taches } from "@/lib/weather/contours";
+import { CELL_COUNT, CELL_SIZE, cellIndexAt, type BakedTerrain } from "@/lib/weather/grid";
+import { STEPS_PER_DAY, stepEnd, stepStart } from "@/lib/weather/schedule";
 import { TerrainZone } from "@/models/terrain-zone";
 import { WeatherStep } from "@/models/weather-step";
 import { connectToDatabase, toIso } from "@/server/queries/shared";
@@ -16,14 +17,29 @@ import {
   terrainFromDocument,
   type StoredStep,
 } from "@/server/weather/simulation";
-import type { TerrainZoneOutline, WeatherCell, WeatherEntry } from "@/server/types";
+import type {
+  TerrainZoneOutline,
+  WeatherArea,
+  WeatherEntry,
+  WeatherProbe,
+} from "@/server/types";
 
 type Loaded = { state: WorldState; terrain: BakedTerrain };
 
-/** Le dernier pas écrit, dépaqueté une seule fois par rendu de page. */
+/**
+ * Le dernier pas écrit, dépaqueté une seule fois par rendu de page.
+ *
+ * La lecture filtre sur la maille et la cadence courantes. L'avancement purge
+ * bien les pas d'une autre grille, mais il ne passe qu'une fois par heure : entre
+ * un déploiement qui change la maille et le cron suivant, le dernier pas en base
+ * est illisible, et `unpackInt16` lèverait sur chaque page du hub. Mieux vaut
+ * n'afficher aucune météo qu'en afficher une fausse — ou planter.
+ */
 const loadCurrentStep = cache(async (): Promise<Loaded | null> => {
   await connectToDatabase();
-  const doc = await WeatherStep.findOne({}).sort({ stepIndex: -1 }).lean();
+  const doc = await WeatherStep.findOne({ cellSize: CELL_SIZE, stepsPerDay: STEPS_PER_DAY })
+    .sort({ stepIndex: -1 })
+    .lean();
   if (!doc) return null;
   const stored = doc as StoredStep;
   return { state: stateFromDocument(stored), terrain: terrainFromDocument(stored) };
@@ -155,30 +171,87 @@ export async function getUpcomingWeather(limit = 8): Promise<WeatherEntry[]> {
 }
 
 /**
- * Les cellules qui ont quelque chose à montrer.
+ * Les taches de ciel, prêtes à dessiner.
  *
  * Un ciel dégagé ne se dessine pas — mais une cellule dégagée peut porter une
  * forte chaleur ou un vent fort, donc le tri se fait sur les phénomènes, pas sur
- * la condition.
+ * la condition. Une cellule ne porte qu'une teinte, celle du phénomène qui
+ * l'emporte, donc elle n'entre que dans une tache.
+ *
+ * Le contour se calcule ici plutôt qu'au navigateur : c'est de la géométrie
+ * pure, et une tache pèse bien moins que les cellules qui la composent —
+ * mesuré, les 8 960 cellules de la grille tiennent en quelques dizaines de
+ * sommets une fois recousues.
  */
-export async function getWeatherCells(): Promise<WeatherCell[]> {
+export async function getWeatherAreas(): Promise<WeatherArea[]> {
   const loaded = await loadCurrentStep();
   if (!loaded) return [];
 
-  const cells: WeatherCell[] = [];
+  const parPhenomene = new Map<Phenomene, number[]>();
+  const precipitations = new Map<number, number>();
   for (let index = 0; index < CELL_COUNT; index += 1) {
     if (!loaded.terrain.region[index]) continue;
     const cell = readCell(loaded.state, index, loaded.terrain);
-    const phenomenes = phenomenesOf(cell);
-    if (phenomenes.length === 0) continue;
-    cells.push({
-      index,
-      condition: cell.condition,
-      precipitation: cell.precipitation,
-      phenomenes,
-    });
+    const portes = phenomenesOf(cell);
+    if (portes.length === 0) continue;
+    const dominant = PHENOMENES.find((value) => portes.includes(value));
+    if (!dominant) continue;
+    precipitations.set(index, cell.precipitation);
+    const liste = parPhenomene.get(dominant);
+    if (liste) liste.push(index);
+    else parPhenomene.set(dominant, [index]);
   }
-  return cells;
+
+  const zones: WeatherArea[] = [];
+  for (const phenomene of PHENOMENES) {
+    const cellules = parPhenomene.get(phenomene);
+    if (!cellules) continue;
+    for (const tache of taches(cellules)) {
+      const contour = contourDe(tache);
+      if (contour.anneaux.length === 0) continue;
+      const pluie =
+        tache.reduce((somme, index) => somme + (precipitations.get(index) ?? 0), 0) / tache.length;
+      zones.push({
+        id: `${phenomene}-${tache[0]}`,
+        phenomene,
+        anneaux: contour.anneaux,
+        centre: contour.centre,
+        cellules: contour.cellules,
+        precipitation: Math.round(pluie),
+      });
+    }
+  }
+  return zones;
+}
+
+/**
+ * Le temps en un point précis de la carte.
+ *
+ * La région est celle de la cellule — contrairement à une fiche, qui déclare la
+ * sienne : on sonde un point, pas un contenu, donc il n'y a rien à respecter.
+ * Une cellule hors région rend `null`, et l'écran le dit plutôt que d'inventer.
+ */
+export async function getWeatherProbe(x: number, y: number): Promise<WeatherProbe | null> {
+  const loaded = await loadCurrentStep();
+  if (!loaded) return null;
+
+  const index = cellIndexAt(x, y);
+  const cell = readCell(loaded.state, index, loaded.terrain);
+  return {
+    x,
+    y,
+    region: loaded.terrain.region[index],
+    terrain: loaded.terrain.terrain[index],
+    condition: cell.condition,
+    phenomenes: phenomenesOf(cell),
+    temperature: cell.temperature,
+    humidite: cell.humidite,
+    pression: cell.pression,
+    vent: cell.vent,
+    visibilite: cell.visibilite,
+    precipitation: cell.precipitation,
+    stepIndex: loaded.state.stepIndex,
+  };
 }
 
 export async function listTerrainZones(): Promise<TerrainZoneOutline[]> {

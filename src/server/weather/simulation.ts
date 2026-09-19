@@ -2,7 +2,13 @@ import "server-only";
 
 import { REGIONS, TERRAINS, type Region, type Terrain } from "@/lib/domain";
 import { advanceStep, seedState, type WorldState } from "@/lib/weather/engine";
-import { CELL_COUNT, bakeTerrain, type BakedTerrain, type ZoneShape } from "@/lib/weather/grid";
+import {
+  CELL_COUNT,
+  CELL_SIZE,
+  bakeTerrain,
+  type BakedTerrain,
+  type ZoneShape,
+} from "@/lib/weather/grid";
 import { PACK_SCALE_TEMPERATURE, packInt16, packScaled, unpackInt16, unpackScaled } from "@/lib/weather/pack";
 import { STEPS_PER_DAY, stepEnd, stepIndexAt, stepStart } from "@/lib/weather/schedule";
 import { TerrainZone } from "@/models/terrain-zone";
@@ -71,6 +77,7 @@ function documentFrom(state: WorldState, terrain: BakedTerrain) {
   return {
     stepIndex: state.stepIndex,
     stepsPerDay: STEPS_PER_DAY,
+    cellSize: CELL_SIZE,
     startsAt: stepStart(state.stepIndex),
     endsAt: stepEnd(state.stepIndex),
     seed: state.seed,
@@ -115,21 +122,25 @@ export async function advanceWeather(
   // ligne.
   let dernier = await WeatherStep.findOne({}).sort({ stepIndex: -1 }).lean();
 
-  // Un pas d'une autre cadence est illisible : sa numérotation ne veut plus rien
-  // dire, et la reprendre mélangerait deux mondes. On l'écarte ici pour que le
-  // pas dû se calcule sur la bonne grille ; le ménage se fait plus bas, sur le
-  // chemin qui écrit déjà.
-  if (dernier && dernier.stepsPerDay !== STEPS_PER_DAY) dernier = null;
+  // Un pas d'une autre cadence ou d'une autre maille est illisible : sa
+  // numérotation ne veut plus rien dire, ses champs sont empaquetés pour un
+  // autre nombre de cellules. On l'écarte ici pour que le pas dû se calcule sur
+  // la bonne grille ; le ménage se fait plus bas, sur le chemin qui écrit déjà.
+  if (dernier && (dernier.stepsPerDay !== STEPS_PER_DAY || dernier.cellSize !== CELL_SIZE)) {
+    dernier = null;
+  }
 
   if (dernier && dernier.stepIndex >= cible) return { produced: [] };
 
   const terrain = await bakeFromZones();
 
   // Ici seulement : l'appel qui n'a rien à produire n'aura rien écrit.
-  const perimes = await WeatherStep.deleteMany({ stepsPerDay: { $ne: STEPS_PER_DAY } });
+  const perimes = await WeatherStep.deleteMany({
+    $or: [{ stepsPerDay: { $ne: STEPS_PER_DAY } }, { cellSize: { $ne: CELL_SIZE } }],
+  });
   if (perimes.deletedCount > 0) {
     console.info(
-      `Cadence changée : ${perimes.deletedCount} pas d'une autre cadence retirés, la simulation repart.`,
+      `Grille changée : ${perimes.deletedCount} pas d'une autre cadence ou maille retirés, la simulation repart.`,
     );
   }
 

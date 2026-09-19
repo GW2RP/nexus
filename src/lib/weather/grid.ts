@@ -1,14 +1,21 @@
 /**
  * La grille de simulation, posée sur le continent.
  *
- * Une cellule fait 2 048 px : 81 920 / 2 048 = 40 et 114 688 / 2 048 = 56, donc
+ * Une cellule fait 1 024 px : 81 920 / 1 024 = 80 et 114 688 / 1 024 = 112, donc
  * la grille tombe juste sur les deux dimensions, sans cellule tronquée au bord.
  *
  * La maille n'est pas choisie pour le continent mais pour la partie habitée. Le
  * rectangle du continent est très majoritairement vide : les six régions du hub
  * tiennent dans environ 22 000 × 21 000 px. À 4 096 px la Kryte entière faisait
- * trois cellules, et un marais ne pouvait pas y différer de la plaine voisine.
- * À 2 048 px elle en fait une douzaine, et la zone dessinée sert à quelque chose.
+ * trois cellules, et un marais ne pouvait pas y différer de la plaine voisine ;
+ * à 1 024 px elle en fait une cinquantaine, et un relief se dessine au détail.
+ *
+ * **La finesse de la maille ne change pas le temps qu'il fait.** Les grandeurs
+ * spatiales du moteur — rayon et vitesse d'un système, gradient de pression,
+ * distance parcourue par un front — sont écrites pour une maille de référence et
+ * converties, exactement comme les taux le sont pour la cadence. Sans cela,
+ * diviser la maille par deux rétrécirait les dépressions de moitié et
+ * ralentirait les fronts d'autant.
  *
  * Ce fichier ne touche ni la base ni Leaflet : il se rejoue en ligne de commande.
  */
@@ -16,10 +23,15 @@
 import { CONTINENT_HEIGHT, CONTINENT_WIDTH } from "@/lib/map";
 import type { Region, Terrain } from "@/lib/domain";
 
-export const CELL_SIZE = 2_048;
-export const GRID_COLS = CONTINENT_WIDTH / CELL_SIZE; // 40
-export const GRID_ROWS = CONTINENT_HEIGHT / CELL_SIZE; // 56
-export const CELL_COUNT = GRID_COLS * GRID_ROWS; // 2 240
+export const CELL_SIZE = 1_024;
+export const GRID_COLS = CONTINENT_WIDTH / CELL_SIZE; // 80
+export const GRID_ROWS = CONTINENT_HEIGHT / CELL_SIZE; // 112
+export const CELL_COUNT = GRID_COLS * GRID_ROWS; // 8 960
+
+/** La maille pour laquelle les grandeurs spatiales du moteur sont écrites. */
+export const MAILLE_DE_REFERENCE = 2_048;
+/** Combien de cellules d'aujourd'hui dans une cellule de référence. */
+export const FINESSE = MAILLE_DE_REFERENCE / CELL_SIZE;
 
 export type Point = { x: number; y: number };
 

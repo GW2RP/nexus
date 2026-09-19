@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 
 import { PhenomeneGlyph, PlaceGlyph, WeatherGlyph } from "@/components/type-glyph";
 import { MapCanvas } from "@/components/map/map-canvas";
-import type { MapCell, MapPin, MapShape } from "@/components/map/tyria-map";
+import type { MapArea, MapPin, MapShape } from "@/components/map/tyria-map";
 import { SearchIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/field";
@@ -13,6 +13,7 @@ import {
   PLACE_TYPES,
   PLACE_TYPE_LABELS,
   REGION_LABELS,
+  TERRAIN_LABELS,
   WEATHER_LABELS,
   type PlaceType,
 } from "@/lib/domain";
@@ -28,8 +29,9 @@ import type {
   EventSummary,
   PlaceSummary,
   TerrainZoneOutline,
-  WeatherCell,
+  WeatherArea,
   WeatherEntry,
+  WeatherProbe,
 } from "@/server/types";
 
 export function MapExplorer({
@@ -37,7 +39,7 @@ export function MapExplorer({
   events,
   weather,
   zones,
-  cells,
+  areas,
   initialPlaceSlug,
   canPropose,
 }: {
@@ -45,7 +47,7 @@ export function MapExplorer({
   events: EventSummary[];
   weather: WeatherEntry[];
   zones: TerrainZoneOutline[];
-  cells: WeatherCell[];
+  areas: WeatherArea[];
   initialPlaceSlug?: string;
   canPropose: boolean;
 }) {
@@ -54,6 +56,12 @@ export function MapExplorer({
   // est justement ce qui montre pourquoi il pleut là et pas ailleurs.
   const [voirMeteo, setVoirMeteo] = useState(true);
   const [voirTerrains, setVoirTerrains] = useState(false);
+  // La sonde : un clic sur la carte relève le temps qu'il y fait. Elle se met en
+  // marche pour ne pas voler le clic qui choisit un lieu.
+  const [sonder, setSonder] = useState(false);
+  const [releve, setReleve] = useState<WeatherProbe | null>(null);
+  const [sondeEnCours, setSondeEnCours] = useState(false);
+  const [sondeEnPanne, setSondeEnPanne] = useState(false);
   const [typeFilter, setTypeFilter] = useState<PlaceType | null>(null);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -84,38 +92,50 @@ export function MapExplorer({
     [voirTerrains, zones],
   );
 
-  // Une cellule prend la teinte du phénomène qui l'emporte, et le ciel sans rien
-  // à montrer n'arrive jamais jusqu'ici.
-  const dominants = useMemo(
+  // Une tache par phénomène, recousue côté serveur. L'opacité suit la pluie
+  // moyenne de la tache : une averse se voit plus qu'une bruine.
+  const peintes = useMemo<MapArea[]>(
     () =>
       voirMeteo
-        ? cells.flatMap((cell) => {
-            const dominant = PHENOMENES.find((value) => cell.phenomenes.includes(value));
-            return dominant ? [{ cell, dominant }] : [];
-          })
+        ? areas.map((area) => ({
+            id: area.id,
+            anneaux: area.anneaux,
+            tone: PHENOMENE_TONES[area.phenomene],
+            fill: 0.14 + (area.precipitation / 100) * 0.26,
+            phenomene: area.phenomene,
+            libelle: PHENOMENE_LABELS[area.phenomene],
+            centre: area.centre,
+          }))
         : [],
-    [voirMeteo, cells],
+    [voirMeteo, areas],
   );
 
-  const painted = useMemo<MapCell[]>(
-    () =>
-      dominants.map(({ cell, dominant }) => ({
-        index: cell.index,
-        tone: PHENOMENE_TONES[dominant],
-        fill: 0.14 + (cell.precipitation / 100) * 0.26,
-      })),
-    [dominants],
-  );
-
-  /** Ce qu'il y a réellement à l'écran, donc les teintes **dessinées** et non
-   *  tout ce que portent les cellules : une cellule n'a qu'une teinte, celle du
-   *  phénomène qui l'emporte, et nommer un phénomène masqué donnerait une entrée
-   *  de légende dont la couleur n'apparaît nulle part. Le cumul reste lisible sur
+  /** Ce qu'il y a réellement à l'écran, donc les phénomènes **dessinés** : une
+   *  légende ne nomme jamais une teinte qui n'apparaît nulle part. Le cumul —
+   *  un orage venté, une chaleur sous un ciel clair — reste lisible sur
    *  `/meteo`, qui donne des nombres plutôt que des couleurs. */
   const presents = useMemo<Phenomene[]>(() => {
-    const vus = new Set(dominants.map(({ dominant }) => dominant));
+    const vus = new Set(peintes.map((area) => area.phenomene as Phenomene));
     return PHENOMENES.filter((value) => vus.has(value));
-  }, [dominants]);
+  }, [peintes]);
+
+  /** Relève le temps au point cliqué. La grille entière ne peut pas voyager
+   *  jusqu'ici, donc on demande le point au serveur. */
+  async function releverLePoint(point: { x: number; y: number }) {
+    setSondeEnCours(true);
+    setSondeEnPanne(false);
+    try {
+      const reponse = await fetch(`/api/meteo/point?x=${point.x}&y=${point.y}`);
+      if (!reponse.ok) throw new Error(String(reponse.status));
+      setReleve((await reponse.json()) as WeatherProbe);
+    } catch {
+      // Le relevé précédent s'efface : mieux vaut rien qu'un temps d'ailleurs.
+      setReleve(null);
+      setSondeEnPanne(true);
+    } finally {
+      setSondeEnCours(false);
+    }
+  }
 
   const pins = useMemo<MapPin[]>(() => {
     const placePins: MapPin[] = visiblePlaces
@@ -163,9 +183,11 @@ export function MapExplorer({
           <MapCanvas
             pins={pins}
             shapes={shapes}
-            cells={painted}
+            areas={peintes}
+            probe={releve ? { x: releve.x, y: releve.y } : null}
             selectedId={selectedId}
             onSelect={setSelectedId}
+            onPick={sonder ? releverLePoint : undefined}
             className="size-full bg-map-land"
           />
 
@@ -175,15 +197,28 @@ export function MapExplorer({
                 [
                   ["MÉTÉO", voirMeteo, setVoirMeteo],
                   ["TERRAINS", voirTerrains, setVoirTerrains],
+                  ["SONDER", sonder, setSonder],
                 ] as const
               ).map(([label, actif, basculer]) => (
                 <button
                   key={label}
                   type="button"
                   aria-pressed={actif}
-                  onClick={() => basculer((valeur) => !valeur)}
+                  onClick={() => {
+                    // Éteindre la sonde retire le relevé et sa croix : laisser
+                    // un repère sur la carte sans le panneau qui l'explique
+                    // donnerait une marque que plus rien ne nomme.
+                    if (label === "SONDER") {
+                      setReleve(null);
+                      setSondeEnPanne(false);
+                    }
+                    basculer((valeur) => !valeur);
+                  }}
                   className={cn(
-                    "min-h-tap px-3 text-[14px] tracking-[1px]",
+                    // Trois bascules tiennent sur une ligne de 320 px à
+                    // condition de serrer les flancs : sur le plus petit
+                    // téléphone elles mangeaient sinon un sixième de la carte.
+                    "min-h-tap px-2 text-[14px] tracking-[1px] sm:px-3",
                     actif ? "bg-surface-selected text-ink" : "text-ink-muted",
                   )}
                 >
@@ -201,13 +236,13 @@ export function MapExplorer({
             ) : null}
           </div>
 
-          {weather.length > 0 ? (
-            <div className="pointer-events-none absolute left-4 top-4 z-[500] hidden flex-col gap-2 lg:flex">
-              {weather.map((entry) => (
-                <Bulletin key={entry.id} entry={entry} />
-              ))}
-            </div>
-          ) : null}
+          <div className="pointer-events-none absolute left-4 top-4 z-[500] hidden flex-col gap-2 lg:flex">
+            {sonder ? (
+              <Sonde releve={releve} enCours={sondeEnCours} enPanne={sondeEnPanne} />
+            ) : (
+              weather.map((entry) => <Bulletin key={entry.id} entry={entry} />)
+            )}
+          </div>
 
           {selectedPlace ? (
             <DetailPanel
@@ -246,7 +281,7 @@ export function MapExplorer({
             surimpression masquaient les deux tiers de la carte. La légende tient
             sur une ligne qui se replie, les bulletins sur une bande qui se fait
             défiler — rien n'est retiré, tout descend. */}
-        {(voirMeteo && presents.length > 0) || weather.length > 0 ? (
+        {sonder || (voirMeteo && presents.length > 0) || weather.length > 0 ? (
           <div className="flex shrink-0 flex-col gap-2 border-t-2 border-rule bg-surface py-3 lg:hidden">
             {voirMeteo && presents.length > 0 ? (
               <ul className="flex flex-wrap gap-x-4 gap-y-1 px-gutter-app">
@@ -256,7 +291,11 @@ export function MapExplorer({
               </ul>
             ) : null}
 
-            {weather.length > 0 ? (
+            {sonder ? (
+              <div className="px-gutter-app">
+                <Sonde releve={releve} enCours={sondeEnCours} enPanne={sondeEnPanne} />
+              </div>
+            ) : weather.length > 0 ? (
               <ul className="flex gap-2 overflow-x-auto px-gutter-app">
                 {weather.map((entry) => (
                   <li key={entry.id} className="shrink-0">
@@ -429,6 +468,58 @@ function LigneDeLegende({ phenomene }: { phenomene: Phenomene }) {
       />
       {PHENOMENE_LABELS[phenomene]}
     </li>
+  );
+}
+
+/**
+ * Le relevé d'un point sondé.
+ *
+ * Tant qu'on n'a pas cliqué, il ne dit que ce qu'il attend — pas de faux
+ * chiffre, pas de tiret qui ferait croire à une mesure. Une cellule hors région
+ * garde ses grandeurs : le ciel existe aussi au large.
+ */
+function Sonde({
+  releve,
+  enCours,
+  enPanne,
+}: {
+  releve: WeatherProbe | null;
+  enCours: boolean;
+  enPanne: boolean;
+}) {
+  return (
+    <div
+      aria-live="polite"
+      className="pointer-events-none max-w-[320px] border-2 border-crimson-edge bg-surface px-3 py-2"
+    >
+      {enPanne ? (
+        <p className="text-[15px] text-crimson-ink">Le relevé n'a pas abouti.</p>
+      ) : enCours ? (
+        <p className="text-[15px] text-ink-muted">Relevé…</p>
+      ) : releve ? (
+        <>
+          <p className="flex items-center gap-2 text-[15px] text-ink-body">
+            <WeatherGlyph condition={releve.condition} size={18} className="text-rain" />
+            {WEATHER_LABELS[releve.condition]}
+            {releve.region ? ` · ${REGION_LABELS[releve.region]}` : " · hors région"}
+          </p>
+          <p className="mt-1 text-[15px] text-ink-muted">
+            {TERRAIN_LABELS[releve.terrain]} · {releve.temperature} °C · {releve.humidite} %
+            {" · "}
+            {releve.vent} km/h · {releve.pression} hPa
+          </p>
+          {releve.phenomenes.length > 0 ? (
+            <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+              {releve.phenomenes.map((value) => (
+                <LigneDeLegende key={value} phenomene={value} />
+              ))}
+            </ul>
+          ) : null}
+        </>
+      ) : (
+        <p className="text-[15px] text-ink-muted">Cliquez la carte pour relever le temps.</p>
+      )}
+    </div>
   );
 }
 
