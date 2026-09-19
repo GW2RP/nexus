@@ -313,3 +313,63 @@
     background: var(--surface);
   }
 }
+
+/* L'attribution de Leaflet. Laissée à sa taille par défaut, elle se replie sur
+   quatre lignes à 390 px de large et mange le coin de la carte. On la pose sur
+   une ligne, en petit, et le texte se tronque plutôt que de s'empiler.
+
+   Cette règle vit **hors couche** à dessein : `leaflet.css` est importée par le
+   composant, donc sans couche, et une déclaration sans couche l'emporte sur
+   n'importe quelle couche — la même règle rangée dans `@layer components`
+   restait sans effet. */
+.leaflet-container .leaflet-control-attribution {
+  max-width: calc(100vw - 6rem);
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 1.6;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Le mobilier de Leaflet porte ses propres blancs : en thème sombre,
+   l'attribution devient une barre blanche et les boutons de zoom deux pavés
+   blancs posés sur la carte. On le branche sur les jetons pour qu'il suive le
+   thème, sans rien écrire en dur. Angles vifs et pas d'ombre, comme le reste.
+
+   Tout passe par `.leaflet-control-container`, qui n'est là que pour la
+   spécificité : à spécificité égale c'est l'ordre de source qui tranche, et
+   `leaflet.css` est injectée **après** cette feuille. Leaflet écrit déjà
+   `.leaflet-container .leaflet-control-attribution`, et surtout une variante
+   tactile — `.leaflet-touch .leaflet-bar a:first-child` — qui gagnait sur nos
+   coins carrés dès qu'un écran tactile était détecté, c'est-à-dire sur les
+   téléphones précisément. Ce cran supplémentaire les couvre toutes. */
+.leaflet-container .leaflet-control-container .leaflet-control-attribution {
+  background: var(--surface);
+  color: var(--ink-subtle);
+}
+
+.leaflet-container .leaflet-control-container .leaflet-bar,
+.leaflet-container .leaflet-control-container .leaflet-bar a {
+  border-color: var(--rule);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.leaflet-container .leaflet-control-container .leaflet-bar a {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.leaflet-container .leaflet-control-container .leaflet-bar a:hover,
+.leaflet-container .leaflet-control-container .leaflet-bar a:focus {
+  background: var(--surface-selected);
+  color: var(--ink);
+}
+
+/* Les deux boutons de bout arrondissent leurs coins extérieurs, et la variante
+   tactile de Leaflet égale exactement la spécificité de la règle ci-dessus.
+   Il faut donc la nommer, elle aussi, pour tenir « angles vifs partout ». */
+.leaflet-container .leaflet-control-container .leaflet-bar a:first-child,
+.leaflet-container .leaflet-control-container .leaflet-bar a:last-child {
+  border-radius: 0;
+}

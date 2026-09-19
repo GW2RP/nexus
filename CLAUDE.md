@@ -84,6 +84,16 @@ phénomène, et sa légende ne liste que ceux effectivement au ciel : pas d'entr
 morte un jour de beau temps. Vent fort et forte chaleur ne sont pas des
 conditions — ils se cumulent à celle de la cellule.
 
+**Sous `lg`, rien ne se pose sur la carte** hors les interrupteurs : légende et
+bulletins descendent dans une bande sous la carte, qui occupe la moitié haute de
+l'écran. Un panneau en surimpression calibré pour un écran large masque les deux
+tiers d'un téléphone.
+
+Le mobilier de Leaflet (attribution, zoom) est rebranché sur les jetons dans
+`globals.css`. Ces règles-là sont **hors couche et volontairement spécifiques** :
+`leaflet.css` est injectée après cette feuille, et sa variante `.leaflet-touch`
+égale la spécificité naïve — donc reprend les angles vifs sur un téléphone.
+
 **Un seuil se relève sur les cellules en région**, jamais sur le rectangle du
 continent : la mer en couvre 96 %, et une moyenne prise là décrit un océan.
 C'est cette confusion de population qui rendait l'orage, la forte chaleur et le

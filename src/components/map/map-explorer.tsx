@@ -16,7 +16,6 @@ import {
   WEATHER_LABELS,
   type PlaceType,
 } from "@/lib/domain";
-import { TILE_ATTRIBUTION } from "@/lib/map";
 import {
   PHENOMENES,
   PHENOMENE_LABELS,
@@ -158,8 +157,129 @@ export function MapExplorer({
     events.find((event) => `evenement-${event.id}` === selectedId) ?? null;
 
   return (
-    <div className="flex h-[calc(100dvh-82px)] min-h-[560px] flex-col lg:flex-row">
-      <aside className="flex w-full shrink-0 flex-col border-b-2 border-rule bg-surface lg:h-full lg:w-[380px] lg:border-b-0 lg:border-r-2">
+    <div className="flex flex-col lg:h-[calc(100dvh-82px)] lg:min-h-[560px] lg:flex-row-reverse">
+      <div className="flex flex-col lg:min-h-0 lg:flex-1">
+        <div className="relative h-[50dvh] min-h-[280px] lg:h-auto lg:flex-1">
+          <MapCanvas
+            pins={pins}
+            shapes={shapes}
+            cells={painted}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            className="size-full bg-map-land"
+          />
+
+          <div className="absolute right-3 top-3 z-[500] flex flex-col items-end gap-2 lg:right-4 lg:top-4">
+            <div className="flex border-2 border-rule bg-surface">
+              {(
+                [
+                  ["MÉTÉO", voirMeteo, setVoirMeteo],
+                  ["TERRAINS", voirTerrains, setVoirTerrains],
+                ] as const
+              ).map(([label, actif, basculer]) => (
+                <button
+                  key={label}
+                  type="button"
+                  aria-pressed={actif}
+                  onClick={() => basculer((valeur) => !valeur)}
+                  className={cn(
+                    "min-h-tap px-3 text-[14px] tracking-[1px]",
+                    actif ? "bg-surface-selected text-ink" : "text-ink-muted",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {voirMeteo && presents.length > 0 ? (
+              <ul className="pointer-events-none hidden flex-col gap-1 border-2 border-rule bg-surface px-3 py-2 lg:flex">
+                {presents.map((value) => (
+                  <LigneDeLegende key={value} phenomene={value} />
+                ))}
+              </ul>
+            ) : null}
+          </div>
+
+          {weather.length > 0 ? (
+            <div className="pointer-events-none absolute left-4 top-4 z-[500] hidden flex-col gap-2 lg:flex">
+              {weather.map((entry) => (
+                <Bulletin key={entry.id} entry={entry} />
+              ))}
+            </div>
+          ) : null}
+
+          {selectedPlace ? (
+            <DetailPanel
+              title={selectedPlace.name}
+              meta={[
+                PLACE_TYPE_LABELS[selectedPlace.type],
+                selectedPlace.district,
+                REGION_LABELS[selectedPlace.region],
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+              note={
+                selectedPlace.upcomingEventCount > 0
+                  ? `${selectedPlace.upcomingEventCount} évènement${
+                      selectedPlace.upcomingEventCount > 1 ? "s" : ""
+                    } à venir`
+                  : null
+              }
+              href={`/lieux/${selectedPlace.slug}`}
+              onClose={() => setSelectedId(null)}
+            />
+          ) : selectedEvent ? (
+            <DetailPanel
+              title={selectedEvent.title}
+              meta={selectedEvent.locationLabel}
+              note={`${selectedEvent.registeredCount} inscrit${
+                selectedEvent.registeredCount > 1 ? "s" : ""
+              }`}
+              href={`/evenements/${selectedEvent.slug}`}
+              onClose={() => setSelectedId(null)}
+            />
+          ) : null}
+        </div>
+
+        {/* Sous la carte plutôt que par-dessus : à 390 px, les deux panneaux en
+            surimpression masquaient les deux tiers de la carte. La légende tient
+            sur une ligne qui se replie, les bulletins sur une bande qui se fait
+            défiler — rien n'est retiré, tout descend. */}
+        {(voirMeteo && presents.length > 0) || weather.length > 0 ? (
+          <div className="flex shrink-0 flex-col gap-2 border-t-2 border-rule bg-surface py-3 lg:hidden">
+            {voirMeteo && presents.length > 0 ? (
+              <ul className="flex flex-wrap gap-x-4 gap-y-1 px-gutter-app">
+                {presents.map((value) => (
+                  <LigneDeLegende key={value} phenomene={value} />
+                ))}
+              </ul>
+            ) : null}
+
+            {weather.length > 0 ? (
+              <ul className="flex gap-2 overflow-x-auto px-gutter-app">
+                {weather.map((entry) => (
+                  <li key={entry.id} className="shrink-0">
+                    <Bulletin entry={entry} />
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+
+      {/* La liste vient après la carte **dans le DOM**, pas seulement à
+          l'écran : `order` déplace l'affichage sans toucher à l'ordre de
+          lecture ni de tabulation, et un lecteur d'écran aurait annoncé la
+          liste d'abord. Le conteneur s'inverse à partir de `lg` pour la
+          ramener à gauche.
+
+          Elle se déroule avec la page sur un téléphone : c'est elle qui
+          poussait la carte à mille pixels du haut, et la borner en hauteur
+          n'aurait fait que la réduire à une ligne et demie — son en-tête en
+          prend déjà cent quatre-vingts. */}
+      <aside className="flex w-full min-h-0 shrink-0 flex-col border-t-2 border-rule bg-surface lg:h-full lg:w-[380px] lg:border-t-0 lg:border-r-2">
         <div className="flex border-b border-rule">
           <TabButton active={tab === "lieux"} onClick={() => setTab("lieux")}>
             LIEUX · {places.length}
@@ -295,106 +415,29 @@ export function MapExplorer({
         </div>
       </aside>
 
-      <div className="relative min-h-[420px] flex-1">
-        <MapCanvas
-          pins={pins}
-          shapes={shapes}
-          cells={painted}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          className="size-full bg-map-land"
-        />
-
-        <div className="absolute right-4 top-4 z-[500] flex flex-col items-end gap-2">
-          <div className="flex border-2 border-rule bg-surface">
-            {(
-              [
-                ["MÉTÉO", voirMeteo, setVoirMeteo],
-                ["TERRAINS", voirTerrains, setVoirTerrains],
-              ] as const
-            ).map(([label, actif, basculer]) => (
-              <button
-                key={label}
-                type="button"
-                aria-pressed={actif}
-                onClick={() => basculer((valeur) => !valeur)}
-                className={cn(
-                  "min-h-tap px-3 text-[14px] tracking-[1px]",
-                  actif ? "bg-surface-selected text-ink" : "text-ink-muted",
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {voirMeteo && presents.length > 0 ? (
-            <ul className="pointer-events-none flex flex-col gap-1 border-2 border-rule bg-surface px-3 py-2">
-              {presents.map((value) => (
-                <li key={value} className="flex items-center gap-2 text-[15px] text-ink-body">
-                  <PhenomeneGlyph
-                    phenomene={value}
-                    size={16}
-                    className={`gw2rp-legende gw2rp-legende--${PHENOMENE_TONES[value]}`}
-                  />
-                  {PHENOMENE_LABELS[value]}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </div>
-
-        {weather.length > 0 ? (
-          <div className="pointer-events-none absolute left-4 top-4 z-[500] flex flex-col gap-2">
-            {weather.map((entry) => (
-              <span
-                key={entry.id}
-                className="inline-flex items-center gap-2 border-2 border-rule bg-surface px-3 py-2 text-[15px] text-ink-body"
-              >
-                <WeatherGlyph condition={entry.condition} size={18} className="text-rain" />
-                {WEATHER_LABELS[entry.condition]} sur {REGION_LABELS[entry.region]}
-              </span>
-            ))}
-          </div>
-        ) : null}
-
-        {selectedPlace ? (
-          <DetailPanel
-            title={selectedPlace.name}
-            meta={[
-              PLACE_TYPE_LABELS[selectedPlace.type],
-              selectedPlace.district,
-              REGION_LABELS[selectedPlace.region],
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-            note={
-              selectedPlace.upcomingEventCount > 0
-                ? `${selectedPlace.upcomingEventCount} évènement${
-                    selectedPlace.upcomingEventCount > 1 ? "s" : ""
-                  } à venir`
-                : null
-            }
-            href={`/lieux/${selectedPlace.slug}`}
-            onClose={() => setSelectedId(null)}
-          />
-        ) : selectedEvent ? (
-          <DetailPanel
-            title={selectedEvent.title}
-            meta={selectedEvent.locationLabel}
-            note={`${selectedEvent.registeredCount} inscrit${
-              selectedEvent.registeredCount > 1 ? "s" : ""
-            }`}
-            href={`/evenements/${selectedEvent.slug}`}
-            onClose={() => setSelectedId(null)}
-          />
-        ) : null}
-
-        <p className="pointer-events-none absolute bottom-2 left-4 z-[500] max-w-[60ch] text-[13px] text-ink-subtle lg:hidden">
-          {TILE_ATTRIBUTION}
-        </p>
-      </div>
     </div>
+  );
+}
+
+function LigneDeLegende({ phenomene }: { phenomene: Phenomene }) {
+  return (
+    <li className="flex items-center gap-2 text-[15px] text-ink-body">
+      <PhenomeneGlyph
+        phenomene={phenomene}
+        size={16}
+        className={`gw2rp-legende gw2rp-legende--${PHENOMENE_TONES[phenomene]}`}
+      />
+      {PHENOMENE_LABELS[phenomene]}
+    </li>
+  );
+}
+
+function Bulletin({ entry }: { entry: WeatherEntry }) {
+  return (
+    <span className="inline-flex items-center gap-2 whitespace-nowrap border-2 border-rule bg-surface px-3 py-2 text-[15px] text-ink-body">
+      <WeatherGlyph condition={entry.condition} size={18} className="text-rain" />
+      {WEATHER_LABELS[entry.condition]} sur {REGION_LABELS[entry.region]}
+    </span>
   );
 }
 
