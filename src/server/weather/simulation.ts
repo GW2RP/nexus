@@ -4,13 +4,16 @@ import { REGIONS, TERRAINS, type Region, type Terrain } from "@/lib/domain";
 import { advanceStep, seedState, type WorldState } from "@/lib/weather/engine";
 import { CELL_COUNT, bakeTerrain, type BakedTerrain, type ZoneShape } from "@/lib/weather/grid";
 import { PACK_SCALE_TEMPERATURE, packInt16, packScaled, unpackInt16, unpackScaled } from "@/lib/weather/pack";
-import { stepEnd, stepIndexAt, stepStart } from "@/lib/weather/schedule";
+import { STEPS_PER_DAY, stepEnd, stepIndexAt, stepStart } from "@/lib/weather/schedule";
 import { TerrainZone } from "@/models/terrain-zone";
 import { WeatherStep, type WeatherStepDocument } from "@/models/weather-step";
 import { connectToDatabase } from "@/server/queries/shared";
 
-/** Au-delà, on ne rattrape pas pas à pas : la fonction expirerait. */
-const RATTRAPAGE_MAX = 12;
+/** Au-delà, on ne rattrape pas pas à pas : la fonction expirerait. La règle est
+ *  en jours, donc le plafond se déduit de la cadence — sans quoi il faudrait
+ *  penser à le retoucher à chaque fois qu'elle change. */
+const RATTRAPAGE_JOURS = 3;
+const RATTRAPAGE_MAX = RATTRAPAGE_JOURS * STEPS_PER_DAY;
 
 /** Trente jours d'historique suffisent ; le reste ne se lit jamais. */
 const RETENTION_JOURS = 30;
@@ -67,6 +70,7 @@ export function terrainFromDocument(doc: StoredStep): BakedTerrain {
 function documentFrom(state: WorldState, terrain: BakedTerrain) {
   return {
     stepIndex: state.stepIndex,
+    stepsPerDay: STEPS_PER_DAY,
     startsAt: stepStart(state.stepIndex),
     endsAt: stepEnd(state.stepIndex),
     seed: state.seed,
@@ -98,35 +102,50 @@ function documentFrom(state: WorldState, terrain: BakedTerrain) {
  */
 export async function advanceWeather(
   options: { now?: Date; maxSteps?: number } = {},
-): Promise<{ produced: number[]; terrainCells: number }> {
+): Promise<{ produced: number[] }> {
   await connectToDatabase();
 
   const now = options.now ?? new Date();
   const cible = stepIndexAt(now);
   const maxSteps = options.maxSteps ?? RATTRAPAGE_MAX;
 
+  // Le dernier pas d'abord, et rien d'autre. Un battement horaire pour des pas
+  // de deux heures fait qu'un appel sur deux n'a rien à produire : celui-là doit
+  // rendre la main sur une seule lecture, sans cuire le terrain ni écrire une
+  // ligne.
+  let dernier = await WeatherStep.findOne({}).sort({ stepIndex: -1 }).lean();
+
+  // Un pas d'une autre cadence est illisible : sa numérotation ne veut plus rien
+  // dire, et la reprendre mélangerait deux mondes. On l'écarte ici pour que le
+  // pas dû se calcule sur la bonne grille ; le ménage se fait plus bas, sur le
+  // chemin qui écrit déjà.
+  if (dernier && dernier.stepsPerDay !== STEPS_PER_DAY) dernier = null;
+
+  if (dernier && dernier.stepIndex >= cible) return { produced: [] };
+
   const terrain = await bakeFromZones();
-  const dernier = await WeatherStep.findOne({}).sort({ stepIndex: -1 }).lean();
 
-  let state: WorldState;
-  let depart: number;
-
-  if (!dernier || dernier.stepIndex >= cible) {
-    if (dernier && dernier.stepIndex >= cible) {
-      return { produced: [], terrainCells: terrain.terrain.length };
-    }
-    // Rien en base : on amorce le monde sur le pas courant.
-    state = seedState(cible, terrain);
-    await WeatherStep.updateOne(
-      { stepIndex: cible },
-      { $setOnInsert: documentFrom(state, terrain) },
-      { upsert: true },
+  // Ici seulement : l'appel qui n'a rien à produire n'aura rien écrit.
+  const perimes = await WeatherStep.deleteMany({ stepsPerDay: { $ne: STEPS_PER_DAY } });
+  if (perimes.deletedCount > 0) {
+    console.info(
+      `Cadence changée : ${perimes.deletedCount} pas d'une autre cadence retirés, la simulation repart.`,
     );
-    return { produced: [cible], terrainCells: terrain.terrain.length };
   }
 
-  state = stateFromDocument(dernier as StoredStep);
-  depart = dernier.stepIndex;
+  if (!dernier) {
+    // Rien en base : on amorce le monde sur le pas courant.
+    const amorce = seedState(cible, terrain);
+    await WeatherStep.updateOne(
+      { stepIndex: cible },
+      { $setOnInsert: documentFrom(amorce, terrain) },
+      { upsert: true },
+    );
+    return { produced: [cible] };
+  }
+
+  let state: WorldState = stateFromDocument(dernier as StoredStep);
+  let depart = dernier.stepIndex;
 
   // Une absence longue ne se rejoue pas pas à pas : on reprend le fil plus près.
   if (cible - depart > maxSteps) depart = cible - maxSteps;
@@ -147,5 +166,5 @@ export async function advanceWeather(
     await WeatherStep.deleteMany({ endsAt: { $lt: limite } });
   }
 
-  return { produced, terrainCells: terrain.terrain.length };
+  return { produced };
 }

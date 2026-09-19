@@ -177,8 +177,14 @@ tombent en pleine mer. La constante est `COORDINATE_ZOOM` dans `src/lib/map.ts`.
 
 ## La météo
 
-Elle n'est pas écrite, elle est **simulée**. Quatre pas par jour — nuit, matin,
-après-midi, soirée — sur une grille de **40 × 56 = 2 240 cellules** de 2 048 px.
+Elle n'est pas écrite, elle est **simulée**. Un pas **toutes les deux heures**,
+soit douze par jour, sur une grille de **40 × 56 = 2 240 cellules** de 2 048 px.
+
+La tranche — nuit, matin, après-midi, soirée — se lit désormais sur l'**heure**
+du pas et non sur son rang : à six heures de pas une tranche valait un pas, à
+deux heures elle en compte trois. Les écrans affichent donc l'heure à côté du
+nom de la tranche, sinon trois lignes de suite diraient « MATIN » sans qu'on
+sache laquelle est laquelle.
 
 La maille n'est pas choisie pour le continent mais pour la partie habitée : le
 rectangle du continent est très majoritairement vide, et les six régions du hub
@@ -193,6 +199,24 @@ base) : les centres de pression dérivent d'ouest en est, naissent et s'épuisen
 c'est **eux** qui font que le temps change seul ; le vent descend la pente de
 pression ; l'advection porte l'humidité de la cellule au vent ; le terrain fait
 son effet ; l'air rend ce qu'il ne peut plus tenir.
+
+Les taux du moteur sont écrits **pour six heures** et ramenés à la cadence
+courante à la lecture (`parPas`, `fractionParPas`, `decroissanceParPas`). Ce
+n'est pas une division : une grandeur qui se relaxe vers une source a un point
+fixe, et diviser naïvement la source l'abaissait de 20 % — les orages avaient
+disparu au passage à deux heures. `relaxe` conserve ce point fixe, de sorte que
+la cadence change la finesse du temps, pas le climat.
+
+Les seuils de lecture sont rassemblés dans `SEUILS` : aucun nombre nu au milieu
+d'une condition, et une recalibration se lit d'un coup d'œil. Ils sont relevés
+sur les **cellules en région**, pas sur le rectangle du continent — voir plus
+bas, c'est cette confusion de population qui a produit trois phénomènes morts.
+
+Le vent se calcule en unités de gradient et s'affiche en km/h : `VENT_ECHELLE`
+fait le pont. Elle vaut 3, posée après avoir constaté que l'écran annonçait des
+km/h que la grandeur ne portait pas — médiane 6, maximum 30, un « vent fort »
+inatteignable. Elle divise à chacun de ses usages physiques, donc la simulation
+est inchangée : la distribution du ciel est identique au centième.
 
 Le hasard sort d'une **graine rangée dans l'état**, jamais de `Math.random()`.
 Deux conséquences : un pas est rejouable à l'identique, et la frise de `/meteo`
@@ -214,19 +238,25 @@ calculé en avance et jamais enregistré.
 | Ville | La pierre rend la nuit ce qu'elle a pris le jour : +3 °C, peu de vent, plus sec |
 | Plaine | La référence — et le terrain d'une cellule que personne n'a dessinée |
 
-Mesuré à latitude constante, chaque terrain encadré de plaine, sur 240 pas :
+Mesuré à latitude constante, chaque terrain encadré de plaine, sur 240 jours.
+Les écarts sont pris contre les **plaines voisines**, pas contre une moyenne :
 
 | | Température | Écart jour/nuit | Humidité |
 | --- | --- | --- | --- |
-| Plaine (témoin) | 14,7 °C | 0,8 | 41 % |
-| Ville | **+3,0** | **0,3** | 21 % |
-| Lac | +0,1 | **0,1** | 75 % |
-| Volcan | **+5,9** | 1,7 | 16 % |
-| Rivière | +0,0 | 0,5 | 63 % |
+| Plaine (témoin) | 11,7 °C | 0,6 | 28 → 34 % |
+| Ville | **+3,0** | **0,2** | −9 |
+| Lac | +0,0 | **0,0** | +25 |
+| Volcan | **+6,0** | 1,8 | −8 |
+| Rivière | +0,0 | 0,3 | +21 |
+| Marais | +0,0 | 0,2 | **+34** |
+| Forêt | +0,0 | 0,3 | +19 |
+| Terres arides | +0,0 | **2,0** | **−24** |
 
-Un témoin de plaine est posé de chaque côté de la bande : sans lui, la dérive
-d'ouest en est se ferait passer pour un effet de terrain — c'est elle, et non la
-rivière, qui explique l'essentiel de l'humidité en bout de course.
+Un témoin de plaine est posé de chaque côté de la bande, et c'est lui qui rend la
+mesure lisible : la plaine passe de 28 à 34 % d'humidité d'un bout à l'autre par
+la seule dérive d'ouest en est. Sans ces témoins, cette dérive se ferait passer
+pour un effet de terrain — c'est elle, et non la rivière, qui expliquait
+l'essentiel de l'humidité en bout de course.
 
 **L'ordre du tableau `TERRAINS` est gravé.** Le rang d'un terrain est l'entier
 écrit dans les pas déjà stockés : un terrain nouveau s'ajoute **à la fin**,
@@ -252,8 +282,8 @@ temps différents.
 
 ### L'avancement
 
-`vercel.json` déclenche `/api/meteo/avancer` quatre fois par jour, protégée par
-`CRON_SECRET` (Vercel l'envoie en `Authorization: Bearer`). Sans secret
+`vercel.json` déclenche `/api/meteo/avancer` **toutes les heures** à 05,
+protégée par `CRON_SECRET` (Vercel l'envoie en `Authorization: Bearer`). Sans secret
 configuré, la route **refuse** : elle ne s'ouvre pas parce qu'une variable
 manque.
 
@@ -262,18 +292,29 @@ Deux pièges de fuseau, tous deux traités :
 - **Vercel évalue le cron en UTC**, sans fuseau, donc des horaires fixes dérivent
   d'une heure au passage à l'heure d'été. La route ne regarde jamais son heure de
   déclenchement : elle lit l'horloge d'`Europe/Paris` et rattrape les pas dus. Un
-  appel trop tôt ne fait rien, un appel en retard rattrape. Les horaires retenus
-  (23 h 05, 05 h 05, 11 h 05, 17 h 05 UTC) tombent dans la bonne tranche été
-  comme hiver.
+  appel trop tôt ne fait rien, un appel en retard rattrape. Le battement horaire
+  retire le problème à la racine : quelle que soit la saison, l'appel qui suit
+  une bascule de pas le produit dans l'heure.
 - **`toTyrianDate` calcule en UTC** : la tranche de nuit commence à 00 h 00 à
   Paris, soit 22 h ou 23 h UTC **la veille**. Lire la date d'un pas sur son
   instant la décalerait d'un jour une fois sur quatre. `civilDayOfStep`
   (`src/lib/weather/schedule.ts`) fait foi, pour la saison comme pour l'affichage.
 
+Un pas porte la **cadence** qui l'a produit (`stepsPerDay`). Changer la cadence
+renumérote tout : le pas 215 de la nouvelle grille n'a rien à voir avec le 215 de
+l'ancienne, et reprendre le fil mélangerait deux mondes. L'avancement écarte donc
+un dernier pas d'une autre cadence, repart du pas courant, et retire les périmés
+en le disant dans le journal.
+
+L'appel qui n'a **rien à produire** — un sur deux, à battement horaire pour des
+pas de deux heures — rend la main sur une seule lecture : il ne cuit pas le
+terrain et n'écrit pas une ligne. Le ménage et la cuisson attendent le chemin qui
+écrit déjà.
+
 Un pas pèse **44 Ko** : huit champs de 2 240 entiers 16 bits, empaquetés
 (`src/lib/weather/pack.ts`), plus le terrain cuit au moment du pas. Un document
 par cellule et par pas en aurait fait plus de trois millions par an. Trente jours
-d'historique sont conservés, soit environ 5 Mo.
+d'historique sont conservés, soit environ 16 Mo à douze pas par jour.
 
 > Un piège coûteux, trouvé à la vérification : une lecture en `.lean()`
 > court-circuite le cast de Mongoose et rend le `Binary` du pilote, dont
@@ -287,6 +328,71 @@ La saison suit le **calendrier réel**, pas le tyrien : le lecteur voit les deux
 dates côte à côte, et une tempête de neige un 21 juillet ne s'explique pas. Le
 tyrien reste l'habillage, il ne commande pas le ciel.
 
+### Les calques de la carte
+
+`/carte` porte deux calques **indépendants**, chacun avec son interrupteur :
+**Météo**, allumé, et **Terrains**, éteint. Les zones de terrain sont un outil de
+cartographe ; les phénomènes, un décor de joueur. Les deux peuvent se regarder
+ensemble quand on veut vérifier qu'un marais tient bien sa brume.
+
+Une cellule n'est teintée que si elle porte un phénomène
+(`src/lib/weather/phenomena.ts`) :
+
+| Phénomène | Ce qui le déclenche | Part des cellules |
+| --- | --- | --- |
+| Orage | Condition `orage` | 0,41 % |
+| Neige | Condition `neige` | 5,95 % |
+| Pluie | Condition `pluie-fine` | 16,25 % |
+| Brume | Condition `brume` | 19,70 % |
+| Vent fort | Vent ≥ 40 km/h, **quelle que soit la condition** | 0,68 % |
+| Forte chaleur | Température ≥ 28 °C, **quelle que soit la condition** | 3,01 % |
+
+Mesuré sur une année tyrienne, sur les **cellules en région** — celles que la
+carte teinte. `npm run meteo:simuler` réimprime ce tableau à chaque passage.
+
+Les deux derniers ne sont pas des conditions : une cellule peut être dégagée et
+en forte chaleur, ou en orage et dans un vent fort. C'est précisément ce que
+`WEATHER_CONDITIONS`, qui ne rend qu'une valeur, ne sait pas dire. Quand une
+cellule en porte plusieurs, **l'ordre de `PHENOMENES` tranche** — le plus
+remarquable d'abord — et l'opacité suit la précipitation, donc une averse se voit
+plus qu'une bruine.
+
+La légende ne liste que les phénomènes **effectivement présents** au pas courant :
+rien d'inventé, et aucune entrée morte un jour de beau temps.
+
+### La bande habitée
+
+Le calque a fait remonter un défaut que rien d'autre n'aurait montré : **trois
+des six phénomènes ne se déclenchaient jamais** sur les terres du hub — orage
+0,01 %, forte chaleur 0,00 %, vent fort 0,20 %.
+
+Les six régions tiennent entre les **lignes 12 et 21** d'une grille qui en compte
+56 ; le reste est de l'océan vide. Or le gradient nord-sud était étalé sur tout le
+rectangle du continent : des Pics Glacés à Orr il ne restait que **4 °C** d'écart,
+le maximum annuel sur les terres était de 19 °C, et une région désertique était
+aussi froide que les sommets. Le gradient s'étale désormais sur cette bande et se
+borne au-delà (`BANDE_NORD` / `BANDE_SUD` dans `engine.ts`) — le même
+raisonnement que la maille de la grille : on calibre sur la partie habitée.
+
+Après quoi : juillet 17,9 °C de moyenne sur les terres, janvier 2,2 °C, maximum
+annuel 32 °C. La forte chaleur passe de 0,00 à 3,01 %.
+
+Les deux autres tenaient de la même confusion de population :
+
+- **L'orage** demandait la coïncidence de trois grandeurs : pluie forte,
+  dépression, chaleur. La pression n'y était pour rien — quand il pleut fort sur
+  les terres, sa médiane vaut 1013, la référence même, et retirer la clause ne
+  change pas un chiffre au large. Ce qui bloquait était ailleurs : la saturation
+  monte avec la température, donc une pluie forte sur les terres est un évènement
+  **froid**, et 86 % des averses fortes tombaient sous 8 °C. La règle dit
+  maintenant ce qu'un orage est — il pleut dru et il fait chaud.
+- **Le vent fort** était posé à 50 km/h, le centile 98 du vent du **continent** —
+  mais le centile 99,8 de celui des terres. À 40 km/h, c'est leur centile 99,3.
+
+Aucun de ces trois défauts n'était visible tant que la météo ne se lisait que
+région par région : il a fallu dessiner les cellules une à une pour que les
+zéros se voient.
+
 ## Scripts
 
 ```bash
@@ -298,13 +404,19 @@ npm run typecheck       # TypeScript, sans émission
 npm run db:seed         # jeu de données de départ (développement)
 npm run db:role         # lire et poser le rôle d'un compte
 npm run meteo:terrains  # zones de terrain de départ, d'après l'API du jeu
-npm run meteo:simuler   # vérifie le moteur ; -- 360 pour une année, -- --base pour avancer
+npm run meteo:simuler   # vérifie le moteur sur une année ; -- 240 pour moins, -- --base pour avancer
 ```
 
 `meteo:simuler` tient lieu de suite de tests pour la simulation : géométrie,
 horloge aux deux changements d'heure, bornes de chaque grandeur, présence des
 six conditions sur une année, et **déterminisme** — deux passages doivent donner
 le même résultat au chiffre près. Il sort en code 1 si une assertion tombe.
+
+Sans argument il rejoue une **année tyrienne** à la cadence courante, quelle
+qu'elle soit : le nombre de pas se déduit de `STEPS_PER_DAY`, il n'est pas écrit
+en dur. Il imprime au passage la distribution des conditions et des phénomènes
+sur toute la grille — c'est elle qui a fait remonter deux calibrations fausses,
+le seuil d'orage et l'échelle du vent.
 
 ## Organisation du code
 

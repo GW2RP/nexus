@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import { PlaceGlyph, WeatherGlyph } from "@/components/type-glyph";
+import { PhenomeneGlyph, PlaceGlyph, WeatherGlyph } from "@/components/type-glyph";
 import { MapCanvas } from "@/components/map/map-canvas";
 import type { MapCell, MapPin, MapShape } from "@/components/map/tyria-map";
 import { SearchIcon } from "@/components/icons";
@@ -17,7 +17,13 @@ import {
   type PlaceType,
 } from "@/lib/domain";
 import { TILE_ATTRIBUTION } from "@/lib/map";
-import { CONDITION_TONES, TERRAIN_TONES } from "@/lib/weather/tones";
+import {
+  PHENOMENES,
+  PHENOMENE_LABELS,
+  PHENOMENE_TONES,
+  type Phenomene,
+} from "@/lib/weather/phenomena";
+import { TERRAIN_TONES } from "@/lib/weather/tones";
 import { cn } from "@/lib/utils";
 import type {
   EventSummary,
@@ -45,7 +51,10 @@ export function MapExplorer({
   canPropose: boolean;
 }) {
   const [tab, setTab] = useState<"lieux" | "evenements">("lieux");
-  const [layer, setLayer] = useState<"meteo" | "terrains">("meteo");
+  // Deux calques indépendants, chacun affiché ou caché : les regarder ensemble
+  // est justement ce qui montre pourquoi il pleut là et pas ailleurs.
+  const [voirMeteo, setVoirMeteo] = useState(true);
+  const [voirTerrains, setVoirTerrains] = useState(false);
   const [typeFilter, setTypeFilter] = useState<PlaceType | null>(null);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -66,29 +75,48 @@ export function MapExplorer({
 
   const shapes = useMemo<MapShape[]>(
     () =>
-      layer === "terrains"
+      voirTerrains
         ? zones.map((zone) => ({
             id: zone.id,
             points: zone.points,
             tone: TERRAIN_TONES[zone.terrain],
           }))
         : [],
-    [layer, zones],
+    [voirTerrains, zones],
   );
 
-  // Une cellule ne se teinte qu'à proportion de ce qui y tombe, et le ciel
-  // dégagé n'arrive jamais jusqu'ici.
+  // Une cellule prend la teinte du phénomène qui l'emporte, et le ciel sans rien
+  // à montrer n'arrive jamais jusqu'ici.
+  const dominants = useMemo(
+    () =>
+      voirMeteo
+        ? cells.flatMap((cell) => {
+            const dominant = PHENOMENES.find((value) => cell.phenomenes.includes(value));
+            return dominant ? [{ cell, dominant }] : [];
+          })
+        : [],
+    [voirMeteo, cells],
+  );
+
   const painted = useMemo<MapCell[]>(
     () =>
-      layer === "meteo"
-        ? cells.map((cell) => ({
-            index: cell.index,
-            tone: CONDITION_TONES[cell.condition],
-            fill: 0.1 + (cell.precipitation / 100) * 0.3,
-          }))
-        : [],
-    [layer, cells],
+      dominants.map(({ cell, dominant }) => ({
+        index: cell.index,
+        tone: PHENOMENE_TONES[dominant],
+        fill: 0.14 + (cell.precipitation / 100) * 0.26,
+      })),
+    [dominants],
   );
+
+  /** Ce qu'il y a réellement à l'écran, donc les teintes **dessinées** et non
+   *  tout ce que portent les cellules : une cellule n'a qu'une teinte, celle du
+   *  phénomène qui l'emporte, et nommer un phénomène masqué donnerait une entrée
+   *  de légende dont la couleur n'apparaît nulle part. Le cumul reste lisible sur
+   *  `/meteo`, qui donne des nombres plutôt que des couleurs. */
+  const presents = useMemo<Phenomene[]>(() => {
+    const vus = new Set(dominants.map(({ dominant }) => dominant));
+    return PHENOMENES.filter((value) => vus.has(value));
+  }, [dominants]);
 
   const pins = useMemo<MapPin[]>(() => {
     const placePins: MapPin[] = visiblePlaces
@@ -277,26 +305,43 @@ export function MapExplorer({
           className="size-full bg-map-land"
         />
 
-        <div className="absolute right-4 top-4 z-[500] flex border-2 border-rule bg-surface">
-          {(
-            [
-              ["meteo", "MÉTÉO"],
-              ["terrains", "TERRAINS"],
-            ] as const
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={layer === value}
-              onClick={() => setLayer(value)}
-              className={cn(
-                "min-h-tap px-3 text-[14px] tracking-[1px]",
-                layer === value ? "bg-surface-selected text-ink" : "text-ink-muted",
-              )}
-            >
-              {label}
-            </button>
-          ))}
+        <div className="absolute right-4 top-4 z-[500] flex flex-col items-end gap-2">
+          <div className="flex border-2 border-rule bg-surface">
+            {(
+              [
+                ["MÉTÉO", voirMeteo, setVoirMeteo],
+                ["TERRAINS", voirTerrains, setVoirTerrains],
+              ] as const
+            ).map(([label, actif, basculer]) => (
+              <button
+                key={label}
+                type="button"
+                aria-pressed={actif}
+                onClick={() => basculer((valeur) => !valeur)}
+                className={cn(
+                  "min-h-tap px-3 text-[14px] tracking-[1px]",
+                  actif ? "bg-surface-selected text-ink" : "text-ink-muted",
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {voirMeteo && presents.length > 0 ? (
+            <ul className="pointer-events-none flex flex-col gap-1 border-2 border-rule bg-surface px-3 py-2">
+              {presents.map((value) => (
+                <li key={value} className="flex items-center gap-2 text-[15px] text-ink-body">
+                  <PhenomeneGlyph
+                    phenomene={value}
+                    size={16}
+                    className={`gw2rp-legende gw2rp-legende--${PHENOMENE_TONES[value]}`}
+                  />
+                  {PHENOMENE_LABELS[value]}
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
 
         {weather.length > 0 ? (

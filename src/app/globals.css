@@ -214,6 +214,53 @@
     stroke: var(--ink-subtle);
   }
 
+  /* Les phénomènes météo. Six teintes qui doivent rester distinctes entre elles
+     et du terrain qu'elles recouvrent — la légende les nomme, mais l'œil doit
+     déjà les séparer. */
+  .gw2rp-zone--orage,
+  .gw2rp-cell--orage {
+    fill: var(--crimson);
+    stroke: var(--crimson-edge);
+  }
+
+  .gw2rp-zone--pluie,
+  .gw2rp-cell--pluie {
+    fill: var(--rain);
+    stroke: var(--rain-edge);
+  }
+
+  .gw2rp-zone--neige,
+  .gw2rp-cell--neige {
+    fill: var(--rain-edge);
+    stroke: var(--rain);
+  }
+
+  .gw2rp-zone--brume,
+  .gw2rp-cell--brume {
+    fill: var(--ink-subtle);
+    stroke: var(--ink-muted);
+  }
+
+  .gw2rp-zone--vent,
+  .gw2rp-cell--vent {
+    fill: var(--success);
+    stroke: var(--success-edge);
+  }
+
+  .gw2rp-zone--chaleur,
+  .gw2rp-cell--chaleur {
+    fill: var(--gold);
+    stroke: var(--gold-ink);
+  }
+
+  /* La légende porte la même teinte que le calque, sur le trait du glyphe. */
+  .gw2rp-legende--orage { color: var(--crimson-ink); }
+  .gw2rp-legende--pluie { color: var(--rain); }
+  .gw2rp-legende--neige { color: var(--rain-edge); }
+  .gw2rp-legende--brume { color: var(--ink-subtle); }
+  .gw2rp-legende--vent { color: var(--success); }
+  .gw2rp-legende--chaleur { color: var(--gold-ink); }
+
   .gw2rp-cell--eau {
     fill: var(--rain);
   }

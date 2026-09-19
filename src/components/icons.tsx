@@ -167,6 +167,17 @@ export function SnowIcon(props: IconProps) {
   );
 }
 
+/** Le vent : des rafales qui s'enroulent, sans flèche ni emoji. */
+export function WindIcon(props: IconProps) {
+  return (
+    <Icon {...props} strokeWidth={1.2}>
+      <path d="M2 5.5 h7.5 a1.8 1.8 0 1 0 -1.8 -1.8" />
+      <path d="M2 8.5 h10 a1.8 1.8 0 1 1 -1.8 1.8" />
+      <path d="M2 11.5 h5.5" />
+    </Icon>
+  );
+}
+
 export function StarIcon(props: IconProps) {
   return (
     <Icon {...props} strokeWidth={1.2}>

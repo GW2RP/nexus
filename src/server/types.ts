@@ -10,6 +10,7 @@ import type {
   Terrain,
   WeatherCondition,
 } from "@/lib/domain";
+import type { Phenomene } from "@/lib/weather/phenomena";
 
 /** Les formes sérialisées que les composants reçoivent : des objets simples,
  *  jamais des documents Mongoose. */
@@ -170,6 +171,9 @@ export type WeatherCell = {
   index: number;
   condition: WeatherCondition;
   precipitation: number;
+  /** Ce qui s'y passe. Une cellule peut en porter plusieurs — un orage venté,
+   *  une chaleur sous un ciel dégagé — ce que `condition` ne peut pas dire. */
+  phenomenes: Phenomene[];
 };
 
 /** Le tracé d'une zone, pour le calque de la carte et l'administration. */

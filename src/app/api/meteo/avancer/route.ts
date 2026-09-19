@@ -11,12 +11,14 @@ export const dynamic = "force-dynamic";
 /**
  * Fait avancer la simulation.
  *
- * Vercel appelle cette route quatre fois par jour en envoyant
- * `Authorization: Bearer $CRON_SECRET`. Les horaires du `vercel.json` sont en
- * UTC — Vercel ne connaît pas les fuseaux — et dérivent donc d'une heure au
- * passage à l'heure d'été. Ça n'a aucune importance : la route ne regarde pas
- * son heure de déclenchement, elle lit l'horloge du serveur de jeu et rattrape
- * les pas dus. Un appel trop tôt ne fait rien, un appel en retard rattrape.
+ * Vercel appelle cette route toutes les heures en envoyant
+ * `Authorization: Bearer $CRON_SECRET`. Un battement horaire pour des pas de
+ * deux heures : la moitié des appels ne trouvent rien à faire et rendent la main
+ * aussitôt, mais aucun pas n'attend plus d'une heure.
+ *
+ * Les horaires du `vercel.json` sont en UTC — Vercel ne connaît pas les fuseaux.
+ * Ça n'a aucune importance : la route ne regarde pas son heure de déclenchement,
+ * elle lit l'horloge du serveur de jeu et rattrape les pas dus.
  */
 export async function GET(request: Request): Promise<NextResponse> {
   const secret = env.cronSecret;

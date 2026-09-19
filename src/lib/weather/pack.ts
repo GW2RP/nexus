@@ -3,7 +3,7 @@
  *
  * Mesuré : un tableau BSON de 2 240 nombres pèse 21 307 octets, le même champ
  * empaqueté en entiers signés de 16 bits en pèse 4 497 — 4,7 fois moins. Un pas
- * porte dix champs, donc 44 Ko au lieu de 208, quatre fois par jour. Toutes nos
+ * porte dix champs, donc 44 Ko au lieu de 208, douze fois par jour. Toutes nos
  * grandeurs tiennent dans un int16, et il n'y a qu'un encodage à se tromper.
  *
  * La température voyage en dixièmes de degré ; tout le reste est déjà entier.

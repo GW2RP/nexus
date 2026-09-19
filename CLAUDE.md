@@ -40,10 +40,20 @@ nombres.
 ## La météo
 
 Elle est **simulée**, pas écrite : personne ne pose un bulletin à la main.
-Quatre pas par jour sur une grille de 40 × 56 cellules de 2 048 px, avancée par
-`/api/meteo/avancer` que Vercel déclenche quatre fois. `src/lib/weather/engine.ts`
-est une **fonction pure** — aucune base, et jamais `Math.random()` : le hasard
-sort d'une graine rangée dans l'état, sinon la frise de prévision mentirait.
+Un pas toutes les deux heures — douze par jour — sur une grille de 40 × 56
+cellules de 2 048 px, avancée par `/api/meteo/avancer` que Vercel déclenche
+**toutes les heures**. `src/lib/weather/engine.ts` est une **fonction pure** —
+aucune base, et jamais `Math.random()` : le hasard sort d'une graine rangée dans
+l'état, sinon la frise de prévision mentirait.
+
+Les taux du moteur sont écrits **pour six heures** et convertis à la cadence
+(`parPas`, `fractionParPas`, `decroissanceParPas`). Une grandeur qui se relaxe
+passe par `relaxe`, qui conserve le point fixe : diviser la source suffirait à
+faire disparaître les orages. Les seuils vivent dans `SEUILS`, jamais nus au
+milieu d'une condition.
+
+Un pas porte sa cadence (`stepsPerDay`). En changer renumérote tout : les pas
+d'une autre cadence sont **retirés** avant l'avancement, jamais repris.
 
 Deux règles de fuseau, à ne pas défaire :
 
@@ -68,6 +78,18 @@ dans les pas stockés. Un terrain nouveau s'ajoute à la fin, jamais au milieu.
 Les champs de grille voyagent empaquetés en entiers 16 bits. Un tampon trop
 court **lève** : relu en zéros, il donnerait un ciel dégagé partout, crédible et
 faux.
+
+Le calque de météo de `/carte` ne teinte que les cellules qui portent un
+phénomène, et sa légende ne liste que ceux effectivement au ciel : pas d'entrée
+morte un jour de beau temps. Vent fort et forte chaleur ne sont pas des
+conditions — ils se cumulent à celle de la cellule.
+
+**Un seuil se relève sur les cellules en région**, jamais sur le rectangle du
+continent : la mer en couvre 96 %, et une moyenne prise là décrit un océan.
+C'est cette confusion de population qui rendait l'orage, la forte chaleur et le
+vent fort impossibles sur les terres du hub. Pour la même raison, le gradient de
+température s'étale sur la **bande habitée** (`BANDE_NORD` / `BANDE_SUD`) et se
+borne au-delà.
 
 ## Les images
 
