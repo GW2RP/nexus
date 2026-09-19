@@ -1,7 +1,9 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
 
-import { isPathnameOwnedBy } from "@/lib/blob";
+import { isPathnameOwnedBy, readBlobPathname } from "@/lib/blob";
+import { Place } from "@/models/place";
+import { connectToDatabase } from "@/lib/mongoose";
 import { canContribute, isAdmin } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 
@@ -13,6 +15,21 @@ import { getCurrentUser } from "@/lib/session";
 const ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp", "image/avif"];
 const MAX_BYTES = 5 * 1024 * 1024;
 
+
+/** Un co-gérant téléverse la bannière d'un lieu qui n'est pas de lui : l'image
+ *  doit quand même se ranger sous l'auteur du lieu, sinon la suppression de la
+ *  fiche la laisserait derrière elle — `deleteUploadedImages` ne touche que ce
+ *  qui est rangé sous l'auteur du contenu supprimé.
+ *
+ *  L'ouverture est étroite : le seul dossier concerné est « lieux », et le seul
+ *  propriétaire admis est celui d'un lieu que cette personne co-gère. */
+async function coManagesPlaceOf(pathname: string, userId: string): Promise<boolean> {
+  const path = readBlobPathname(pathname);
+  if (!path || path.folder !== "lieux" || path.ownerId === userId) return false;
+
+  await connectToDatabase();
+  return Boolean(await Place.exists({ authorId: path.ownerId, managerIds: userId }));
+}
 
 export async function POST(request: Request): Promise<NextResponse> {
   // Un corps vide ou mal formé ressort en 400 avec un message à nous : sans
@@ -46,7 +63,11 @@ export async function POST(request: Request): Promise<NextResponse> {
     // ici : personne n'écrit dans le dossier d'un autre, sauf l'administration
     // qui peut déjà modifier le contenu de tout le monde.
     const pathname = body.payload?.pathname ?? "";
-    if (!isPathnameOwnedBy(pathname, user.id) && !isAdmin(user)) {
+    const allowed =
+      isPathnameOwnedBy(pathname, user.id) ||
+      isAdmin(user) ||
+      (await coManagesPlaceOf(pathname, user.id));
+    if (!allowed) {
       return NextResponse.json(
         { error: "Cette image ne peut pas être rangée là." },
         { status: 403 },

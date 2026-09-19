@@ -49,6 +49,18 @@ function altAccompaniesImage<T extends Record<string, unknown>>(
   };
 }
 
+/** Une liste d'identifiants cochés dans un formulaire. Le champ s'appelle
+ *  « nom[] » : `parseForm` en fait un tableau, et son absence — aucune case
+ *  cochée — doit valoir liste vide, sinon on ne peut plus tout décocher. */
+const idList = (max: number, message: string) =>
+  z.preprocess(
+    (value) => {
+      if (value === undefined || value === null || value === "") return [];
+      return Array.isArray(value) ? value : [value];
+    },
+    z.array(trimmed(40).min(1)).max(max, message),
+  );
+
 const optionalInteger = (min: number, max: number, message?: string) =>
   z.preprocess(
     emptyToNull,
@@ -96,7 +108,8 @@ const placeFields = z.object({
   bannerAlt: optionalText(240),
   coordinateX: optionalInteger(0, CONTINENT_WIDTH),
   coordinateY: optionalInteger(0, CONTINENT_HEIGHT),
-  keeperCharacterId: optionalText(40),
+  keeperCharacterIds: idList(8, "Un lieu ne se tient pas à plus de huit."),
+  managerIds: idList(8, "Un lieu ne se gère pas à plus de huit."),
 });
 
 const placeAlt = altAccompaniesImage<z.infer<typeof placeFields>>("bannerUrl", "bannerAlt");

@@ -4,6 +4,7 @@ import { useActionState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ImageField } from "@/components/forms/image-field";
+import { RichTextField } from "@/components/forms/rich-text-field";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { FormMessage } from "@/components/ui/form-message";
 import { SectionHeading } from "@/components/ui/section-heading";
@@ -208,23 +209,21 @@ export function CharacterForm({
       <section>
         <SectionHeading title="Le récit" compact />
         <div className="flex flex-col gap-4">
-          <Field
+          <RichTextField
             label="Histoire"
-            htmlFor="story"
-            hint="Une ligne vide sépare deux paragraphes."
+            name="story"
+            rows={10}
+            defaultValue={character?.story}
             error={errors.story}
-          >
-            <Textarea id="story" name="story" rows={10} defaultValue={character?.story ?? ""} />
-          </Field>
+          />
 
-          <Field label="Allure et manières" htmlFor="appearance" error={errors.appearance}>
-            <Textarea
-              id="appearance"
-              name="appearance"
-              rows={5}
-              defaultValue={character?.appearance ?? ""}
-            />
-          </Field>
+          <RichTextField
+            label="Allure et manières"
+            name="appearance"
+            rows={5}
+            defaultValue={character?.appearance}
+            error={errors.appearance}
+          />
         </div>
       </section>
 

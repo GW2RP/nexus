@@ -7,19 +7,37 @@ import { FramedMedia, RoundPortrait } from "@/components/ui/framed-media";
 import { raceLabel } from "@/lib/domain";
 import type { CharacterSummary } from "@/server/types";
 
-/** La carte du registre : portrait 4:3 en tête, bordé en bas, puis le bloc de texte. */
+/** La carte du registre : portrait 4:3 en tête, bordé en bas, puis le bloc de texte.
+ *
+ *  La carte prend toute la largeur de sa case : sans `w-full`, une carte au texte
+ *  court se rétrécit à son contenu, et son portrait — large à 100 % — rapetisse
+ *  avec elle. Les portraits d'une même rangée n'avaient alors plus la même
+ *  taille. `shrink-0` tient l'autre bout : le portrait ne se fait pas écraser
+ *  par un texte plus haut que la carte.
+ *
+ *  Le portrait mène à la fiche, comme le nom : c'est ce qu'on vise d'abord. */
 export function CharacterCard({ character }: { character: CharacterSummary }) {
   return (
-    <Card className="overflow-hidden">
-      <FramedMedia
-        src={character.portraitUrl}
-        alt={character.portraitAlt ?? `Portrait de ${character.name}`}
-        placeholder="PORTRAIT"
-        dimensions={character.portraitUrl ? undefined : "1200 × 900"}
-        aspect="4 / 3"
-        className="border-0 border-b border-rule p-0"
-        innerClassName="border-0"
-      />
+    <Card className="w-full overflow-hidden">
+      <Link
+        href={`/personnages/${character.slug}`}
+        // Le nom, juste en dessous, mène à la même page : ce second lien sort de
+        // la tabulation pour ne pas doubler chaque carte d'un arrêt de plus. Il
+        // reste annoncé, lui, par l'alternative du portrait — c'est elle que son
+        // auteur a écrite.
+        tabIndex={-1}
+        className="block shrink-0"
+      >
+        <FramedMedia
+          src={character.portraitUrl}
+          alt={character.portraitAlt ?? `Portrait de ${character.name}`}
+          placeholder="PORTRAIT"
+          dimensions={character.portraitUrl ? undefined : "1200 × 900"}
+          aspect="4 / 3"
+          className="border-0 border-b border-rule p-0"
+          innerClassName="border-0"
+        />
+      </Link>
       <div className="flex flex-1 flex-col gap-3 p-5">
         <div className="flex flex-wrap items-center gap-3">
           <h3 className="card-title">

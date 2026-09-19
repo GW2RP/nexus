@@ -117,13 +117,33 @@ export const getPlaceBySlug = cache(async (slug: string): Promise<PlaceDetail | 
   const doc = await Place.findOne({ slug, hidden: { $ne: true } }).lean();
   if (!doc) return null;
 
-  const [authors, keeper, counts] = await Promise.all([
-    loadAuthors([doc.authorId]),
-    doc.keeperCharacterId
-      ? Character.findById(doc.keeperCharacterId).select({ name: 1, slug: 1 }).lean()
-      : Promise.resolve(null),
+  // Le champ au singulier est celui des fiches écrites avant les co-tenanciers :
+  // on le lit encore, à défaut de la liste, pour ne perdre aucun tenancier.
+  const keeperIds =
+    doc.keeperCharacterIds && doc.keeperCharacterIds.length > 0
+      ? doc.keeperCharacterIds
+      : doc.keeperCharacterId
+        ? [doc.keeperCharacterId]
+        : [];
+  const managerIds = doc.managerIds ?? [];
+
+  const [authors, keeperDocs, counts] = await Promise.all([
+    loadAuthors([doc.authorId, ...managerIds]),
+    keeperIds.length > 0
+      ? Character.find({ _id: { $in: keeperIds }, hidden: { $ne: true } })
+          .select({ name: 1, slug: 1 })
+          .lean()
+      : Promise.resolve([]),
     countUpcomingEvents([doc._id]),
   ]);
+
+  // Mongo rend les personnages dans son ordre à lui : on remet celui de l'auteur.
+  const keepersById = new Map(
+    keeperDocs.map((keeper) => [
+      String(keeper._id),
+      { id: String(keeper._id), slug: keeper.slug, name: keeper.name },
+    ]),
+  );
 
   const points = (doc.floorPlan?.points ?? []).map((point) => ({
     number: point.number,
@@ -150,9 +170,12 @@ export const getPlaceBySlug = cache(async (slug: string): Promise<PlaceDetail | 
       : points.length > 0
         ? { imageUrl: null, imageAlt: null, width: null, height: null, points }
         : null,
-    keeper: keeper
-      ? { id: String(keeper._id), slug: keeper.slug, name: keeper.name }
-      : null,
+    keepers: keeperIds
+      .map((id) => keepersById.get(String(id)))
+      .filter((keeper) => keeper !== undefined),
+    managers: managerIds
+      .map((id) => authors.get(id))
+      .filter((manager) => manager !== undefined),
     author: authors.get(doc.authorId) ?? null,
     createdAt: toIso(doc.createdAt),
     updatedAt: toIso(doc.updatedAt),

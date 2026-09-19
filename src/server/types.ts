@@ -82,7 +82,10 @@ export type PlaceDetail = PlaceSummary & {
     height: number | null;
     points: FloorPoint[];
   } | null;
-  keeper: { id: string; slug: string; name: string } | null;
+  /** Les personnages qui le tiennent, dans l'ordre où l'auteur les a rangés. */
+  keepers: { id: string; slug: string; name: string }[];
+  /** Les comptes qui le modifient avec son auteur. */
+  managers: AuthorSummary[];
   author: AuthorSummary | null;
   createdAt: string;
   updatedAt: string;

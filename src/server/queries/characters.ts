@@ -154,6 +154,25 @@ export async function listCharactersOf(authorId: string) {
   return docs.map((doc) => toSummary(doc as CharacterDocument & { _id: unknown }));
 }
 
+/** Les personnages de plusieurs comptes, avec le compte qui les tient : le choix
+ *  de « tenu par » d'un lieu, où l'auteur et ses co-gérants prêtent les leurs. */
+export async function listCharactersOfMany(authorIds: string[]) {
+  await connectToDatabase();
+  const owners = [...new Set(authorIds)].filter(Boolean);
+  if (owners.length === 0) return [];
+
+  const docs = await Character.find({ authorId: { $in: owners }, hidden: { $ne: true } })
+    .select({ name: 1, authorId: 1 })
+    .sort({ name: 1 })
+    .lean();
+
+  return docs.map((doc) => ({
+    id: String(doc._id),
+    name: doc.name,
+    authorId: doc.authorId,
+  }));
+}
+
 export async function listCharacterSlugs() {
   await connectToDatabase();
   const docs = await Character.find({ hidden: { $ne: true } })

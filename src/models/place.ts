@@ -40,8 +40,14 @@ const placeSchema = new Schema(
       height: { type: Number },
       points: [floorPointSchema],
     },
+    // Un lieu peut être tenu par plusieurs personnages — une taverne a son
+    // patron et sa serveuse. `keeperCharacterId` est l'ancien champ, au
+    // singulier : il est encore lu pour les fiches écrites avant, jamais écrit.
+    keeperCharacterIds: [{ type: Schema.Types.ObjectId, ref: "Character" }],
     keeperCharacterId: { type: Schema.Types.ObjectId, ref: "Character" },
     authorId: { type: String, required: true, index: true },
+    /** Les comptes qui peuvent modifier le lieu avec son auteur. */
+    managerIds: { type: [String], default: [], index: true },
     hidden: { type: Boolean, default: false, index: true },
   },
   { timestamps: true, versionKey: false },
