@@ -4,7 +4,12 @@ import { cache } from "react";
 
 import { REGIONS, WEATHER_CONDITIONS, type Region, type Terrain, type WeatherCondition } from "@/lib/domain";
 import { advanceStep, readCell, type WorldState } from "@/lib/weather/engine";
-import { PHENOMENES, phenomenesOf, type Phenomene } from "@/lib/weather/phenomena";
+import {
+  PHENOMENES,
+  phenomeneDominant,
+  phenomenesOf,
+  type Phenomene,
+} from "@/lib/weather/phenomena";
 import { contourDe, taches } from "@/lib/weather/contours";
 import { CELL_COUNT, CELL_SIZE, cellIndexAt, type BakedTerrain } from "@/lib/weather/grid";
 import { STEPS_PER_DAY, stepEnd, stepStart } from "@/lib/weather/schedule";
@@ -192,9 +197,9 @@ export async function getWeatherAreas(): Promise<WeatherArea[]> {
   for (let index = 0; index < CELL_COUNT; index += 1) {
     if (!loaded.terrain.region[index]) continue;
     const cell = readCell(loaded.state, index, loaded.terrain);
-    const portes = phenomenesOf(cell);
-    if (portes.length === 0) continue;
-    const dominant = PHENOMENES.find((value) => portes.includes(value));
+    // L'ordre de priorité vit dans `phenomeneDominant` : le redire ici le ferait
+    // diverger au premier changement de règle.
+    const dominant = phenomeneDominant(cell);
     if (!dominant) continue;
     precipitations.set(index, cell.precipitation);
     const liste = parPhenomene.get(dominant);

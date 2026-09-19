@@ -116,19 +116,19 @@ export async function advanceWeather(
   const cible = stepIndexAt(now);
   const maxSteps = options.maxSteps ?? RATTRAPAGE_MAX;
 
-  // Le dernier pas d'abord, et rien d'autre. Un battement horaire pour des pas
-  // de deux heures fait qu'un appel sur deux n'a rien à produire : celui-là doit
-  // rendre la main sur une seule lecture, sans cuire le terrain ni écrire une
-  // ligne.
-  let dernier = await WeatherStep.findOne({}).sort({ stepIndex: -1 }).lean();
-
-  // Un pas d'une autre cadence ou d'une autre maille est illisible : sa
-  // numérotation ne veut plus rien dire, ses champs sont empaquetés pour un
-  // autre nombre de cellules. On l'écarte ici pour que le pas dû se calcule sur
-  // la bonne grille ; le ménage se fait plus bas, sur le chemin qui écrit déjà.
-  if (dernier && (dernier.stepsPerDay !== STEPS_PER_DAY || dernier.cellSize !== CELL_SIZE)) {
-    dernier = null;
-  }
+  // Le dernier pas **de notre grille**, et rien d'autre. Un battement horaire
+  // pour des pas de deux heures fait qu'un appel sur deux n'a rien à produire :
+  // celui-là doit rendre la main sur une seule lecture, sans cuire le terrain ni
+  // écrire une ligne.
+  //
+  // Le filtre est dans la requête plutôt qu'après coup : un pas d'une autre
+  // cadence ou d'une autre maille est illisible, mais s'il se trouve porter un
+  // numéro plus haut — un retour en arrière sur la maille, à cadence égale — le
+  // jeter après l'avoir lu ferait repartir la simulation de zéro alors qu'un
+  // pas compatible l'attendait juste en dessous.
+  const dernier = await WeatherStep.findOne({ stepsPerDay: STEPS_PER_DAY, cellSize: CELL_SIZE })
+    .sort({ stepIndex: -1 })
+    .lean();
 
   if (dernier && dernier.stepIndex >= cible) return { produced: [] };
 

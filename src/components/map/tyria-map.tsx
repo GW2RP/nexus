@@ -13,6 +13,7 @@ import {
 } from "@/components/map/map-marker-html";
 import type { EventType, PlaceType } from "@/lib/domain";
 import { cellRect } from "@/lib/weather/grid";
+import type { Phenomene } from "@/lib/weather/phenomena";
 import type { MapTone } from "@/lib/weather/tones";
 import {
   CLAMPED_VIEW,
@@ -59,8 +60,8 @@ export type MapArea = {
   anneaux: { x: number; y: number }[][];
   tone: MapTone;
   fill: number;
-  /** Le nom du phénomène, pour choisir le symbole et l'annoncer. */
-  phenomene: string;
+  /** Le phénomène, pour choisir le symbole et l'annoncer. */
+  phenomene: Phenomene;
   libelle: string;
   centre: { x: number; y: number };
 };

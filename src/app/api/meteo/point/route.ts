@@ -18,10 +18,21 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(request: Request): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
-  const x = Number(searchParams.get("x"));
-  const y = Number(searchParams.get("y"));
+  // `Number(null)` et `Number("")` valent zéro : sans ce garde-fou, une requête
+  // sans coordonnées sonderait le coin nord-ouest du continent en silence et
+  // rendrait un relevé parfaitement crédible pour un point que personne n'a
+  // demandé.
+  const lire = (nom: string): number | null => {
+    const brut = searchParams.get(nom);
+    if (brut === null || brut.trim() === "") return null;
+    const valeur = Number(brut);
+    return Number.isFinite(valeur) ? valeur : null;
+  };
 
-  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+  const x = lire("x");
+  const y = lire("y");
+
+  if (x === null || y === null) {
     return NextResponse.json({ erreur: "Coordonnées illisibles." }, { status: 400 });
   }
 
