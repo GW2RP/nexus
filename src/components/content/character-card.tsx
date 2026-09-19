@@ -7,7 +7,11 @@ import { FramedMedia, RoundPortrait } from "@/components/ui/framed-media";
 import { raceLabel } from "@/lib/domain";
 import type { CharacterSummary } from "@/server/types";
 
-/** La carte du registre : portrait 4:3 en tête, bordé en bas, puis le bloc de texte.
+/** La carte du registre : portrait 3:4 en tête, bordé en bas, puis le bloc de texte.
+ *
+ *  Le cadrage est celui que le formulaire demande — 3:4, 900 × 1200 — donc le
+ *  portrait téléversé tient entier dans la carte. En 4:3, le recadrage en
+ *  `cover` coupait le haut et le bas de chaque portrait.
  *
  *  La carte prend toute la largeur de sa case : sans `w-full`, une carte au texte
  *  court se rétrécit à son contenu, et son portrait — large à 100 % — rapetisse
@@ -32,8 +36,8 @@ export function CharacterCard({ character }: { character: CharacterSummary }) {
           src={character.portraitUrl}
           alt={character.portraitAlt ?? `Portrait de ${character.name}`}
           placeholder="PORTRAIT"
-          dimensions={character.portraitUrl ? undefined : "1200 × 900"}
-          aspect="4 / 3"
+          dimensions={character.portraitUrl ? undefined : "900 × 1200"}
+          aspect="3 / 4"
           className="border-0 border-b border-rule p-0"
           innerClassName="border-0"
         />
