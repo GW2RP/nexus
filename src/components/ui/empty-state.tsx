@@ -20,11 +20,11 @@ export function EmptyState({
         className,
       )}
     >
-      <p className="font-display text-[18px] font-semibold leading-[1.3] tracking-[1px]">
+      <p className="panel-title">
         {title}
       </p>
       {description ? (
-        <p className="max-w-[60ch] text-[17px] leading-[1.5] text-ink-body">{description}</p>
+        <p className="max-w-[60ch] body-compact text-ink-body">{description}</p>
       ) : null}
       {action}
     </div>

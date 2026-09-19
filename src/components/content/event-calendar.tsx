@@ -57,7 +57,7 @@ export function EventCalendar({
         {WEEKDAYS.map((label) => (
           <div
             key={label}
-            className="border-r border-hairline px-2 py-3 text-center font-display text-[11px] font-medium uppercase tracking-[1.4px] text-ink-muted last:border-r-0"
+            className="border-r border-hairline px-2 py-3 text-center font-display text-[11px] font-medium tracking-[1.4px] text-ink-muted last:border-r-0"
           >
             {label}
           </div>

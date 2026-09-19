@@ -23,8 +23,8 @@ export function EventRow({ event }: { event: EventSummary }) {
     <li className="flex items-start gap-4 border-b border-hairline py-4 last:border-b-0 sm:gap-6 sm:py-5">
       <div className="flex w-[70px] shrink-0 flex-col items-start sm:w-[78px] sm:border-r sm:border-hairline sm:pr-4">
         <span className="font-display text-[26px] font-bold leading-none">{tyrian.day}</span>
-        <span className="mt-1 text-[15px] leading-[1.45] text-ink-muted">{tyrian.season}</span>
-        <span className="text-[15px] leading-[1.45] text-ink-muted">
+        <span className="mt-1 caption text-ink-muted">{tyrian.season}</span>
+        <span className="caption text-ink-muted">
           {formatGameTime(startsAt)}
         </span>
       </div>
@@ -38,7 +38,7 @@ export function EventRow({ event }: { event: EventSummary }) {
           </h3>
           <EventTypeChip type={event.type} />
         </div>
-        <p className="mt-1 text-[16px] leading-[1.45] text-ink-muted">
+        <p className="mt-1 meta text-ink-muted">
           {formatWeekday(startsAt)} · {facts.join(" · ")}
         </p>
       </div>
@@ -69,7 +69,7 @@ export function EventRow({ event }: { event: EventSummary }) {
         ) : (
           <Link
             href={`/evenements/${event.slug}`}
-            className="inline-flex min-h-tap items-center border border-gold px-4 py-3 font-display text-[11px] font-semibold uppercase tracking-[1.5px] text-gold-ink hover:bg-surface-selected"
+            className="inline-flex min-h-tap items-center border border-gold px-4 py-3 font-display text-[11px] font-semibold tracking-[1.5px] text-gold-ink hover:bg-surface-selected"
           >
             S'INSCRIRE
           </Link>

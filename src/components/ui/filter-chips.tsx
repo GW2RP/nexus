@@ -71,7 +71,7 @@ function Chip({
       aria-pressed={active}
       onClick={onSelect}
       className={cn(
-        "inline-flex min-h-tap items-center rounded-none border px-4 py-[11px] font-display text-[11px] font-medium uppercase tracking-[1.4px]",
+        "inline-flex min-h-tap items-center rounded-none border px-4 py-[11px] font-display text-[11px] font-medium tracking-[1.4px]",
         active
           ? "border-gold-ink bg-gold-ink text-on-crimson"
           : "border-chip-edge bg-transparent text-gold-ink hover:bg-surface-selected",

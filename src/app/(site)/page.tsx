@@ -46,7 +46,7 @@ export default async function HomePage() {
     <div className="mx-auto max-w-[1280px] px-gutter-mobile lg:px-gutter-desktop">
       <section className="flex flex-col items-start gap-10 py-10 lg:flex-row lg:items-center lg:gap-14 lg:py-[52px]">
         <div className="flex-1">
-          <p className="mb-4 font-display text-[12px] font-medium uppercase tracking-[3.5px] text-gold-eyebrow">
+          <p className="mb-4 font-display text-[12px] font-medium tracking-[3.5px] text-gold-eyebrow">
             UNIVERS GUILD WARS 2 · JEU DE RÔLE
           </p>
           <h1 className="mb-4 font-display text-[36px] font-bold leading-[1.12] text-pretty sm:text-[44px] lg:text-[52px]">

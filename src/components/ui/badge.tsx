@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 /** La puce de type : lecture seule, toujours accompagnée de son glyphe.
  *  Ce n'est pas un bouton — c'est un `<span>`. */
 const badgeVariants = cva(
-  "inline-flex items-center gap-[7px] font-display font-medium uppercase rounded-none border px-[10px] py-[7px] text-[11px] leading-none tracking-[1.4px]",
+  "inline-flex items-center gap-[7px] font-display font-medium rounded-none border px-[10px] py-[7px] text-[11px] leading-none tracking-[1.4px]",
   {
     variants: {
       variant: {

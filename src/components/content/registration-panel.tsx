@@ -47,7 +47,7 @@ export function RegistrationPanel({
   if (!isSignedIn) {
     return (
       <div className="flex flex-col gap-4">
-        <p className="text-[17px] leading-[1.5] text-ink-body">
+        <p className="body-compact text-ink-body">
           L'inscription demande un compte. Elle est annulable jusqu'à l'heure du rendez-vous.
         </p>
         <Button asChild size="lead">
@@ -59,7 +59,7 @@ export function RegistrationPanel({
 
   if (!canRegister) {
     return (
-      <p className="text-[17px] leading-[1.5] text-ink-body">
+      <p className="body-compact text-ink-body">
         Votre compte est suspendu : vous ne pouvez pas vous inscrire pour l'instant.
       </p>
     );
@@ -71,7 +71,7 @@ export function RegistrationPanel({
         <p className="font-display text-[18px] font-semibold tracking-[1px] text-success">
           {event.viewerStatus === "inscrit" ? "VOUS ÊTES INSCRIT" : "VOUS ÊTES SUR LA LISTE D'ATTENTE"}
         </p>
-        <p className="text-[17px] leading-[1.5] text-ink-body">
+        <p className="body-compact text-ink-body">
           {event.viewerStatus === "inscrit"
             ? "Vous pourrez annuler votre inscription jusqu'à l'heure du rendez-vous."
             : "Une place qui se libère vous revient dans l'ordre d'arrivée."}
@@ -130,7 +130,7 @@ export function RegistrationPanel({
           </Select>
         </Field>
       ) : (
-        <p className="text-[17px] leading-[1.5] text-ink-body">
+        <p className="body-compact text-ink-body">
           Vous n'avez pas encore de personnage au registre.{" "}
           <Link
             href="/personnages/nouveau"
@@ -148,7 +148,7 @@ export function RegistrationPanel({
         {full ? "REJOINDRE LA LISTE D'ATTENTE" : "S'INSCRIRE"}
       </SubmitButton>
 
-      <p className="text-[15px] leading-[1.45] text-ink-muted">
+      <p className="caption text-ink-muted">
         {full
           ? "Toutes les places sont prises : vous entrez sur la liste d'attente."
           : "Vous pourrez annuler votre inscription jusqu'à l'heure du rendez-vous."}

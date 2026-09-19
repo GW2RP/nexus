@@ -55,7 +55,7 @@ export function DeleteContent({
         <div className="mt-4 border border-chip-edge bg-surface-inset p-4">
           <p className="font-display text-[18px] font-semibold">{title}</p>
           {excerpt ? (
-            <p className="mt-1 text-[16px] leading-[1.45] text-ink-muted">{excerpt}</p>
+            <p className="mt-1 meta text-ink-muted">{excerpt}</p>
           ) : null}
         </div>
 

@@ -17,7 +17,7 @@ function Label({
     <label
       data-slot="label"
       className={cn(
-        "text-[16px] leading-[1.45] text-ink-muted",
+        "meta text-ink-muted",
         // Une étiquette visuellement masquée reste dans le DOM.
         hidden && "absolute size-px overflow-hidden [clip-path:inset(50%)]",
         className,
@@ -94,9 +94,9 @@ function Field({
         {required ? <span className="sr-only"> (obligatoire)</span> : null}
       </Label>
       {children}
-      {hint ? <p className="text-[15px] leading-[1.45] text-ink-subtle">{hint}</p> : null}
+      {hint ? <p className="caption text-ink-subtle">{hint}</p> : null}
       {error ? (
-        <p role="alert" className="text-[15px] leading-[1.45] text-crimson-ink">
+        <p role="alert" className="caption text-crimson-ink">
           {error}
         </p>
       ) : null}

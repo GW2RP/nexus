@@ -98,7 +98,7 @@ export function PlaceTabs({ place }: { place: PlaceDetail }) {
                 >
                   {point.number}
                 </span>
-                <span className="text-[17px] leading-[1.5] text-ink-body">
+                <span className="body-compact text-ink-body">
                   <strong className="font-display font-semibold text-ink">{point.label}</strong>
                   {point.description ? ` — ${point.description}` : null}
                 </span>
@@ -126,7 +126,7 @@ function TabButton({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "inline-flex min-h-tap items-center border-r border-rule px-5 py-3 font-display text-[12px] font-semibold uppercase tracking-[1.6px] last:border-r-0",
+        "inline-flex min-h-tap items-center border-r border-rule px-5 py-3 font-display text-[12px] font-semibold tracking-[1.6px] last:border-r-0",
         active ? "bg-gold-ink text-on-crimson" : "text-gold-ink hover:bg-surface-selected",
       )}
     >

@@ -31,7 +31,7 @@ export default async function ModerationLogPage() {
         <ul className="flex flex-col">
           {entries.map((entry) => (
             <li key={entry.id} className="border-b border-hairline py-5 last:border-b-0">
-              <p className="font-display text-[11px] font-medium uppercase tracking-[1.4px] text-gold-ink">
+              <p className="font-display text-[11px] font-medium tracking-[1.4px] text-gold-ink">
                 {MODERATION_ACTION_LABELS[entry.action as ModerationAction]} ·{" "}
                 {REPORT_TARGET_LABELS[entry.targetType]}
               </p>

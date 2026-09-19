@@ -25,7 +25,7 @@ export default function AboutPage() {
 
       <section className="mb-8">
         <SectionHeading title="Ce que fait le hub" as="h2" />
-        <p className="max-w-[70ch] text-[19px] leading-[1.65] text-ink-body">
+        <p className="max-w-[70ch] body text-ink-body">
           Quatre choses, et rien d'autre : un{" "}
           <Link href="/personnages" className="text-crimson-ink underline underline-offset-4">
             registre des personnages
@@ -48,7 +48,7 @@ export default function AboutPage() {
 
       <section className="mb-8">
         <SectionHeading title="Affiliation" as="h2" />
-        <p className="max-w-[70ch] text-[19px] leading-[1.65] text-ink-body">
+        <p className="max-w-[70ch] body text-ink-body">
           GW2RP Nexus n'est affilié ni à ArenaNet, LLC ni à NCSOFT. Guild Wars 2 et l'ensemble
           de l'univers de Tyrie leur appartiennent. {TILE_ATTRIBUTION} Les textes et les
           images déposés ici restent à leurs auteurs.
@@ -57,7 +57,7 @@ export default function AboutPage() {
 
       <section className="mb-8">
         <SectionHeading title="Les dates" as="h2" />
-        <p className="max-w-[70ch] text-[19px] leading-[1.65] text-ink-body">
+        <p className="max-w-[70ch] body text-ink-body">
           L'agenda affiche la date réelle en premier et la date tyrienne en second. Les heures
           sont celles du serveur de jeu, en Europe/Paris : elles sont indiquées comme telles,
           jamais converties en silence.
@@ -66,7 +66,7 @@ export default function AboutPage() {
 
       <section>
         <SectionHeading title="Un problème ?" as="h2" />
-        <p className="max-w-[70ch] text-[19px] leading-[1.65] text-ink-body">
+        <p className="max-w-[70ch] body text-ink-body">
           Chaque contenu porte un drapeau de signalement. Pour tout le reste, la page{" "}
           <Link href="/signaler" className="text-crimson-ink underline underline-offset-4">
             signaler un contenu

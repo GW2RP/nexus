@@ -128,7 +128,7 @@ export default async function ReportsPage({
                     <th
                       key={header}
                       scope="col"
-                      className="px-4 py-3 font-display text-[11px] font-medium uppercase tracking-[1.4px] text-ink-muted"
+                      className="px-4 py-3 font-display text-[11px] font-medium tracking-[1.4px] text-ink-muted"
                     >
                       {header}
                     </th>
@@ -140,12 +140,12 @@ export default async function ReportsPage({
               {reports.map((report) => (
                 <tr key={report.id} className="border-b border-hairline bg-surface last:border-b-0">
                   <td className="px-4 py-4 align-top">
-                    <span className="font-display text-[11px] font-medium uppercase tracking-[1.4px] text-crimson-ink">
+                    <span className="font-display text-[11px] font-medium tracking-[1.4px] text-crimson-ink">
                       {REPORT_REASON_LABELS[report.reason]}
                     </span>
                   </td>
                   <td className="max-w-[420px] px-4 py-4 align-top">
-                    <p className="text-[17px] leading-[1.5] text-ink">
+                    <p className="body-compact text-ink">
                       {report.targetExcerpt ?? "Contenu supprimé depuis le signalement."}
                     </p>
                     {report.siblingCount > 1 ? (
@@ -166,7 +166,7 @@ export default async function ReportsPage({
                   <td className="px-4 py-4 align-top">
                     <Link
                       href={`/admin/signalements/${report.id}`}
-                      className="inline-flex min-h-tap items-center border border-gold px-4 py-3 font-display text-[11px] font-semibold uppercase tracking-[1.5px] text-gold-ink hover:bg-surface-selected"
+                      className="inline-flex min-h-tap items-center border border-gold px-4 py-3 font-display text-[11px] font-semibold tracking-[1.5px] text-gold-ink hover:bg-surface-selected"
                     >
                       EXAMINER
                     </Link>

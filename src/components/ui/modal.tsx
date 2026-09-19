@@ -36,7 +36,7 @@ function DialogContent({
 function DialogTitle({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Title>) {
   return (
     <DialogPrimitive.Title
-      className={cn("font-display text-[27px] font-semibold leading-[1.2]", className)}
+      className={cn("section-title", className)}
       {...props}
     />
   );
@@ -48,7 +48,7 @@ function DialogDescription({
 }: React.ComponentProps<typeof DialogPrimitive.Description>) {
   return (
     <DialogPrimitive.Description
-      className={cn("text-[19px] leading-[1.65] text-ink-body", className)}
+      className={cn("body text-ink-body", className)}
       {...props}
     />
   );
@@ -80,7 +80,7 @@ function AlertDialogTitle({
 }: React.ComponentProps<typeof AlertDialogPrimitive.Title>) {
   return (
     <AlertDialogPrimitive.Title
-      className={cn("font-display text-[27px] font-semibold leading-[1.2]", className)}
+      className={cn("section-title", className)}
       {...props}
     />
   );
@@ -92,7 +92,7 @@ function AlertDialogDescription({
 }: React.ComponentProps<typeof AlertDialogPrimitive.Description>) {
   return (
     <AlertDialogPrimitive.Description
-      className={cn("text-[19px] leading-[1.65] text-ink-body", className)}
+      className={cn("body text-ink-body", className)}
       {...props}
     />
   );

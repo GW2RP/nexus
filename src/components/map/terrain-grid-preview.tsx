@@ -120,7 +120,7 @@ export function TerrainGridPreview({
       </div>
 
       {desaccord ? (
-        <p role="status" className="text-[17px] leading-[1.5] text-crimson-ink">
+        <p role="status" className="body-compact text-crimson-ink">
           Le point et le centre de sa cellule ne tombent pas dans la même zone : la
           simulation juge le centre.
         </p>

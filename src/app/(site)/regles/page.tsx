@@ -51,7 +51,7 @@ export default function RulesPage() {
       {RULES.map((rule) => (
         <section key={rule.title} className="mb-8">
           <SectionHeading title={rule.title} as="h2" />
-          <p className="max-w-[70ch] text-[19px] leading-[1.65] text-ink-body">{rule.body}</p>
+          <p className="max-w-[70ch] body text-ink-body">{rule.body}</p>
         </section>
       ))}
 

@@ -175,6 +175,12 @@ le **zoom 7** qui porte l'échelle de `continent_dims` — la grille servie au z
 référence décale tout le monde de plusieurs milliers de pixels : les lieux
 tombent en pleine mer. La constante est `COORDINATE_ZOOM` dans `src/lib/map.ts`.
 
+Un évènement se tient dans un lieu, donc son pin tombe **exactement** sur celui
+du lieu : le pin du dessous n'était ni visible ni cliquable, et la carte
+annonçait dix pins pour six. Les pins qui partagent un point s'étalent
+maintenant en une rangée **centrée sur ce point** — le lieu désigné reste le
+vrai, et chaque pin garde un centre à soi où cliquer.
+
 ## La météo
 
 Elle n'est pas écrite, elle est **simulée**. Un pas **toutes les deux heures**,

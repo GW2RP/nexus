@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
  *  existe pour permettre. Pas d'état désactivé grisé pour une action interdite :
  *  on retire l'action et on dit pourquoi. */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 font-display font-semibold uppercase tracking-[1.6px] rounded-none border transition-none disabled:pointer-events-none disabled:opacity-60 [&_svg]:pointer-events-none",
+  "inline-flex items-center justify-center gap-2 font-display font-semibold tracking-[1.6px] rounded-none border transition-none disabled:pointer-events-none disabled:opacity-60 [&_svg]:pointer-events-none",
   {
     variants: {
       variant: {

@@ -79,7 +79,7 @@ export default async function ReportPage({ params }: Props) {
             <ul className="flex flex-col">
               {[report, ...siblings].map((entry) => (
                 <li key={entry.id} className="border-b border-hairline py-4 last:border-b-0">
-                  <p className="font-display text-[11px] font-medium uppercase tracking-[1.4px] text-crimson-ink">
+                  <p className="font-display text-[11px] font-medium tracking-[1.4px] text-crimson-ink">
                     {REPORT_REASON_LABELS[entry.reason]}
                   </p>
                   {entry.comment ? (
@@ -127,7 +127,7 @@ export default async function ReportPage({ params }: Props) {
             </Card>
           ) : (
             <Card inset className="p-6">
-              <p className="text-[17px] leading-[1.5] text-ink-body">
+              <p className="body-compact text-ink-body">
                 Ce signalement est déjà tranché. Le journal en garde la trace.
               </p>
             </Card>

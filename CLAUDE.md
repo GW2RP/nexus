@@ -17,7 +17,17 @@ Atlas, domaine `www.gw2rp.eu`.
   numérotées sont ronds.
 - **Une action principale par écran.** Un seul bouton `crimson` par page.
 - **Les capitales s'écrivent dans le contenu**, jamais avec `text-transform` :
-  le lecteur d'écran doit lire ce qui est écrit.
+  le lecteur d'écran doit lire ce qui est écrit. L'idiome du dépôt est
+  `toLocaleUpperCase("fr-FR")` sur le texte rendu. Plus une seule classe
+  `uppercase` ne subsiste, et rien ne doit en réintroduire : un texte capitalisé
+  par CSS ne se voit pas en relisant le code, seulement en relevant le
+  `text-transform` calculé.
+- **Les styles de texte sont ceux de `tokens.css`** — `.body`, `.meta`,
+  `.section-title`… — pas un `text-[Npx]` réinventé. L'échelle ne couvre pas
+  tout : elle n'a qu'une taille par rôle, donc les titres qui se réduisent sur
+  téléphone gardent leur rampe responsive, et quelques tailles de libellé
+  (11, 13, 14 px) n'y figurent pas. Ces cas-là attendent une décision du design
+  system ; ils ne se règlent pas en écrivant une taille de plus.
 - **Rien d'inventé.** Une donnée absente affiche un placeholder explicite avec
   sa dimension attendue, jamais un faux contenu ni un faux chiffre.
 - **Pas de texte d'explication.** Un état vide porte son titre et rien d'autre ;

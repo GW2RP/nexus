@@ -182,7 +182,7 @@ export default async function PlacePage({ params }: Props) {
                   .map((paragraph) => paragraph.trim())
                   .filter(Boolean)
                   .map((paragraph, index) => (
-                    <p key={index} className="text-[19px] leading-[1.65] text-ink-body">
+                    <p key={index} className="body text-ink-body">
                       {paragraph}
                     </p>
                   ))}

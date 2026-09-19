@@ -39,7 +39,7 @@ export function FramedMedia({
           <img src={src} alt={alt ?? ""} className="size-full object-cover" loading="lazy" />
         ) : (
           <div className="hatch flex size-full items-center justify-center px-4 text-center">
-            <span className="font-display text-[11px] font-medium uppercase tracking-[1.4px] text-gold-eyebrow sm:text-[13px] sm:tracking-[2px]">
+            <span className="font-display text-[11px] font-medium tracking-[1.4px] text-gold-eyebrow sm:text-[13px] sm:tracking-[2px]">
               {label}
             </span>
           </div>
