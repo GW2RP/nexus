@@ -85,7 +85,7 @@ export function ImageField({
       <input type="hidden" name={name} value={url} />
 
       <div className="flex flex-col gap-2">
-        <span className="text-[16px] leading-[1.45] text-ink-muted">{label}</span>
+        <span className="meta text-ink-muted">{label}</span>
 
         <div className="framed">
           <div
@@ -99,7 +99,7 @@ export function ImageField({
               // eslint-disable-next-line @next/next/no-img-element
               <img src={url} alt={alt} className="size-full object-cover" />
             ) : (
-              <span className="flex size-full items-center justify-center px-4 text-center font-display text-[11px] font-medium uppercase tracking-[1.4px] text-gold-eyebrow">
+              <span className="flex size-full items-center justify-center px-4 text-center font-display text-[11px] font-medium tracking-[1.4px] text-gold-eyebrow">
                 [ AUCUNE IMAGE ]
               </span>
             )}
@@ -141,14 +141,14 @@ export function ImageField({
           ) : null}
         </div>
 
-        {hint ? <p className="text-[15px] leading-[1.45] text-ink-subtle">{hint}</p> : null}
+        {hint ? <p className="caption text-ink-subtle">{hint}</p> : null}
         {failure ? (
-          <p role="alert" className="text-[15px] leading-[1.45] text-crimson-ink">
+          <p role="alert" className="caption text-crimson-ink">
             {failure}
           </p>
         ) : null}
         {error ? (
-          <p role="alert" className="text-[15px] leading-[1.45] text-crimson-ink">
+          <p role="alert" className="caption text-crimson-ink">
             {error}
           </p>
         ) : null}

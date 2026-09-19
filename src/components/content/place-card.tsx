@@ -23,7 +23,7 @@ export function PlaceCard({ place }: { place: PlaceSummary }) {
       </FramedMedia>
 
       <div className="flex flex-1 flex-col gap-3 p-5">
-        <h3 className="font-display text-[21px] font-semibold leading-[1.25]">
+        <h3 className="card-title">
           <Link href={`/lieux/${place.slug}`} className="hover:underline">
             {place.name}
           </Link>
@@ -33,7 +33,7 @@ export function PlaceCard({ place }: { place: PlaceSummary }) {
           {[place.district, REGION_LABELS[place.region]].filter(Boolean).join(", ")}
         </p>
         {place.summary ? (
-          <p className="text-[17px] leading-[1.5] text-ink-body">{place.summary}</p>
+          <p className="body-compact text-ink-body">{place.summary}</p>
         ) : null}
         {place.upcomingEventCount > 0 ? (
           <p className="mt-auto pt-2 text-[16px] text-crimson-ink">

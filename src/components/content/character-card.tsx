@@ -22,7 +22,7 @@ export function CharacterCard({ character }: { character: CharacterSummary }) {
       />
       <div className="flex flex-1 flex-col gap-3 p-5">
         <div className="flex flex-wrap items-center gap-3">
-          <h3 className="font-display text-[21px] font-semibold leading-[1.25]">
+          <h3 className="card-title">
             <Link href={`/personnages/${character.slug}`} className="hover:underline">
               {character.name}
             </Link>
@@ -35,7 +35,7 @@ export function CharacterCard({ character }: { character: CharacterSummary }) {
           ) : null}
         </div>
         {character.summary ? (
-          <p className="text-[17px] leading-[1.5] text-ink-body">{character.summary}</p>
+          <p className="body-compact text-ink-body">{character.summary}</p>
         ) : null}
         {character.homePlaceLabel ? (
           <p className="mt-auto flex items-center gap-2 pt-2 text-[16px] text-ink-muted">

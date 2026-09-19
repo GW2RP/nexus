@@ -24,8 +24,10 @@ export function PageHeader({
     >
       <div>
         {eyebrow ? (
-          <p className="mb-3 font-display text-[12px] font-medium uppercase tracking-[3.5px] text-gold-eyebrow">
-            {eyebrow}
+          <p className="mb-3 font-display text-[12px] font-medium tracking-[3.5px] text-gold-eyebrow">
+            {/* Les capitales s'écrivent, elles ne se posent pas en CSS : le
+                lecteur d'écran doit lire ce que l'œil lit. */}
+            {eyebrow.toLocaleUpperCase("fr-FR")}
           </p>
         ) : null}
         <h1 className="font-display text-[32px] font-bold leading-[1.1] sm:text-[40px]">

@@ -68,7 +68,7 @@ export function RumorItem({
                 type="submit"
                 aria-pressed={rumor.viewerHasEchoed}
                 className={cn(
-                  "inline-flex min-h-tap items-center border px-3 py-2 font-display text-[10px] font-medium uppercase tracking-[1.4px]",
+                  "inline-flex min-h-tap items-center border px-3 py-2 font-display text-[10px] font-medium tracking-[1.4px]",
                   rumor.viewerHasEchoed
                     ? "border-gold-ink bg-gold-ink text-on-crimson"
                     : "border-chip-edge bg-transparent text-gold-ink hover:bg-surface-selected",
@@ -79,7 +79,7 @@ export function RumorItem({
               </button>
             </form>
           ) : (
-            <span className="font-display text-[10px] font-medium uppercase tracking-[1.4px] text-ink-muted">
+            <span className="font-display text-[10px] font-medium tracking-[1.4px] text-ink-muted">
               REPRISE {rumor.echoCount} FOIS
             </span>
           )}

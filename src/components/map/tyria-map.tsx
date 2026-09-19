@@ -19,6 +19,11 @@ import {
   TILE_URL,
 } from "@/lib/map";
 
+/** Ce qui sépare deux pins posés au même endroit. Un peu moins que leur
+ *  diamètre : ils se touchent sans se couvrir, et la rangée reste lisible comme
+ *  un groupe plutôt que comme des pins éparpillés. */
+const ESPACEMENT_GRAPPE = 28;
+
 export type MapPin = {
   id: string;
   kind: "lieu" | "evenement";
@@ -244,16 +249,37 @@ export function TyriaMap({
     for (const marker of markersRef.current.values()) marker.remove();
     markersRef.current.clear();
 
+    // Un évènement se tient dans un lieu, donc son pin tombe exactement sur celui
+    // du lieu : le pin du dessous devenait invisible et inatteignable, et la
+    // carte annonçait dix pins pour six visibles. On étale la grappe en une
+    // rangée **centrée sur le point** — le point désigné reste le vrai, et
+    // chaque pin garde un centre à soi où cliquer.
+    const grappes = new Map<string, MapPin[]>();
+    for (const pin of pins) {
+      const cle = `${pin.x}|${pin.y}`;
+      const grappe = grappes.get(cle);
+      if (grappe) grappe.push(pin);
+      else grappes.set(cle, [pin]);
+    }
+    const rang = new Map<string, { i: number; sur: number }>();
+    for (const grappe of grappes.values()) {
+      grappe.forEach((pin, i) => rang.set(pin.id, { i, sur: grappe.length }));
+    }
+
     for (const pin of pins) {
       const state: MarkerState = pin.id === selectedId ? "selectionne" : pin.state;
       const size = state === "selectionne" ? 44 : 34;
+      const place = rang.get(pin.id) ?? { i: 0, sur: 1 };
+      const ecart = (place.i - (place.sur - 1) / 2) * ESPACEMENT_GRAPPE;
 
       const marker = L.marker(map.unproject([pin.x, pin.y], COORDINATE_ZOOM), {
         icon: L.divIcon({
           html: markerHtml(pin.type, state),
           className: "gw2rp-pin",
           iconSize: [size, size],
-          iconAnchor: [size / 2, size / 2],
+          // Décaler l'ancre décale l'icône en sens inverse : la rangée s'étale
+          // autour du point, jamais d'un seul côté.
+          iconAnchor: [size / 2 - ecart, size / 2],
         }),
         keyboard: interactive,
         interactive,

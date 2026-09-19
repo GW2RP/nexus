@@ -191,7 +191,7 @@ export default async function EventsPage({
               <div className="mb-3 flex items-end justify-between gap-4">
                 <h2
                   id={`semaine-${week.key}`}
-                  className="font-display text-[18px] font-semibold leading-[1.3] tracking-[1px]"
+                  className="panel-title"
                 >
                   Semaine du {formatTyrianDate(week.start, { year: false })}
                 </h2>

@@ -64,7 +64,7 @@ export function MapPicker({
       </div>
 
       {error ? (
-        <p role="alert" className="text-[15px] leading-[1.45] text-crimson-ink">
+        <p role="alert" className="caption text-crimson-ink">
           {error}
         </p>
       ) : null}

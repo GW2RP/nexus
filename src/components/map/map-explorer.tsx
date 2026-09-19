@@ -456,7 +456,7 @@ function TabButton({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "flex-1 border-r border-rule px-4 py-4 font-display text-[12px] font-semibold uppercase tracking-[1.6px] last:border-r-0",
+        "flex-1 border-r border-rule px-4 py-4 font-display text-[12px] font-semibold tracking-[1.6px] last:border-r-0",
         active ? "bg-gold-ink text-on-crimson" : "text-gold-ink hover:bg-surface-selected",
       )}
     >
@@ -480,7 +480,7 @@ function FilterButton({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "inline-flex min-h-tap items-center border px-4 py-[11px] font-display text-[11px] font-medium uppercase tracking-[1.4px]",
+        "inline-flex min-h-tap items-center border px-4 py-[11px] font-display text-[11px] font-medium tracking-[1.4px]",
         active
           ? "border-gold-ink bg-gold-ink text-on-crimson"
           : "border-chip-edge text-gold-ink hover:bg-surface-selected",
@@ -507,7 +507,7 @@ function DetailPanel({
 }) {
   return (
     <div className="absolute inset-x-4 bottom-4 z-[600] w-auto border-2 border-gold bg-surface p-5 sm:left-4 sm:w-[318px]">
-      <h2 className="font-display text-[21px] font-semibold leading-[1.25]">{title}</h2>
+      <h2 className="card-title">{title}</h2>
       <p className="mt-1 text-[16px] text-ink-muted">{meta}</p>
       {note ? <p className="mt-1 text-[16px] text-crimson-ink">{note}</p> : null}
       <div className="mt-4 flex gap-3">

@@ -5,7 +5,17 @@ import { useState, useTransition } from "react";
 
 import { authClient } from "@/lib/auth-client";
 
-export function SignOutButton({ className }: { className?: string }) {
+export function SignOutButton({
+  className,
+  capitales = false,
+}: {
+  className?: string;
+  /** Le bouton paraît en action encadrée sur le compte, en lien dans le menu.
+   *  Les capitales s'écrivent donc dans le texte rendu, pas en `text-transform`
+   *  au gré de l'appelant : un lecteur d'écran doit lire ce qui est affiché. */
+  capitales?: boolean;
+}) {
+  const dire = (texte: string) => (capitales ? texte.toLocaleUpperCase("fr-FR") : texte);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [busy, setBusy] = useState(false);
@@ -36,7 +46,11 @@ export function SignOutButton({ className }: { className?: string }) {
       className={className}
       aria-describedby={error ? "deconnexion-erreur" : undefined}
     >
-      {busy || pending ? "Déconnexion…" : error ? "Réessayer la déconnexion" : "Se déconnecter"}
+      {busy || pending
+        ? dire("Déconnexion…")
+        : error
+          ? dire("Réessayer la déconnexion")
+          : dire("Se déconnecter")}
       {error ? (
         <span id="deconnexion-erreur" className="sr-only">
           La déconnexion n'a pas abouti. Réessayez.

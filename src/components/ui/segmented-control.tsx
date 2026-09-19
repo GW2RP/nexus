@@ -21,7 +21,7 @@ export function SegmentedControl({
           href={segment.href}
           aria-current={segment.active ? "page" : undefined}
           className={cn(
-            "inline-flex min-h-tap items-center px-5 py-3 font-display text-[12px] font-semibold uppercase tracking-[1.6px]",
+            "inline-flex min-h-tap items-center px-5 py-3 font-display text-[12px] font-semibold tracking-[1.6px]",
             index > 0 && "border-l border-rule",
             segment.active
               ? "bg-gold-ink text-on-crimson"

@@ -28,14 +28,14 @@ export function EventCard({ event }: { event: EventSummary }) {
         </span>
       </CardHeader>
 
-      <h3 className="font-display text-[21px] font-semibold leading-[1.25]">
+      <h3 className="card-title">
         <Link href={`/evenements/${event.slug}`} className="hover:underline">
           {event.title}
         </Link>
       </h3>
 
       {event.summary ? (
-        <p className="text-[17px] leading-[1.5] text-ink-body">{event.summary}</p>
+        <p className="body-compact text-ink-body">{event.summary}</p>
       ) : null}
 
       <p className="flex items-center gap-2 text-[16px] text-ink-muted">
@@ -49,13 +49,13 @@ export function EventCard({ event }: { event: EventSummary }) {
           {event.capacity ? ` / ${event.capacity}` : ""}
         </span>
         {full ? (
-          <span className="font-display text-[11px] font-medium uppercase tracking-[1.5px] text-ink-muted">
+          <span className="font-display text-[11px] font-medium tracking-[1.5px] text-ink-muted">
             Complet
           </span>
         ) : (
           <Link
             href={`/evenements/${event.slug}`}
-            className="inline-flex min-h-tap items-center border border-gold px-4 py-3 font-display text-[11px] font-semibold uppercase tracking-[1.5px] text-gold-ink hover:bg-surface-selected"
+            className="inline-flex min-h-tap items-center border border-gold px-4 py-3 font-display text-[11px] font-semibold tracking-[1.5px] text-gold-ink hover:bg-surface-selected"
           >
             {event.viewerStatus === "inscrit" ? "VOIR MON INSCRIPTION" : "S'INSCRIRE"}
           </Link>

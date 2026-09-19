@@ -24,7 +24,7 @@ export default function ReportInfoPage() {
 
       <section className="mb-8">
         <SectionHeading title="Où se trouve le drapeau" as="h2" />
-        <p className="max-w-[70ch] text-[19px] leading-[1.65] text-ink-body">
+        <p className="max-w-[70ch] body text-ink-body">
           Partout où un contenu appartient à quelqu'un d'autre, un drapeau discret l'accompagne.
           Sur votre propre contenu, il est remplacé par « Modifier » : on ne se signale pas
           soi-même. Signaler demande un compte.
@@ -46,7 +46,7 @@ export default function ReportInfoPage() {
 
       <section className="mb-8">
         <SectionHeading title="Ce qui se passe ensuite" as="h2" />
-        <p className="max-w-[70ch] text-[19px] leading-[1.65] text-ink-body">
+        <p className="max-w-[70ch] body text-ink-body">
           L'équipe reçoit le motif, votre commentaire et un extrait du contenu figé au moment
           du signalement. Elle regarde les signalements sous 24 heures. Plusieurs signalements
           visant le même contenu sont traités ensemble : l'équipe ne tranche qu'une fois.
@@ -56,7 +56,7 @@ export default function ReportInfoPage() {
 
       <section>
         <SectionHeading title="Pour le reste" as="h2" />
-        <p className="max-w-[70ch] text-[19px] leading-[1.65] text-ink-body">
+        <p className="max-w-[70ch] body text-ink-body">
           Un problème qui ne vise pas un contenu précis — un différend entre joueurs, une
           question sur les{" "}
           <Link href="/regles" className="text-crimson-ink underline underline-offset-4">

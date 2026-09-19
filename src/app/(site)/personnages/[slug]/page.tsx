@@ -124,7 +124,7 @@ export default async function CharacterPage({ params }: Props) {
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="mb-3 font-display text-[12px] font-medium uppercase tracking-[3.5px] text-gold-eyebrow">
+          <p className="mb-3 font-display text-[12px] font-medium tracking-[3.5px] text-gold-eyebrow">
             {[raceLabel(character.race, character.gender), character.title]
               .filter(Boolean)
               .join(" · ")
@@ -143,19 +143,19 @@ export default async function CharacterPage({ params }: Props) {
           <div className="mt-5 flex flex-wrap items-center gap-2">
             <RaceChip race={character.race} gender={character.gender} />
             {character.age !== null ? (
-              <span className="inline-flex items-center border border-chip-edge bg-chip px-[10px] py-[7px] font-display text-[11px] font-medium uppercase tracking-[1.4px] text-gold-ink">
+              <span className="inline-flex items-center border border-chip-edge bg-chip px-[10px] py-[7px] font-display text-[11px] font-medium tracking-[1.4px] text-gold-ink">
                 {character.age} ANS
               </span>
             ) : null}
             {character.homePlaceLabel ? (
-              <span className="inline-flex items-center border border-chip-edge bg-chip px-[10px] py-[7px] font-display text-[11px] font-medium uppercase tracking-[1.4px] text-gold-ink">
+              <span className="inline-flex items-center border border-chip-edge bg-chip px-[10px] py-[7px] font-display text-[11px] font-medium tracking-[1.4px] text-gold-ink">
                 {character.homePlaceLabel.toLocaleUpperCase("fr-FR")}
               </span>
             ) : null}
           </div>
 
           {character.summary ? (
-            <p className="mt-6 max-w-[70ch] text-[19px] leading-[1.65] text-ink-body">
+            <p className="mt-6 max-w-[70ch] body text-ink-body">
               {character.summary}
             </p>
           ) : null}
@@ -326,7 +326,7 @@ function Prose({ text }: { text: string }) {
         .map((paragraph) => paragraph.trim())
         .filter(Boolean)
         .map((paragraph, index) => (
-          <p key={index} className="text-[19px] leading-[1.65] text-ink-body">
+          <p key={index} className="body text-ink-body">
             {paragraph}
           </p>
         ))}

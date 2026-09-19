@@ -11,7 +11,7 @@ export function FormMessage({ state, className }: { state: ActionState; classNam
     <p
       role={isError ? "alert" : "status"}
       className={cn(
-        "border px-4 py-3 text-[17px] leading-[1.5]",
+        "border px-4 py-3 body-compact",
         isError
           ? "border-crimson-edge bg-surface-inset text-crimson-ink"
           : "border-success bg-surface-inset text-success",

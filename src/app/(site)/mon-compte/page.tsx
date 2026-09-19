@@ -44,7 +44,7 @@ export default async function AccountPage() {
         title={user.name}
         subtitle={user.email}
         action={
-          <SignOutButton className="inline-flex min-h-tap items-center border border-gold px-5 py-4 font-display text-[12px] font-semibold uppercase tracking-[1.6px] text-gold-ink hover:bg-surface-selected" />
+          <SignOutButton capitales className="inline-flex min-h-tap items-center border border-gold px-5 py-4 font-display text-[12px] font-semibold tracking-[1.6px] text-gold-ink hover:bg-surface-selected" />
         }
       />
 
@@ -157,7 +157,7 @@ export default async function AccountPage() {
           <section aria-labelledby="mon-role">
             <SectionHeading id="mon-role" title="Mon rôle" compact />
             <p className="text-[18px] text-ink">{ROLE_LABELS[user.role]}</p>
-            <p className="mt-2 text-[16px] leading-[1.45] text-ink-muted">
+            <p className="mt-2 meta text-ink-muted">
               {user.role === "membre"
                 ? "Vous créez et modifiez votre contenu, vous vous inscrivez aux scènes et vous signalez ce qui pose problème."
                 : user.role === "conteur"

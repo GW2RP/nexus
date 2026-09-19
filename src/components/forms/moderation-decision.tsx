@@ -67,7 +67,7 @@ export function ModerationDecision({ report }: { report: ReportRow }) {
         </Select>
       </Field>
 
-      <p className="border-l-2 border-gold pl-4 text-[17px] leading-[1.5] text-ink-body">
+      <p className="border-l-2 border-gold pl-4 body-compact text-ink-body">
         {CONSEQUENCES[decision]}
       </p>
 
@@ -110,7 +110,7 @@ export function ModerationDecision({ report }: { report: ReportRow }) {
             </AlertDialogDescription>
 
             <div className="mt-4 border border-chip-edge bg-surface-inset p-4">
-              <p className="text-[17px] italic leading-[1.5] text-ink-body">
+              <p className="body-compact italic text-ink-body">
                 {report.targetExcerpt ?? "Contenu supprimé depuis le signalement."}
               </p>
               <p className="mt-2 text-[15px] text-ink-muted">

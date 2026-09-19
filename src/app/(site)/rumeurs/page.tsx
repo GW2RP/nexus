@@ -124,13 +124,13 @@ export default async function RumorsPage({
               canContribute(user) ? (
                 <RumorForm characters={characters} places={places} />
               ) : (
-                <p className="text-[17px] leading-[1.5] text-ink-body">
+                <p className="body-compact text-ink-body">
                   Votre compte est suspendu : vous ne pouvez plus colporter de rumeur.
                 </p>
               )
             ) : (
               <>
-                <p className="text-[17px] leading-[1.5] text-ink-body">
+                <p className="body-compact text-ink-body">
                   Colporter une rumeur demande un compte et un personnage au registre.
                 </p>
                 <Button asChild variant="outline">
