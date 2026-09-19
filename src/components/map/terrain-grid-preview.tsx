@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { MapCanvas } from "@/components/map/map-canvas";
 import type { MapCell, MapShape } from "@/components/map/tyria-map";
-import { REGION_LABELS, TERRAIN_LABELS, type Terrain } from "@/lib/domain";
+import { REGION_LABELS, TERRAINS, TERRAIN_LABELS } from "@/lib/domain";
 import {
   cellCenter,
   cellColumn,
@@ -52,10 +52,11 @@ function Releve({ label, valeur }: { label: string; valeur: string }) {
  *  la cuisson, donc le relevé ne peut pas diverger de ce qui sera simulé. */
 export function TerrainGridPreview({
   zones,
-  cells,
+  grille,
 }: {
   zones: TerrainZoneOutline[];
-  cells: { index: number; terrain: Terrain }[];
+  /** Un caractère par cellule : le rang du terrain dans `TERRAINS`. */
+  grille: string;
 }) {
   const [ping, setPing] = useState<Ping | null>(null);
 
@@ -69,12 +70,21 @@ export function TerrainGridPreview({
 
   // Toutes les cellules dessinées sont montrées, mais la mer reste un fond : sur
   // ce continent elle en couvre la quasi-totalité, et à teinte égale elle
-  // effacerait justement ce qu'on vient vérifier.
-  const painted: MapCell[] = cells.map((cell) => ({
-    index: cell.index,
-    tone: TERRAIN_TONES[cell.terrain],
-    fill: cell.terrain === "mer" ? 0.1 : 0.4,
-  }));
+  // effacerait justement ce qu'on vient vérifier. La plaine ne se dessine pas :
+  // c'est le terrain de ce que personne n'a couvert.
+  const painted = useMemo<MapCell[]>(() => {
+    const cellules: MapCell[] = [];
+    for (let index = 0; index < grille.length; index += 1) {
+      const terrain = TERRAINS[grille.charCodeAt(index) - 48];
+      if (!terrain || terrain === "plaine") continue;
+      cellules.push({
+        index,
+        tone: TERRAIN_TONES[terrain],
+        fill: terrain === "mer" ? 0.1 : 0.4,
+      });
+    }
+    return cellules;
+  }, [grille]);
 
   function sonder(point: Point) {
     const index = cellIndexAt(point.x, point.y);

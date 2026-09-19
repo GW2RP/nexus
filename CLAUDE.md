@@ -50,8 +50,8 @@ nombres.
 ## La météo
 
 Elle est **simulée**, pas écrite : personne ne pose un bulletin à la main.
-Un pas toutes les deux heures — douze par jour — sur une grille de 80 × 112
-cellules de 1 024 px, avancée par `/api/meteo/avancer` que Vercel déclenche
+Un pas toutes les deux heures — douze par jour — sur une grille de 160 × 224
+cellules de 512 px, avancée par `/api/meteo/avancer` que Vercel déclenche
 **toutes les heures**. `src/lib/weather/engine.ts` est une **fonction pure** —
 aucune base, et jamais `Math.random()` : le hasard sort d'une graine rangée dans
 l'état, sinon la frise de prévision mentirait.
@@ -69,10 +69,20 @@ référence et converties par `parMaille` / `fractionParMaille`, exactement comm
 les taux le sont pour la cadence. Sans cela, diviser la maille par deux
 rétrécirait les dépressions de moitié et ralentirait les fronts d'autant.
 
-Ce que la finesse change, en revanche, c'est la **concentration** : mesuré au
-passage de 2 048 à 1 024 px, l'humidité médiane monte de 58 à 64, la pointe de
-précipitation de 63 à 100, et la surface qui précipite descend de 20,5 à 14,8 %.
-Même eau, moins étalée. Ce n'est pas un défaut de calibrage.
+Ce que la finesse change, en revanche, c'est la **concentration** : à chaque
+division de la maille, la surface qui précipite tombe de moitié et la pointe de
+précipitation monte. Même eau, moins étalée — et la pluie fine comme la neige,
+comptées par cellule, suivent cette surface. Ce n'est pas un défaut de calibrage.
+
+Une invariance de maille ne se vérifie **pas sur une seule partie** : le hasard se
+consomme cellule par cellule, donc deux mailles ne jouent jamais la même météo, et
+d'une graine à l'autre la pluie passe de 1,4 à 14 % des cellules. On rejoue les
+**mêmes graines** aux deux mailles et on compare graine par graine.
+
+Un pas coûte 701 Ko à cette maille, quatre fois plus qu'à 1 024 px. C'est pourquoi
+l'historique se limite à **sept jours** : rien ne relit un pas ancien — on reprend
+le dernier écrit, la prévision se rejoue en avant, et le rattrapage est plafonné à
+trois jours. Le reste est une archive, et une archive n'a pas à quadrupler.
 
 Un pas porte sa cadence **et sa maille** (`stepsPerDay`, `cellSize`). En changer
 l'une ou l'autre rend les pas illisibles — la numérotation ne veut plus rien
@@ -96,7 +106,18 @@ rien à invalider, donc rien qui puisse être périmé. Une cellule se juge par 
 simulation. `/admin/terrains` montre la grille cuite pour que ça se voie, et un
 clic sonde un point : la zone qui le couvre, et celle que la simulation retient
 pour sa cellule. Les deux passent par `zoneAt`, celui de la cuisson, sinon le
-relevé pourrait mentir.
+relevé pourrait mentir. La grille descend à l'écran en **un caractère par
+cellule** — le rang du terrain — et non en liste d'objets : à 35 840 cellules,
+c'est 35 Ko contre 1 093.
+
+**L'ordre d'application des zones se modifie depuis l'administration**, et c'est
+la dernière de la liste qui l'emporte. Un seul tri fait foi partout
+(`ORDRE_DAPPLICATION`) : cuisson, liste et calque de carte — sinon l'écran et la
+simulation raconteraient deux ordres différents. Un déplacement renumérote toute
+la liste plutôt que de pousser un compteur, et le champ `rang` est facultatif
+**sans valeur par défaut** : un défaut à zéro ferait gagner une zone sur ses
+voisines sans rang au premier enregistrement du formulaire, sans que personne
+l'ait demandé.
 
 **L'ordre de `TERRAINS` est gravé** : le rang d'un terrain est l'entier écrit
 dans les pas stockés. Un terrain nouveau s'ajoute à la fin, jamais au milieu.

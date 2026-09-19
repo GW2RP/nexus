@@ -184,7 +184,7 @@ vrai, et chaque pin garde un centre à soi où cliquer.
 ## La météo
 
 Elle n'est pas écrite, elle est **simulée**. Un pas **toutes les deux heures**,
-soit douze par jour, sur une grille de **80 × 112 = 8 960 cellules** de 1 024 px.
+soit douze par jour, sur une grille de **160 × 224 = 35 840 cellules** de 512 px.
 
 La tranche — nuit, matin, après-midi, soirée — se lit désormais sur l'**heure**
 du pas et non sur son rang : à six heures de pas une tranche valait un pas, à
@@ -195,21 +195,44 @@ sache laquelle est laquelle.
 La maille n'est pas choisie pour le continent mais pour la partie habitée : le
 rectangle du continent est très majoritairement vide, et les six régions du hub
 tiennent dans environ 22 000 × 21 000 px. À 4 096 px la Kryte entière faisait
-trois cellules et un marais n'y pouvait rien changer ; à 1 024 px elle en fait
-une cinquantaine, et un relief s'y dessine au détail.
+trois cellules et un marais n'y pouvait rien changer ; à 512 px elle en fait deux
+cents, et un relief s'y dessine au détail.
 
 **La finesse ne change pas le climat.** Les grandeurs spatiales du moteur sont
 écrites pour une maille de référence et converties, comme les taux le sont pour
 la cadence — sans quoi diviser la maille rétrécirait les dépressions de moitié et
-ralentirait les fronts d'autant. Mesuré au passage de 2 048 à 1 024 px : vent
-fort 3,14 → 3,13 %, forte chaleur 16,7 → 16,3 %, pression inchangée au
-hectopascal.
+ralentirait les fronts d'autant.
 
-Ce que la finesse change, c'est la **concentration** : humidité médiane 58 → 64,
-pointe de précipitation 63 → 100, surface qui précipite 20,5 → 14,8 %. Même eau,
-moins étalée — une averse plus nette sur un territoire plus petit. La grille
-pèse en retour quatre fois plus : **176 Ko par pas**, soit 62 Mo conservés sur
-trente jours au lieu de 16.
+La vérification demande un détour, parce qu'une seule partie ne prouve rien : le
+hasard du moteur se consomme cellule par cellule, donc deux mailles ne jouent
+jamais la même météo, et d'une graine à l'autre la pluie passe de 1,4 à 14 % des
+cellules. On rejoue donc **les mêmes graines** aux deux mailles, 540 pas chacune.
+Au passage de 1 024 à 512 px, ce qui ne bouge pas ne bouge sur aucune des trois :
+
+| | 1 024 px | 512 px |
+| --- | --- | --- |
+| Température moyenne | 11,3 °C | 11,2 °C |
+| Orage | 1,76 % | 1,86 % |
+| Vent fort | 0,62 / 5,48 / 0,65 % | 0,59 / 5,53 / 0,65 % |
+| Brume | 8,9 / 14,6 / 17,2 % | 7,7 / 15,0 / 17,5 % |
+
+Ce que la finesse change, c'est la **concentration** — et là aussi sur les trois
+graines : la surface qui précipite tombe de moitié (5,5 → 2,9 %, 5,4 → 2,8 %)
+tandis que la pointe de précipitation monte de 58 à 100, le plafond de l'échelle.
+Même eau, moins étalée : une averse plus nette sur un territoire plus petit. La
+neige et la pluie fine étant comptées **par cellule**, elles suivent cette
+surface et tombent de moitié avec elle. C'est le comportement propre à la
+résolution, déjà relevé de 2 048 à 1 024 px, et non un décalage de calibrage.
+
+La grille pèse en retour quatre fois plus : **701 Ko par pas** au lieu de 176. La
+conservation passe donc de trente jours à **sept** — 58 Mo au lieu de 246 — parce
+que rien ne relit un pas ancien : l'avancement reprend le dernier écrit, la
+prévision se rejoue en avant depuis lui, et le rattrapage est plafonné à trois
+jours. Le reste était une archive, et une archive n'a pas à quadrupler.
+
+Le coût de calcul, mesuré : **37 ms par pas** contre 8, et le pire cas du cron —
+trois jours d'absence, 36 pas — passe de 0,6 à **2,1 s**, pour une route
+plafonnée à 60.
 
 ### Ce que fait un pas
 
@@ -284,7 +307,32 @@ jamais au milieu, sinon tout l'historique se relit de travers.
 Les zones se dessinent au polygone depuis `/admin/terrains`. La liste montre la
 **grille cuite** sous les tracés : une zone trop petite pour couvrir le centre
 d'une cellule n'existe pas pour la simulation, et ça se voit au lieu de se
-deviner. Quand deux zones se recouvrent, la dernière dessinée l'emporte.
+deviner. La grille voyage jusqu'à l'écran en **un caractère par cellule** — le
+rang du terrain dans `TERRAINS`, celui-là même qu'on écrit dans les pas. En liste
+de `{ index, terrain }` elle pesait 1 093 Ko à cette maille ; en rangs, 35 Ko, et
+un clic de sonde répond en 141 ms au lieu de 744.
+
+**L'ordre d'application se modifie.** Quand deux zones se recouvrent, la dernière
+de la liste l'emporte — et cette liste n'est plus celle de l'ordre de création :
+chaque ligne porte son rang et deux boutons qui la font monter ou descendre d'un
+cran. C'est le même ordre partout : la cuisson (`bakeFromZones`), la liste, et le
+calque de la carte, qui peint donc la gagnante par-dessus. Un seul tri, écrit une
+fois (`ORDRE_DAPPLICATION`), sinon l'écran et la simulation raconteraient deux
+ordres différents.
+
+Un déplacement ne pousse pas un compteur : il relit la liste, y échange deux
+voisines et **renumérote tout** de zéro. C'est ce qui rend la bascule sûre — les
+zones d'avant le rang n'en portent aucun, et le premier déplacement les numérote
+toutes dans l'ordre où elles se cuisaient déjà. Le champ est d'ailleurs
+facultatif et **sans valeur par défaut** : à zéro par défaut, le simple
+enregistrement du formulaire aurait fait gagner une zone sur ses voisines sans
+rang, un changement de simulation que personne n'aurait demandé.
+
+Ce que l'ordre change se voit d'un relevé : l'océan couvre tout le continent et
+se cuit en premier, donc tout le reste se pose dessus. Passé en dernier, il
+reprend les 35 840 cellules, et la sonde qui annonçait « Kryte — Plaine » annonce
+« L'océan — Mer ». Une zone nouvelle se pose **au-dessus** des autres : on dessine
+presque toujours un détail sur un fond déjà là.
 
 **Cliquer la carte sonde un point** et affiche côte à côte la zone qui couvre ce
 point et celle que la simulation retient pour sa cellule. Les deux se lisent du
@@ -330,10 +378,12 @@ pas de deux heures — rend la main sur une seule lecture : il ne cuit pas le
 terrain et n'écrit pas une ligne. Le ménage et la cuisson attendent le chemin qui
 écrit déjà.
 
-Un pas pèse **44 Ko** : huit champs de 2 240 entiers 16 bits, empaquetés
-(`src/lib/weather/pack.ts`), plus le terrain cuit au moment du pas. Un document
-par cellule et par pas en aurait fait plus de trois millions par an. Trente jours
-d'historique sont conservés, soit environ 16 Mo à douze pas par jour.
+Un pas pèse **701 Ko** : dix champs de 35 840 entiers 16 bits, empaquetés
+(`src/lib/weather/pack.ts`), terrain cuit compris. En tableaux BSON les mêmes
+champs pèseraient 3,65 Mo, et chaque page du hub les relirait en entier : à cette
+maille l'empaquetage n'est plus une économie, c'est une condition. Un document
+par cellule et par pas en aurait fait cent cinquante-sept millions par an. Sept
+jours d'historique sont conservés, soit 58 Mo à douze pas par jour.
 
 > Un piège coûteux, trouvé à la vérification : une lecture en `.lean()`
 > court-circuite le cast de Mongoose et rend le `Binary` du pilote, dont
@@ -391,12 +441,12 @@ jamais dans un trou.
 
 L'invariant qui le prouve : sur une tache tirée au hasard, l'aire du contour
 moins celle des trous vaut **exactement** le nombre de cellules. Relevé à
-l'écran, les 8 960 cellules de la grille se ramènent à une dizaine de zones de
-quatre à seize sommets.
+l'écran, les 35 840 cellules de la grille se ramènent à une dizaine de zones —
+3,8 Ko de JSON pour la page, là où la grille entière n'y tiendrait pas.
 
 **La sonde.** L'interrupteur `SONDER` relève le temps au point cliqué : sa
 condition, ses phénomènes, sa région, son terrain et ses six grandeurs. La grille
-entière ne peut pas voyager jusqu'au navigateur — 8 960 cellules et dix
+entière ne peut pas voyager jusqu'au navigateur — 35 840 cellules et dix
 grandeurs — alors qu'un relevé tient en quelques nombres, d'où la route de
 lecture `/api/meteo/point`, publique comme la météo elle-même. La sonde se met en
 marche pour ne pas voler le clic qui choisit un lieu, et s'éteindre retire le
@@ -416,8 +466,10 @@ Le calque a fait remonter un défaut que rien d'autre n'aurait montré : **trois
 des six phénomènes ne se déclenchaient jamais** sur les terres du hub — orage
 0,01 %, forte chaleur 0,00 %, vent fort 0,20 %.
 
-Les six régions tiennent entre les **lignes 12 et 21** d'une grille qui en compte
-56 ; le reste est de l'océan vide. Or le gradient nord-sud était étalé sur tout le
+Les six régions tiennent entre les ordonnées **22 528 et 47 104 px**, un
+cinquième de la hauteur du continent ; le reste est de l'océan vide. La bande est
+écrite en pixels et non en lignes de grille, sinon changer la maille la
+déplacerait. Or le gradient nord-sud était étalé sur tout le
 rectangle du continent : des Pics Glacés à Orr il ne restait que **4 °C** d'écart,
 le maximum annuel sur les terres était de 19 °C, et une région désertique était
 aussi froide que les sommets. Le gradient s'étale désormais sur cette bande et se
