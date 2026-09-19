@@ -16,6 +16,7 @@ import type { Terrain, WeatherCondition } from "@/lib/domain";
 import {
   CELL_COUNT,
   CELL_SIZE,
+  FINESSE,
   GRID_COLS,
   GRID_ROWS,
   cellColumn,
@@ -98,8 +99,8 @@ const SUD_CHAUD = 27;
  * L'écart entre deux régions voisines reste modeste, et c'est voulu : le froid
  * des Pics Glacés vient de leur **altitude**, pas de leur latitude.
  */
-const BANDE_NORD = 11 * CELL_SIZE;
-const BANDE_SUD = 23 * CELL_SIZE;
+const BANDE_NORD = 22_528;
+const BANDE_SUD = 47_104;
 /** L'écart entre le cœur de l'été et celui de l'hiver. */
 const AMPLITUDE_SAISON = 8;
 /** Un relief à 100 perd douze degrés sur la plaine. */
@@ -135,6 +136,23 @@ const AMPLITUDE_JOUR = 4.5;
  */
 const HEURES_DE_REFERENCE = 6;
 const CADENCE = HOURS_PER_STEP / HEURES_DE_REFERENCE;
+
+/**
+ * Les grandeurs **spatiales** suivent la même règle que les taux, une dimension
+ * plus loin : elles sont écrites pour la maille de référence et converties à
+ * celle du jour. Un rayon ou une vitesse comptés en cellules décriraient sinon
+ * une dépression deux fois plus petite et deux fois plus lente dès qu'on affine
+ * la grille — la finesse changerait le climat, et elle ne le doit pas.
+ */
+function parMaille(valeur: number): number {
+  return valeur * FINESSE;
+}
+
+/** Ce qu'un front doit franchir de cellules de plus à maille fine : la fraction
+ *  transportée se compose, elle ne se multiplie pas. */
+function fractionParMaille(part: number): number {
+  return 1 - Math.pow(1 - part, FINESSE);
+}
 
 /** Un apport ou un déplacement par pas : il se divise avec la durée. */
 function parPas(parSixHeures: number): number {
@@ -337,11 +355,11 @@ function spawnSystem(seed: number): { system: PressureSystem; seed: number } {
   s = nextSeed(s);
   const force = (depression ? -1 : 1) * (10 + randomFrom(s) * 18);
   s = nextSeed(s);
-  const rayon = 4 + randomFrom(s) * 5;
+  const rayon = parMaille(4 + randomFrom(s) * 5);
   s = nextSeed(s);
-  const vx = parPas(0.5 + randomFrom(s) * 0.7);
+  const vx = parMaille(parPas(0.5 + randomFrom(s) * 0.7));
   s = nextSeed(s);
-  const vy = parPas((randomFrom(s) - 0.5) * 0.4);
+  const vy = parMaille(parPas((randomFrom(s) - 0.5) * 0.4));
   s = nextSeed(s);
   // En jours, pas en pas : un système vit trois à sept jours quelle que soit la
   // finesse de la simulation.
@@ -399,7 +417,7 @@ export function advanceStep(
   const systems: PressureSystem[] = [];
   for (const system of previous.systems) {
     seed = nextSeed(seed);
-    const derive = parPas((randomFrom(seed) - 0.5) * 0.18);
+    const derive = parMaille(parPas((randomFrom(seed) - 0.5) * 0.18));
     const age = system.age + 1;
     const moved: PressureSystem = {
       ...system,
@@ -446,8 +464,8 @@ export function advanceStep(
     const sud = neighbourIndex(index, 0, 1) ?? index;
     const frein = EFFETS[terrain.terrain[index]].freinVent;
     ventX[index] =
-      ((pression[ouest] - pression[est]) * 3 * VENT_ECHELLE + VENT_DOMINANT) * frein;
-    ventY[index] = (pression[nord] - pression[sud]) * 3 * VENT_ECHELLE * frein;
+      (parMaille((pression[ouest] - pression[est]) * 3) * VENT_ECHELLE + VENT_DOMINANT) * frein;
+    ventY[index] = parMaille((pression[nord] - pression[sud]) * 3) * VENT_ECHELLE * frein;
   }
 
   // 4. Advection : chaque cellule reçoit de sa voisine au vent. C'est ce qui
@@ -462,7 +480,9 @@ export function advanceStep(
     const vy = ventY[index];
     const amont =
       neighbourIndex(index, vx > 0 ? -1 : vx < 0 ? 1 : 0, vy > 0 ? -1 : vy < 0 ? 1 : 0) ?? index;
-    const part = fractionParPas(clamp(vitesse(vx, vy) / (60 * VENT_ECHELLE), 0, 0.6));
+    const part = fractionParMaille(
+      fractionParPas(clamp(vitesse(vx, vy) / (60 * VENT_ECHELLE), 0, 0.6)),
+    );
 
     humidite[index] =
       previous.cells.humidite[index] * (1 - part) + previous.cells.humidite[amont] * part;
@@ -493,7 +513,7 @@ export function advanceStep(
     let alimentation = 0;
 
     // Le relief force l'air à monter : il pleut au vent, et il sèche dessous.
-    const denivele = terrain.altitude[index] - terrain.altitude[amont];
+    const denivele = parMaille(terrain.altitude[index] - terrain.altitude[amont]);
     if (denivele > 8) {
       const soulevement =
         (denivele / 100) * clamp(vitesse(vx, vy) / (10 * VENT_ECHELLE), 0.3, 3);

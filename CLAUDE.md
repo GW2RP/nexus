@@ -50,8 +50,8 @@ nombres.
 ## La météo
 
 Elle est **simulée**, pas écrite : personne ne pose un bulletin à la main.
-Un pas toutes les deux heures — douze par jour — sur une grille de 40 × 56
-cellules de 2 048 px, avancée par `/api/meteo/avancer` que Vercel déclenche
+Un pas toutes les deux heures — douze par jour — sur une grille de 80 × 112
+cellules de 1 024 px, avancée par `/api/meteo/avancer` que Vercel déclenche
 **toutes les heures**. `src/lib/weather/engine.ts` est une **fonction pure** —
 aucune base, et jamais `Math.random()` : le hasard sort d'une graine rangée dans
 l'état, sinon la frise de prévision mentirait.
@@ -62,8 +62,24 @@ passe par `relaxe`, qui conserve le point fixe : diviser la source suffirait à
 faire disparaître les orages. Les seuils vivent dans `SEUILS`, jamais nus au
 milieu d'une condition.
 
-Un pas porte sa cadence (`stepsPerDay`). En changer renumérote tout : les pas
-d'une autre cadence sont **retirés** avant l'avancement, jamais repris.
+**La finesse de la maille ne change pas le temps qu'il fait.** Les grandeurs
+spatiales — rayon et vitesse d'un système, gradient de pression, distance
+franchie par un front, dénivelé entre voisines — sont écrites pour une maille de
+référence et converties par `parMaille` / `fractionParMaille`, exactement comme
+les taux le sont pour la cadence. Sans cela, diviser la maille par deux
+rétrécirait les dépressions de moitié et ralentirait les fronts d'autant.
+
+Ce que la finesse change, en revanche, c'est la **concentration** : mesuré au
+passage de 2 048 à 1 024 px, l'humidité médiane monte de 58 à 64, la pointe de
+précipitation de 63 à 100, et la surface qui précipite descend de 20,5 à 14,8 %.
+Même eau, moins étalée. Ce n'est pas un défaut de calibrage.
+
+Un pas porte sa cadence **et sa maille** (`stepsPerDay`, `cellSize`). En changer
+l'une ou l'autre rend les pas illisibles — la numérotation ne veut plus rien
+dire, les champs sont empaquetés pour un autre nombre de cellules. Ils sont
+**retirés** avant l'avancement, jamais repris, et la lecture filtre dessus :
+entre un déploiement et le cron suivant, le dernier pas en base est illisible et
+`unpackInt16` lèverait sur chaque page.
 
 Deux règles de fuseau, à ne pas défaire :
 
@@ -89,10 +105,22 @@ Les champs de grille voyagent empaquetés en entiers 16 bits. Un tampon trop
 court **lève** : relu en zéros, il donnerait un ciel dégagé partout, crédible et
 faux.
 
-Le calque de météo de `/carte` ne teinte que les cellules qui portent un
-phénomène, et sa légende ne liste que ceux effectivement au ciel : pas d'entrée
-morte un jour de beau temps. Vent fort et forte chaleur ne sont pas des
-conditions — ils se cumulent à celle de la cellule.
+Le calque de météo de `/carte` ne montre **pas la maille** : les cellules d'un
+même phénomène sont recousues en une seule zone (`contours.ts`), qui porte son
+symbole au milieu. Une grille dit « voici ma maille » ; un contour dit « il pleut
+là », et c'est la seule chose que le lecteur ait à savoir. Une zone peut être
+percée — un œil de ciel clair au milieu d'une averse — donc elle rend plusieurs
+anneaux : le premier la cerne, les suivants la percent, et le symbole tombe
+toujours sur une cellule de la tache, jamais dans un trou.
+
+La légende ne liste que les phénomènes effectivement au ciel : pas d'entrée morte
+un jour de beau temps. Vent fort et forte chaleur ne sont pas des conditions —
+ils se cumulent à celle de la cellule.
+
+**La sonde** (`SONDER`) relève le temps au point cliqué, par
+`/api/meteo/point` : la grille entière ne peut pas voyager jusqu'au navigateur,
+un relevé si. Elle se met en marche pour ne pas voler le clic qui choisit un
+lieu, et s'éteindre retire le relevé avec sa croix.
 
 **Sous `lg`, rien ne se pose sur la carte** hors les interrupteurs : légende et
 bulletins descendent dans une bande sous la carte, qui occupe la moitié haute de

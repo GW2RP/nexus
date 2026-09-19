@@ -1,4 +1,5 @@
 import type { EventType, PlaceType } from "@/lib/domain";
+import type { Phenomene } from "@/lib/weather/phenomena";
 
 /** Le pin de carte est du HTML posé dans un `divIcon` : il hérite des jetons et
  *  bascule avec le thème sans code supplémentaire. Le glyphe d'un pin est le même
@@ -36,4 +37,31 @@ export function markerHtml(type: PlaceType | EventType, state: MarkerState): str
   }" height="${
     state === "selectionne" ? 18 : 15
   }" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${glyph}</svg></span>`;
+}
+
+/** Les six symboles de phénomène, repris trait pour trait de `icons.tsx` : une
+ *  tache de ciel porte le même signe que sa ligne de légende. */
+const PHENOMENES_GLYPHS: Record<Phenomene, string> = {
+  orage:
+    '<path d="M4.5 10 A2.6 2.6 0 0 1 5 5 A3.4 3.4 0 0 1 11.4 5.4 A2.3 2.3 0 0 1 11 10 Z"/><path d="M8.6 11 L6.6 13.6 h2 l-1 2"/>',
+  neige: '<path d="M8 2 v12 M2.8 5 l10.4 6 M13.2 5 l-10.4 6"/>',
+  pluie:
+    '<path d="M4.5 10 A2.6 2.6 0 0 1 5 5 A3.4 3.4 0 0 1 11.4 5.4 A2.3 2.3 0 0 1 11 10 Z"/><path d="M6 12 l-1 2 M9 12 l-1 2"/>',
+  brume: '<path d="M2.5 5.5 h11 M3.5 8 h9 M2.5 10.5 h11"/>',
+  vent: '<path d="M2 5.5 h7.5 a1.8 1.8 0 1 0 -1.8 -1.8"/><path d="M2 8.5 h10 a1.8 1.8 0 1 1 -1.8 1.8"/><path d="M2 11.5 h5.5"/>',
+  chaleur:
+    '<circle cx="8" cy="8" r="3.2"/><path d="M8 1.4 v1.6 M8 13 v1.6 M1.4 8 h1.6 M13 8 h1.6 M3.4 3.4 l1.1 1.1 M11.5 11.5 l1.1 1.1 M12.6 3.4 l-1.1 1.1 M4.5 11.5 l-1.1 1.1"/>',
+};
+
+/** Le symbole posé au cœur d'une tache de ciel. Pas de pastille ni de cadre :
+ *  la zone porte déjà sa teinte, le signe n'a qu'à la nommer. */
+export function phenomeneMarkerHtml(phenomene: Phenomene): string {
+  const glyph = PHENOMENES_GLYPHS[phenomene];
+  return `<svg width="26" height="26" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${glyph}</svg>`;
+}
+
+/** Le repère laissé par une sonde : une croix, pas un pin — on ne pose rien, on
+ *  regarde. */
+export function sondeMarkerHtml(): string {
+  return `<svg width="26" height="26" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M8 1 v4 M8 11 v4 M1 8 h4 M11 8 h4"/><circle cx="8" cy="8" r="2.4"/></svg>`;
 }

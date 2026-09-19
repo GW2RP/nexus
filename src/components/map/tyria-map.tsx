@@ -5,9 +5,15 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { useEffect, useRef } from "react";
 
-import { markerHtml, type MarkerState } from "@/components/map/map-marker-html";
+import {
+  markerHtml,
+  phenomeneMarkerHtml,
+  sondeMarkerHtml,
+  type MarkerState,
+} from "@/components/map/map-marker-html";
 import type { EventType, PlaceType } from "@/lib/domain";
 import { cellRect } from "@/lib/weather/grid";
+import type { Phenomene } from "@/lib/weather/phenomena";
 import type { MapTone } from "@/lib/weather/tones";
 import {
   CLAMPED_VIEW,
@@ -45,6 +51,24 @@ export type MapShape = {
   showVertices?: boolean;
 };
 
+/**
+ * Une tache de ciel : un seul tracé pour tout un phénomène, et son symbole au
+ * milieu. Le premier anneau la cerne, les suivants la percent.
+ */
+export type MapArea = {
+  id: string;
+  anneaux: { x: number; y: number }[][];
+  tone: MapTone;
+  fill: number;
+  /** Le phénomène, pour choisir le symbole et l'annoncer. */
+  phenomene: Phenomene;
+  libelle: string;
+  centre: { x: number; y: number };
+};
+
+/** Le point sondé, s'il y en a un. */
+export type MapProbe = { x: number; y: number };
+
 /** Une cellule de la grille météo, teintée selon ce qu'il y tombe. */
 export type MapCell = {
   index: number;
@@ -69,7 +93,9 @@ function toBounds(map: L.Map, rect: Rect): L.LatLngBounds {
 export function TyriaMap({
   pins,
   shapes,
+  areas,
   cells,
+  probe,
   selectedId,
   onSelect,
   onPick,
@@ -79,8 +105,13 @@ export function TyriaMap({
   pins: MapPin[];
   /** Les zones de terrain, sous les pins. */
   shapes?: MapShape[];
-  /** Le calque météo : une cellule par temps à montrer. */
+  /** Le calque météo : une tache par phénomène, recousue. */
+  areas?: MapArea[];
+  /** La grille cuite, cellule par cellule. L'administration en a besoin pour
+   *  voir la maille ; le hub, non — il voit des zones. */
   cells?: MapCell[];
+  /** Le point sondé, marqué d'une croix. */
+  probe?: MapProbe | null;
   selectedId?: string | null;
   onSelect?: (id: string | null) => void;
   /** Un clic sur la carte renvoie le point, en pixels de continent. */
@@ -94,6 +125,8 @@ export function TyriaMap({
   const markersRef = useRef(new Map<string, L.Marker>());
   const shapesRef = useRef<L.Layer[]>([]);
   const cellsRef = useRef<L.Layer[]>([]);
+  const areasRef = useRef<L.Layer[]>([]);
+  const probeRef = useRef<L.Layer | null>(null);
   const onSelectRef = useRef(onSelect);
   const onPickRef = useRef(onPick);
 
@@ -220,6 +253,70 @@ export function TyriaMap({
       });
     }
   }, [shapes]);
+
+  // Le calque météo : une tache par phénomène, recousue en un seul tracé, avec
+  // son symbole au milieu. Une grille dit sa maille ; une zone dit le temps.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    for (const layer of areasRef.current) layer.remove();
+    areasRef.current = [];
+
+    for (const area of areas ?? []) {
+      if (area.anneaux.length === 0) continue;
+      const polygon = L.polygon(
+        area.anneaux.map((anneau) =>
+          anneau.map((point) => map.unproject([point.x, point.y], COORDINATE_ZOOM)),
+        ),
+        {
+          className: `gw2rp-tache gw2rp-tache--${area.tone}`,
+          fillOpacity: area.fill,
+          interactive: false,
+          weight: 2,
+        },
+      );
+      polygon.addTo(map);
+      areasRef.current.push(polygon);
+
+      const marque = L.marker(map.unproject([area.centre.x, area.centre.y], COORDINATE_ZOOM), {
+        icon: L.divIcon({
+          html: phenomeneMarkerHtml(area.phenomene),
+          className: `gw2rp-signe gw2rp-signe--${area.tone}`,
+          iconSize: [26, 26],
+          iconAnchor: [13, 13],
+        }),
+        interactive: false,
+        keyboard: false,
+        alt: area.libelle,
+      });
+      marque.addTo(map);
+      areasRef.current.push(marque);
+    }
+  }, [areas]);
+
+  // Le repère de la sonde. Une croix, pas un pin : on ne pose rien, on relève.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    probeRef.current?.remove();
+    probeRef.current = null;
+    if (!probe) return;
+
+    const marque = L.marker(map.unproject([probe.x, probe.y], COORDINATE_ZOOM), {
+      icon: L.divIcon({
+        html: sondeMarkerHtml(),
+        className: "gw2rp-sonde",
+        iconSize: [26, 26],
+        iconAnchor: [13, 13],
+      }),
+      interactive: false,
+      keyboard: false,
+    });
+    marque.addTo(map);
+    probeRef.current = marque;
+  }, [probe]);
 
   // Le calque météo : un rectangle par cellule, jamais les 560 — le ciel dégagé
   // ne se dessine pas.

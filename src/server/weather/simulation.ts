@@ -2,7 +2,13 @@ import "server-only";
 
 import { REGIONS, TERRAINS, type Region, type Terrain } from "@/lib/domain";
 import { advanceStep, seedState, type WorldState } from "@/lib/weather/engine";
-import { CELL_COUNT, bakeTerrain, type BakedTerrain, type ZoneShape } from "@/lib/weather/grid";
+import {
+  CELL_COUNT,
+  CELL_SIZE,
+  bakeTerrain,
+  type BakedTerrain,
+  type ZoneShape,
+} from "@/lib/weather/grid";
 import { PACK_SCALE_TEMPERATURE, packInt16, packScaled, unpackInt16, unpackScaled } from "@/lib/weather/pack";
 import { STEPS_PER_DAY, stepEnd, stepIndexAt, stepStart } from "@/lib/weather/schedule";
 import { TerrainZone } from "@/models/terrain-zone";
@@ -71,6 +77,7 @@ function documentFrom(state: WorldState, terrain: BakedTerrain) {
   return {
     stepIndex: state.stepIndex,
     stepsPerDay: STEPS_PER_DAY,
+    cellSize: CELL_SIZE,
     startsAt: stepStart(state.stepIndex),
     endsAt: stepEnd(state.stepIndex),
     seed: state.seed,
@@ -109,27 +116,31 @@ export async function advanceWeather(
   const cible = stepIndexAt(now);
   const maxSteps = options.maxSteps ?? RATTRAPAGE_MAX;
 
-  // Le dernier pas d'abord, et rien d'autre. Un battement horaire pour des pas
-  // de deux heures fait qu'un appel sur deux n'a rien à produire : celui-là doit
-  // rendre la main sur une seule lecture, sans cuire le terrain ni écrire une
-  // ligne.
-  let dernier = await WeatherStep.findOne({}).sort({ stepIndex: -1 }).lean();
-
-  // Un pas d'une autre cadence est illisible : sa numérotation ne veut plus rien
-  // dire, et la reprendre mélangerait deux mondes. On l'écarte ici pour que le
-  // pas dû se calcule sur la bonne grille ; le ménage se fait plus bas, sur le
-  // chemin qui écrit déjà.
-  if (dernier && dernier.stepsPerDay !== STEPS_PER_DAY) dernier = null;
+  // Le dernier pas **de notre grille**, et rien d'autre. Un battement horaire
+  // pour des pas de deux heures fait qu'un appel sur deux n'a rien à produire :
+  // celui-là doit rendre la main sur une seule lecture, sans cuire le terrain ni
+  // écrire une ligne.
+  //
+  // Le filtre est dans la requête plutôt qu'après coup : un pas d'une autre
+  // cadence ou d'une autre maille est illisible, mais s'il se trouve porter un
+  // numéro plus haut — un retour en arrière sur la maille, à cadence égale — le
+  // jeter après l'avoir lu ferait repartir la simulation de zéro alors qu'un
+  // pas compatible l'attendait juste en dessous.
+  const dernier = await WeatherStep.findOne({ stepsPerDay: STEPS_PER_DAY, cellSize: CELL_SIZE })
+    .sort({ stepIndex: -1 })
+    .lean();
 
   if (dernier && dernier.stepIndex >= cible) return { produced: [] };
 
   const terrain = await bakeFromZones();
 
   // Ici seulement : l'appel qui n'a rien à produire n'aura rien écrit.
-  const perimes = await WeatherStep.deleteMany({ stepsPerDay: { $ne: STEPS_PER_DAY } });
+  const perimes = await WeatherStep.deleteMany({
+    $or: [{ stepsPerDay: { $ne: STEPS_PER_DAY } }, { cellSize: { $ne: CELL_SIZE } }],
+  });
   if (perimes.deletedCount > 0) {
     console.info(
-      `Cadence changée : ${perimes.deletedCount} pas d'une autre cadence retirés, la simulation repart.`,
+      `Grille changée : ${perimes.deletedCount} pas d'une autre cadence ou maille retirés, la simulation repart.`,
     );
   }
 

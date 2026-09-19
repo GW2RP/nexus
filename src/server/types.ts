@@ -167,13 +167,40 @@ export type WeatherEntry = {
 };
 
 /** Une cellule de la grille, pour le calque de la carte. */
-export type WeatherCell = {
-  index: number;
-  condition: WeatherCondition;
+/**
+ * Une tache de ciel, prête à dessiner.
+ *
+ * La carte ne montre plus la maille : elle montre la zone. Le premier anneau la
+ * cerne, les suivants la percent — une averse peut avoir son œil clair.
+ */
+export type WeatherArea = {
+  id: string;
+  phenomene: Phenomene;
+  /** En pixels de continent. Le premier anneau cerne, les autres percent. */
+  anneaux: { x: number; y: number }[][];
+  /** Où poser le symbole : sur une cellule de la tache, jamais dans un trou. */
+  centre: { x: number; y: number };
+  /** Combien de cellules la composent. L'opacité s'y accroche. */
+  cellules: number;
+  /** La précipitation moyenne de la tache, de 0 à 100. */
   precipitation: number;
-  /** Ce qui s'y passe. Une cellule peut en porter plusieurs — un orage venté,
-   *  une chaleur sous un ciel dégagé — ce que `condition` ne peut pas dire. */
+};
+
+/** Le temps qu'il fait en un point précis, sondé depuis la carte. */
+export type WeatherProbe = {
+  x: number;
+  y: number;
+  region: Region | null;
+  terrain: Terrain;
+  condition: WeatherCondition;
   phenomenes: Phenomene[];
+  temperature: number;
+  humidite: number;
+  pression: number;
+  vent: number;
+  visibilite: number;
+  precipitation: number;
+  stepIndex: number;
 };
 
 /** Le tracé d'une zone, pour le calque de la carte et l'administration. */
