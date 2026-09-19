@@ -11,9 +11,15 @@ import { Button } from "@/components/ui/button";
 import { RaceChip } from "@/components/ui/chip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FramedMedia } from "@/components/ui/framed-media";
+import { RichText } from "@/components/ui/rich-text";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { REGION_LABELS, raceLabel } from "@/lib/domain";
-import { canContribute, canEditContent, canReportContent } from "@/lib/permissions";
+import {
+  canContribute,
+  canEditContent,
+  canReportContent,
+  isContentAuthor,
+} from "@/lib/permissions";
 import { SITE_URL, breadcrumbJsonLd, buildMetadata, jsonLdScript } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
 import { deleteCharacterAction } from "@/server/actions/characters";
@@ -77,7 +83,10 @@ export default async function CharacterPage({ params }: Props) {
     listEvents({ limit: 4, viewerId: user?.id ?? null }),
   ]);
 
-  const isOwner = canEditContent(user, character.authorId);
+  const canEdit = canEditContent(user, character.authorId);
+  // L'administration modifie toutes les fiches ; celle-ci n'est pas la sienne
+  // pour autant, et le bouton ne doit pas le lui faire croire.
+  const isAuthor = isContentAuthor(user, character.authorId);
 
   const personJsonLd = {
     "@context": "https://schema.org",
@@ -161,10 +170,12 @@ export default async function CharacterPage({ params }: Props) {
           ) : null}
 
           <div className="mt-7 flex flex-wrap items-center gap-3">
-            {isOwner ? (
+            {canEdit ? (
               <>
                 <Button asChild variant="outline">
-                  <Link href={`/personnages/${character.slug}/modifier`}>MODIFIER MA FICHE</Link>
+                  <Link href={`/personnages/${character.slug}/modifier`}>
+                    {isAuthor ? "MODIFIER MA FICHE" : "MODIFIER LA FICHE"}
+                  </Link>
                 </Button>
                 <DeleteContent
                   id={character.id}
@@ -195,14 +206,14 @@ export default async function CharacterPage({ params }: Props) {
           {character.story ? (
             <section className="mb-10" aria-labelledby="histoire">
               <SectionHeading id="histoire" title="Histoire" />
-              <Prose text={character.story} />
+              <RichText text={character.story} />
             </section>
           ) : null}
 
           {character.appearance ? (
             <section className="mb-10" aria-labelledby="allure">
               <SectionHeading id="allure" title="Allure et manières" />
-              <Prose text={character.appearance} />
+              <RichText text={character.appearance} />
             </section>
           ) : null}
 
@@ -313,23 +324,6 @@ function Fact({ label, value }: { label: string; value?: string | null }) {
     <div className="flex items-baseline justify-between gap-4 border-b border-hairline py-3 last:border-b-0">
       <dt className="text-[16px] text-ink-muted">{label}</dt>
       <dd className="text-right text-[17px] text-ink">{value}</dd>
-    </div>
-  );
-}
-
-/** Le texte long saisi par l'auteur : les paragraphes se séparent aux lignes vides. */
-function Prose({ text }: { text: string }) {
-  return (
-    <div className="flex max-w-[70ch] flex-col gap-4">
-      {text
-        .split(/\n{2,}/)
-        .map((paragraph) => paragraph.trim())
-        .filter(Boolean)
-        .map((paragraph, index) => (
-          <p key={index} className="body text-ink-body">
-            {paragraph}
-          </p>
-        ))}
     </div>
   );
 }

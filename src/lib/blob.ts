@@ -35,16 +35,21 @@ export function isBlobUrl(url: unknown): url is string {
   }
 }
 
+type BlobPath = { folder: string; ownerId: string; file: string };
+
+/** Un chemin de rangement, découpé : dossier, propriétaire, fichier. */
+export function readBlobPathname(pathname: string): BlobPath | null {
+  const segments = pathname.replace(/^\//, "").split("/");
+  if (segments.length !== 3) return null;
+  const [folder, ownerId, file] = segments;
+  if (!folder || !ownerId || !file) return null;
+  return { folder, ownerId, file };
+}
+
 /** Le chemin d'un blob, découpé : dossier, propriétaire, fichier. */
-export function readBlobPath(
-  url: string,
-): { folder: string; ownerId: string; file: string } | null {
+export function readBlobPath(url: string): BlobPath | null {
   try {
-    const segments = new URL(url).pathname.replace(/^\//, "").split("/");
-    if (segments.length !== 3) return null;
-    const [folder, ownerId, file] = segments;
-    if (!folder || !ownerId || !file) return null;
-    return { folder, ownerId, file };
+    return readBlobPathname(new URL(url).pathname);
   } catch {
     return null;
   }
@@ -52,11 +57,10 @@ export function readBlobPath(
 
 /** Le chemin demandé est-il celui d'une image rangée sous ce propriétaire ? */
 export function isPathnameOwnedBy(pathname: string, ownerId: string): boolean {
-  const segments = pathname.replace(/^\//, "").split("/");
-  if (segments.length !== 3) return false;
-  const [folder, owner, file] = segments;
+  const path = readBlobPathname(pathname);
+  if (!path) return false;
   return (
-    (IMAGE_FOLDERS as readonly string[]).includes(folder) && owner === ownerId && Boolean(file)
+    (IMAGE_FOLDERS as readonly string[]).includes(path.folder) && path.ownerId === ownerId
   );
 }
 

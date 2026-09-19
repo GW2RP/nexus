@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { canContribute } from "@/lib/permissions";
 import { buildMetadata } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
-import { listCharactersOf } from "@/server/queries/characters";
+import { listCharactersOfMany } from "@/server/queries/characters";
 
 export const metadata: Metadata = buildMetadata({
   title: "Proposer un lieu",
@@ -20,7 +20,7 @@ export default async function NewPlacePage() {
   if (!user) redirect("/connexion?suite=/lieux/nouveau");
   if (!canContribute(user)) redirect("/lieux");
 
-  const characters = await listCharactersOf(user.id);
+  const keeperOptions = await listCharactersOfMany([user.id]);
 
   return (
     <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 lg:px-gutter-desktop">
@@ -28,7 +28,7 @@ export default async function NewPlacePage() {
         eyebrow="REGISTRE DES LIEUX"
         title="Proposer un lieu"
       />
-      <PlaceForm ownerId={user.id} characters={characters} />
+      <PlaceForm ownerId={user.id} keeperOptions={keeperOptions} canChangeTeam />
     </div>
   );
 }

@@ -42,6 +42,33 @@ export function canEditContent(user: SessionUser | null, authorId: string): bool
   return user.id === authorId || isAdmin(user);
 }
 
+/** L'auteur d'un contenu, et lui seul. L'administration modifie tout, mais la
+ *  fiche n'est pas la sienne pour autant : c'est ce qui distingue « modifier ma
+ *  fiche » de « modifier la fiche ». */
+export function isContentAuthor(user: SessionUser | null, authorId: string): boolean {
+  return user !== null && user.id === authorId;
+}
+
+/** Un lieu se tient à plusieurs : ses co-gérants le modifient comme son auteur.
+ *  La liste des co-gérants, elle, reste à l'auteur — voir `canManagePlaceTeam`. */
+export function canEditPlace(
+  user: SessionUser | null,
+  place: { authorId: string; managerIds: string[] },
+): boolean {
+  if (!canContribute(user)) return false;
+  return canEditContent(user, place.authorId) || place.managerIds.includes(user.id);
+}
+
+/** Qui nomme et révoque les co-gérants : l'auteur du lieu, ou l'administration.
+ *  Un co-gérant qui pourrait s'en adjoindre d'autres rendrait la liste
+ *  incontrôlable pour celui qui a posé le lieu. */
+export function canManagePlaceTeam(
+  user: SessionUser | null,
+  place: { authorId: string },
+): boolean {
+  return canEditContent(user, place.authorId);
+}
+
 /** On ne signale jamais son propre contenu : l'auteur voit « Modifier » à la place. */
 export function canReportContent(user: SessionUser | null, authorId: string): boolean {
   return canContribute(user) && user.id !== authorId;

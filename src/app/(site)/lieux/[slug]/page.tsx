@@ -12,9 +12,10 @@ import { Button } from "@/components/ui/button";
 import { PlaceTypeChip } from "@/components/ui/chip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FramedMedia } from "@/components/ui/framed-media";
+import { RichText } from "@/components/ui/rich-text";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { PLACE_TYPE_LABELS, REGION_LABELS } from "@/lib/domain";
-import { canEditContent, canReportContent } from "@/lib/permissions";
+import { canEditContent, canEditPlace, canReportContent } from "@/lib/permissions";
 import { SITE_URL, breadcrumbJsonLd, buildMetadata, jsonLdScript } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
 import { deletePlaceAction } from "@/server/actions/places";
@@ -74,7 +75,10 @@ export default async function PlacePage({ params }: Props) {
       : getWeatherForRegion(place.region),
   ]);
 
-  const isOwner = canEditContent(user, place.authorId);
+  const managerIds = place.managers.map((manager) => manager.id);
+  // Un co-gérant modifie le lieu ; seul son auteur peut le retirer du registre.
+  const canEdit = canEditPlace(user, { authorId: place.authorId, managerIds });
+  const canDelete = canEditContent(user, place.authorId);
 
   const placeJsonLd = {
     "@context": "https://schema.org",
@@ -128,15 +132,20 @@ export default async function PlacePage({ params }: Props) {
           </h1>
           <p className="mt-3 text-[18px] leading-[1.55] text-ink-muted">
             {[place.district, REGION_LABELS[place.region]].filter(Boolean).join(", ")}
-            {place.keeper ? (
+            {place.keepers.length > 0 ? (
               <>
                 {" · tenu par "}
-                <Link
-                  href={`/personnages/${place.keeper.slug}`}
-                  className="text-crimson-ink underline-offset-4 hover:underline"
-                >
-                  {place.keeper.name}
-                </Link>
+                {place.keepers.map((keeper, index) => (
+                  <span key={keeper.id}>
+                    {index > 0 ? (index === place.keepers.length - 1 ? " et " : ", ") : null}
+                    <Link
+                      href={`/personnages/${keeper.slug}`}
+                      className="text-crimson-ink underline-offset-4 hover:underline"
+                    >
+                      {keeper.name}
+                    </Link>
+                  </span>
+                ))}
               </>
             ) : null}
             {place.access ? ` · ${place.access.toLowerCase()}` : null}
@@ -144,21 +153,21 @@ export default async function PlacePage({ params }: Props) {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {isOwner ? (
-            <>
-              <Button asChild variant="outline">
-                <Link href={`/lieux/${place.slug}/modifier`}>MODIFIER LA FICHE</Link>
-              </Button>
-              <DeleteContent
-                id={place.id}
-                action={deletePlaceAction}
-                title={place.name}
-                question="Supprimer ce lieu ?"
-                consequence="Le lieu quitte le registre et la carte, avec sa bannière et son plan. Les évènements qui s'y tenaient restent à l'agenda, sans lieu. C'est irréversible."
-                excerpt={place.summary}
-                verb="SUPPRIMER LE LIEU"
-              />
-            </>
+          {canEdit ? (
+            <Button asChild variant="outline">
+              <Link href={`/lieux/${place.slug}/modifier`}>MODIFIER LA FICHE</Link>
+            </Button>
+          ) : null}
+          {canDelete ? (
+            <DeleteContent
+              id={place.id}
+              action={deletePlaceAction}
+              title={place.name}
+              question="Supprimer ce lieu ?"
+              consequence="Le lieu quitte le registre et la carte, avec sa bannière et son plan. Les évènements qui s'y tenaient restent à l'agenda, sans lieu. C'est irréversible."
+              excerpt={place.summary}
+              verb="SUPPRIMER LE LIEU"
+            />
           ) : null}
           {canReportContent(user, place.authorId) ? (
             <ReportDialog
@@ -176,17 +185,7 @@ export default async function PlacePage({ params }: Props) {
         <div className="min-w-0 flex-1">
           {place.description ? (
             <section className="mb-10">
-              <div className="flex max-w-[70ch] flex-col gap-4">
-                {place.description
-                  .split(/\n{2,}/)
-                  .map((paragraph) => paragraph.trim())
-                  .filter(Boolean)
-                  .map((paragraph, index) => (
-                    <p key={index} className="body text-ink-body">
-                      {paragraph}
-                    </p>
-                  ))}
-              </div>
+              <RichText text={place.description} />
             </section>
           ) : null}
 
@@ -225,6 +224,14 @@ export default async function PlacePage({ params }: Props) {
               <Fact label="Quartier" value={place.district} />
               <Fact label="Accès" value={place.access} />
               <Fact label="Fiche tenue par" value={place.author?.name} />
+              <Fact
+                label={place.managers.length > 1 ? "Co-gérants" : "Co-gérant"}
+                value={
+                  place.managers.length > 0
+                    ? place.managers.map((manager) => manager.name).join(", ")
+                    : null
+                }
+              />
             </dl>
           </section>
 
