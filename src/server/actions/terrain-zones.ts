@@ -34,9 +34,20 @@ export async function createTerrainZoneAction(
     if (!parsed.ok) return parsed.state;
 
     // Une zone nouvelle se pose **au-dessus** des autres : on dessine presque
-    // toujours un détail sur un fond déjà là. Le rang est compté, pas relu du
-    // dernier document : une liste jamais réordonnée n'a aucun rang à lire.
-    const rang = await TerrainZone.countDocuments({});
+    // toujours un détail sur un fond déjà là.
+    //
+    // Le rang se prend sur le plus haut existant, et non sur le nombre de zones :
+    // une suppression laisse un trou dans la numérotation, et compter donnerait
+    // alors un rang déjà pris. Vérifié — huit zones numérotées 2 à 9, la nouvelle
+    // prenait le rang 8 et se posait avant « Marais de fer », pas après.
+    //
+    // Aucune zone numérotée — une liste jamais réordonnée n'en a aucune — et le
+    // rang vaut zéro : un champ absent trie avant tout nombre, donc la nouvelle
+    // passe quand même en dernier.
+    const plusHaut = await TerrainZone.findOne({ rang: { $ne: null } }, { rang: 1 })
+      .sort({ rang: -1 })
+      .lean();
+    const rang = typeof plusHaut?.rang === "number" ? plusHaut.rang + 1 : 0;
     await TerrainZone.create({ ...parsed.data, rang, authorId: user.id } as never);
   } catch (error) {
     return toActionState(error);

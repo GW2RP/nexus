@@ -318,10 +318,12 @@ export function TyriaMap({
     probeRef.current = marque;
   }, [probe]);
 
-  // La grille cuite, un rectangle par cellule. Seule l'administration s'en sert,
-  // et elle en passe 35 248 sur dix : mesuré, le calque se pose en une seconde et
-  // un clic répond en 141 ms. C'est le plafond de ce tracé-là — le hub, lui, voit
-  // des zones recousues, jamais la maille.
+  // La grille cuite, un rectangle par cellule — celles que l'appelant passe, et
+  // lui seul : l'administration écarte la plaine, donc le compte suit les zones
+  // dessinées et non la taille de la grille. Avec celles du hub, 35 248 sur
+  // 35 840 ; mesuré, le calque se pose en une seconde et un clic répond en
+  // 141 ms. C'est le plafond de ce tracé-là — le hub, lui, voit des zones
+  // recousues, jamais la maille.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
