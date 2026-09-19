@@ -360,6 +360,14 @@ plus qu'une bruine.
 La légende ne liste que les phénomènes **effectivement présents** au pas courant :
 rien d'inventé, et aucune entrée morte un jour de beau temps.
 
+**Sur un téléphone, rien ne se pose sur la carte** sauf les deux interrupteurs.
+La légende et les bulletins de région descendent dans une bande sous la carte —
+une ligne qui se replie pour l'une, une bande qui se fait défiler pour les
+autres. Mesuré à 390 px : les deux panneaux en surimpression masquaient **66 %**
+de la carte, qui elle-même ne commençait qu'à mille pixels du haut de page,
+poussée par la liste des lieux. La carte occupe maintenant la moitié haute de
+l'écran, masquée à 5 %.
+
 ### La bande habitée
 
 Le calque a fait remonter un défaut que rien d'autre n'aurait montré : **trois
