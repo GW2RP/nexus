@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
  *
  * Une lecture, publique comme la météo elle-même : pas de secret, pas de rôle.
  * Elle existe parce que la grille entière ne peut pas voyager jusqu'au
- * navigateur — 8 960 cellules et dix grandeurs — alors qu'un relevé tient en
+ * navigateur — 35 840 cellules et dix grandeurs — alors qu'un relevé tient en
  * quelques nombres.
  *
  * Les coordonnées sont bornées au continent plutôt que refusées : un clic au

@@ -24,14 +24,35 @@ const terrainZoneSchema = new Schema(
     /** De 0 à 100. Ne vaut que pour le relief : il règle le froid et la barrière. */
     altitude: { type: Number, min: 0, max: 100, default: 0 },
     points: { type: [vertexSchema], required: true },
+    /**
+     * Le rang d'application. Les zones se cuisent par rang croissant et la
+     * dernière l'emporte sur celles qu'elle recouvre, donc un rang haut gagne.
+     * Il se modifie depuis l'administration : l'ordre où les zones ont été
+     * tracées ne dit rien de celle qu'on veut voir gagner, et redessiner une
+     * côte pour la faire passer devant serait absurde.
+     *
+     * Facultatif, et sans valeur par défaut : une zone d'avant le rang n'en
+     * porte aucun, et le tri la laisse là où elle se cuisait déjà — un champ
+     * absent passe avant tout nombre. Un défaut à zéro la ferait donc **gagner**
+     * sur ses voisines sans rang au premier enregistrement du formulaire, un
+     * changement de simulation qu'aucun écran n'aurait demandé. Le premier
+     * déplacement numérote toute la liste et la question ne se pose plus.
+     */
+    rang: { type: Number },
     authorId: { type: String, required: true, index: true },
   },
   { timestamps: true, versionKey: false },
 );
 
-// Les zones se cuisent dans l'ordre de création : la dernière dessinée l'emporte
-// sur celles qu'elle recouvre, et l'écran d'administration montre cet ordre.
-terrainZoneSchema.index({ createdAt: 1 });
+// L'ordre d'application, et le seul : `rang` d'abord, la date de création pour
+// trancher entre deux rangs égaux — ce qui laisse les zones d'avant le rang dans
+// l'ordre où elles se cuisaient déjà.
+terrainZoneSchema.index({ rang: 1, createdAt: 1 });
+
+/** L'ordre d'application des zones, écrit une fois : toute lecture qui cuit un
+ *  terrain ou montre la liste trie par là, sinon l'écran et la simulation
+ *  finiraient par raconter deux ordres différents. */
+export const ORDRE_DAPPLICATION = { rang: 1, createdAt: 1 } as const;
 
 export type TerrainZoneDocument = InferSchemaType<typeof terrainZoneSchema>;
 

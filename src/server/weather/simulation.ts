@@ -11,7 +11,7 @@ import {
 } from "@/lib/weather/grid";
 import { PACK_SCALE_TEMPERATURE, packInt16, packScaled, unpackInt16, unpackScaled } from "@/lib/weather/pack";
 import { STEPS_PER_DAY, stepEnd, stepIndexAt, stepStart } from "@/lib/weather/schedule";
-import { TerrainZone } from "@/models/terrain-zone";
+import { ORDRE_DAPPLICATION, TerrainZone } from "@/models/terrain-zone";
 import { WeatherStep, type WeatherStepDocument } from "@/models/weather-step";
 import { connectToDatabase } from "@/server/queries/shared";
 
@@ -21,8 +21,17 @@ import { connectToDatabase } from "@/server/queries/shared";
 const RATTRAPAGE_JOURS = 3;
 const RATTRAPAGE_MAX = RATTRAPAGE_JOURS * STEPS_PER_DAY;
 
-/** Trente jours d'historique suffisent ; le reste ne se lit jamais. */
-const RETENTION_JOURS = 30;
+/**
+ * Une semaine d'historique, et pas trente jours.
+ *
+ * Un pas pèse 701 Ko à la maille de 512 px, contre 176 Ko à 1 024 : trente jours
+ * de conservation passaient de 62 à 246 Mo, pour des documents que rien ne relit.
+ * L'avancement reprend toujours le **dernier** pas écrit, et la prévision se
+ * rejoue en avant depuis lui ; un pas vieux de plus de trois jours ne peut même
+ * plus servir à rattraper, le plafond de rattrapage étant là. Ce qui reste
+ * derrière est une archive, et une semaine d'archive coûte 57 Mo.
+ */
+const RETENTION_JOURS = 7;
 
 export type StoredStep = WeatherStepDocument & { _id: unknown };
 
@@ -34,7 +43,7 @@ export type StoredStep = WeatherStepDocument & { _id: unknown };
  * modifiée.
  */
 export async function bakeFromZones(): Promise<BakedTerrain> {
-  const docs = await TerrainZone.find({}).sort({ createdAt: 1 }).lean();
+  const docs = await TerrainZone.find({}).sort(ORDRE_DAPPLICATION).lean();
   const zones: ZoneShape[] = docs.map((doc) => ({
     terrain: doc.terrain as Terrain,
     region: (doc.region as Region | undefined) ?? null,

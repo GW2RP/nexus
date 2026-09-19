@@ -1,10 +1,10 @@
 /**
  * L'empaquetage des champs de la grille.
  *
- * Mesuré : un tableau BSON de 2 240 nombres pèse 21 307 octets, le même champ
- * empaqueté en entiers signés de 16 bits en pèse 4 497 — 4,7 fois moins. Un pas
- * porte dix champs, donc 44 Ko au lieu de 208, douze fois par jour. Toutes nos
- * grandeurs tiennent dans un int16, et il n'y a qu'un encodage à se tromper.
+ * Mesuré : les dix champs d'un pas en tableaux BSON pèsent 3,65 Mo, les mêmes
+ * empaquetés en entiers signés de 16 bits en pèsent 701 Ko — 5,3 fois moins,
+ * douze fois par jour. Toutes nos grandeurs tiennent dans un int16, et il n'y a
+ * qu'un encodage à se tromper.
  *
  * La température voyage en dixièmes de degré ; tout le reste est déjà entier.
  */
