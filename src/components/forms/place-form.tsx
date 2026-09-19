@@ -57,12 +57,15 @@ export function PlaceForm({
   const [managers, setManagers] = useState<AuthorSummary[]>(place?.managers ?? []);
   const [keepers, setKeepers] = useState<string[]>(place?.keepers.map((keeper) => keeper.id) ?? []);
   const [options, setOptions] = useState<KeeperOption[]>(keeperOptions);
+  const [optionsFailed, setOptionsFailed] = useState(false);
 
   // Le comptoir d'un lieu se tient avec les personnages de ceux qui le gèrent :
   // la liste se redemande dès qu'un co-gérant entre ou sort, sinon il faudrait
   // enregistrer une première fois pour voir apparaître les siens.
   const managerKey = managers.map((manager) => manager.id).join(",");
-  const loadedFor = useRef(managerKey);
+  // `null` : la dernière demande a échoué, et aucune liste de co-gérants ne
+  // porte ce nom — la suivante repartira donc, même identique.
+  const loadedFor = useRef<string | null>(managerKey);
   useEffect(() => {
     // Le serveur a déjà rendu la liste qui va avec les co-gérants enregistrés :
     // on ne la redemande qu'une fois la liste changée à l'écran.
@@ -71,12 +74,22 @@ export function PlaceForm({
 
     let abandoned = false;
     const owners = [ownerId, ...managerKey.split(",").filter(Boolean)];
-    listKeeperOptionsAction(owners).then((found) => {
-      if (abandoned) return;
-      setOptions(found);
-      // Un personnage dont le joueur vient d'être révoqué ne tient plus le lieu.
-      setKeepers((current) => current.filter((id) => found.some((option) => option.id === id)));
-    });
+    listKeeperOptionsAction(owners)
+      .then((found) => {
+        if (abandoned) return;
+        setOptionsFailed(false);
+        setOptions(found);
+        // Un personnage dont le joueur vient d'être révoqué ne tient plus le lieu.
+        setKeepers((current) => current.filter((id) => found.some((option) => option.id === id)));
+      })
+      .catch(() => {
+        // Session expirée, réseau coupé : la liste à l'écran ne répond plus aux
+        // co-gérants affichés. On le dit plutôt que de la laisser mentir, et on
+        // rouvre la porte à une nouvelle demande.
+        if (abandoned) return;
+        loadedFor.current = null;
+        setOptionsFailed(true);
+      });
     return () => {
       abandoned = true;
     };
@@ -192,7 +205,10 @@ export function PlaceForm({
                   : [...current, id],
               )
             }
-            error={errors.keeperCharacterIds}
+            error={
+              errors.keeperCharacterIds ??
+              (optionsFailed ? "La liste des personnages n'a pas pu être rafraîchie." : undefined)
+            }
           />
 
           {canChangeTeam ? (
@@ -321,8 +337,13 @@ function ManagerPicker({
 }) {
   const [query, setQuery] = useState("");
   // Le résultat porte le terme qu'il répond : tant que les deux diffèrent, la
-  // recherche est en cours, et « aucun compte » serait dit trop tôt.
-  const [result, setResult] = useState<{ terme: string; accounts: AuthorSummary[] } | null>(null);
+  // recherche est en cours, et « aucun compte » serait dit trop tôt. `accounts`
+  // à `null` dit que la recherche a échoué — ce qui n'est pas la même chose que
+  // n'avoir trouvé personne.
+  const [result, setResult] = useState<{
+    terme: string;
+    accounts: AuthorSummary[] | null;
+  } | null>(null);
 
   const terme = query.trim();
 
@@ -330,21 +351,30 @@ function ManagerPicker({
     if (terme.length < 2) return;
 
     // La recherche part après la frappe, pas à chaque touche : huit pseudos ne
-    // valent pas une requête par caractère.
+    // valent pas une requête par caractère. `abandoned` couvre ce que
+    // `clearTimeout` ne couvre pas : la requête déjà partie, dont la réponse
+    // tardive écraserait sinon celle d'un terme plus récent.
+    let abandoned = false;
     const timer = setTimeout(() => {
-      searchAccountsAction(terme).then((accounts) => setResult({ terme, accounts }));
+      searchAccountsAction(terme)
+        .then((accounts) => {
+          if (!abandoned) setResult({ terme, accounts });
+        })
+        .catch(() => {
+          if (!abandoned) setResult({ terme, accounts: null });
+        });
     }, 300);
 
-    return () => clearTimeout(timer);
+    return () => {
+      abandoned = true;
+      clearTimeout(timer);
+    };
   }, [terme]);
 
-  const answered = result?.terme === terme;
-  const proposed = answered
-    ? result.accounts.filter(
-        (account) =>
-          account.id !== authorId && !managers.some((manager) => manager.id === account.id),
-      )
-    : [];
+  const reponse = result?.terme === terme ? result : null;
+  const proposed = (reponse?.accounts ?? []).filter(
+    (account) => account.id !== authorId && !managers.some((manager) => manager.id === account.id),
+  );
 
   return (
     <div className="flex flex-col gap-2">
@@ -399,8 +429,14 @@ function ManagerPicker({
         </ul>
       ) : null}
 
-      {terme.length >= 2 && answered && proposed.length === 0 ? (
+      {reponse?.accounts && proposed.length === 0 ? (
         <p className="caption text-ink-subtle">Aucun compte à ce nom.</p>
+      ) : null}
+
+      {reponse && reponse.accounts === null ? (
+        <p role="alert" className="caption text-crimson-ink">
+          La recherche n&apos;a pas abouti. Réessayez.
+        </p>
       ) : null}
 
       {error ? (
