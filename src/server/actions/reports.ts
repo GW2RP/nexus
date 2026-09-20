@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { Model } from "mongoose";
 
-import { deleteUploadedImages } from "@/lib/blob";
+import { collectMarkdownImages, deleteUploadedImages } from "@/lib/blob";
 import type { ReportTarget } from "@/lib/domain";
 import { Character } from "@/models/character";
 import { Event } from "@/models/event";
@@ -34,10 +34,17 @@ const MODELS: Record<ReportTarget, Model<any>> = {
   evenement: Event,
 };
 
-/** Les images qu'un contenu porte, quel que soit son type. */
+/** Les images qu'un contenu porte, quel que soit son type : celles de ses champs
+ *  d'image, et celles que son auteur a glissées dans ses textes longs. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function imagesOf(document: any): (string | null | undefined)[] {
-  return [document?.portraitUrl, document?.bannerUrl, document?.logoUrl, document?.floorPlan?.imageUrl];
+  return [
+    document?.portraitUrl,
+    document?.bannerUrl,
+    document?.logoUrl,
+    document?.floorPlan?.imageUrl,
+    ...collectMarkdownImages(document?.description, document?.story, document?.appearance),
+  ];
 }
 
 /** L'extrait est figé au moment du signalement : le contenu peut changer ensuite,

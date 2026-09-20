@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { EventForm } from "@/components/forms/event-form";
 import { PageHeader } from "@/components/ui/page-header";
+import { readPointParam } from "@/lib/map";
 import { canContribute } from "@/lib/permissions";
 import { buildMetadata } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
@@ -16,7 +17,12 @@ export const metadata: Metadata = buildMetadata({
   noIndex: true,
 });
 
-export default async function NewEventPage() {
+export default async function NewEventPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ x?: string; y?: string }>;
+}) {
+  const { x, y } = await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect("/connexion?suite=/evenements/nouveau");
   if (!canContribute(user)) redirect("/evenements");
@@ -32,7 +38,12 @@ export default async function NewEventPage() {
         eyebrow="AGENDA"
         title="Proposer un évènement"
       />
-      <EventForm ownerId={user.id} places={places} characters={characters} />
+      <EventForm
+        ownerId={user.id}
+        places={places}
+        characters={characters}
+        initialCoordinates={readPointParam(x, y)}
+      />
     </div>
   );
 }

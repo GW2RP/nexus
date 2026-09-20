@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { deleteUploadedImages } from "@/lib/blob";
+import {
+  collectMarkdownImages,
+  deleteOrphanedImages,
+  deleteUploadedImages,
+} from "@/lib/blob";
 import { canEditContent } from "@/lib/permissions";
 import { uniqueSlug } from "@/lib/slug";
 import { Event } from "@/models/event";
@@ -26,11 +30,23 @@ async function slugTaken(candidate: string) {
 
 type EventInput = ReturnType<typeof eventSchema.parse>;
 
-/** Un évènement qui se tient dans un lieu du registre en hérite la région et le point. */
+/** Un évènement qui se tient dans un lieu du registre en hérite la région et le
+ *  point ; une scène libre porte le point qu'on a posé sur la carte. */
 async function toDocument(data: EventInput) {
-  const { practicalNotes, placeId, organiserCharacterId, ...rest } = data;
+  const {
+    practicalNotes,
+    placeId,
+    organiserCharacterId,
+    coordinateX,
+    coordinateY,
+    ...rest
+  } = data;
   const document: Record<string, unknown> = {
     ...rest,
+    coordinates:
+      typeof coordinateX === "number" && typeof coordinateY === "number"
+        ? { x: coordinateX, y: coordinateY }
+        : undefined,
     // Ces identifiants viennent de listes déroulantes : un identifiant tordu
     // est ignoré plutôt que de faire lever une CastError à Mongoose.
     placeId: objectIdOrNull(placeId ?? null) ?? undefined,
@@ -91,16 +107,22 @@ export async function updateEventAction(
     if (!parsed.ok) return parsed.state;
 
     // Remplacer ou retirer une image abandonne l'ancienne dans le stockage,
-    // exactement comme une suppression de fiche.
-    const previousBanner = existing.bannerUrl;
+    // exactement comme une suppression de fiche. La description en porte
+    // désormais elle aussi : celles qu'on vient d'en retirer s'en vont avec.
+    const previousImages = [
+      existing.bannerUrl,
+      ...collectMarkdownImages(existing.description),
+    ];
 
     existing.set(await toDocument(parsed.data));
     await existing.save();
     slug = existing.slug;
 
-    if (previousBanner && previousBanner !== existing.bannerUrl) {
-      await deleteUploadedImages([previousBanner], existing.authorId);
-    }
+    await deleteOrphanedImages(
+      previousImages,
+      [existing.bannerUrl, ...collectMarkdownImages(existing.description)],
+      existing.authorId,
+    );
   } catch (error) {
     return toActionState(error);
   }
@@ -122,9 +144,9 @@ export async function deleteEventAction(
     if (!canEditContent(user, existing.authorId)) {
       return errorState("Cet évènement appartient à quelqu'un d'autre.");
     }
-    const banner = existing.bannerUrl;
+    const images = [existing.bannerUrl, ...collectMarkdownImages(existing.description)];
     await Promise.all([Registration.deleteMany({ eventId: existing._id }), existing.deleteOne()]);
-    await deleteUploadedImages([banner], existing.authorId);
+    await deleteUploadedImages(images, existing.authorId);
   } catch (error) {
     return toActionState(error);
   }

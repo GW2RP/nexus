@@ -5,7 +5,7 @@ import { useActionState } from "react";
 import { Field, Select, Textarea } from "@/components/ui/field";
 import { FormMessage } from "@/components/ui/form-message";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { REGIONS, REGION_LABELS } from "@/lib/domain";
+import { REGIONS, REGION_LABELS, type Region } from "@/lib/domain";
 import { idleState } from "@/lib/action-state";
 import { createRumorAction } from "@/server/actions/rumors";
 import type { CharacterSummary } from "@/server/types";
@@ -14,9 +14,12 @@ import type { CharacterSummary } from "@/server/types";
 export function RumorForm({
   characters,
   places,
+  defaultRegion,
 }: {
   characters: CharacterSummary[];
   places: { id: string; name: string }[];
+  /** La région du point cliqué sur la carte, quand la rumeur part de là. */
+  defaultRegion?: Region | null;
 }) {
   const [state, formAction] = useActionState(createRumorAction, idleState);
   const errors = state.fieldErrors ?? {};
@@ -63,7 +66,7 @@ export function RumorForm({
         </Field>
 
         <Field label="Région" htmlFor="rumor-region" error={errors.region}>
-          <Select id="rumor-region" name="region" defaultValue="">
+          <Select id="rumor-region" name="region" defaultValue={defaultRegion ?? ""}>
             <option value="">Toute la Tyrie</option>
             {REGIONS.map((region) => (
               <option key={region} value={region}>

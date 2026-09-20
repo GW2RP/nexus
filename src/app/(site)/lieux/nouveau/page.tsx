@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { PlaceForm } from "@/components/forms/place-form";
 import { PageHeader } from "@/components/ui/page-header";
+import { readPointParam } from "@/lib/map";
 import { canContribute } from "@/lib/permissions";
 import { buildMetadata } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
@@ -15,7 +16,12 @@ export const metadata: Metadata = buildMetadata({
   noIndex: true,
 });
 
-export default async function NewPlacePage() {
+export default async function NewPlacePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ x?: string; y?: string }>;
+}) {
+  const { x, y } = await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect("/connexion?suite=/lieux/nouveau");
   if (!canContribute(user)) redirect("/lieux");
@@ -28,7 +34,12 @@ export default async function NewPlacePage() {
         eyebrow="REGISTRE DES LIEUX"
         title="Proposer un lieu"
       />
-      <PlaceForm ownerId={user.id} keeperOptions={keeperOptions} canChangeTeam />
+      <PlaceForm
+        ownerId={user.id}
+        keeperOptions={keeperOptions}
+        canChangeTeam
+        initialCoordinates={readPointParam(x, y)}
+      />
     </div>
   );
 }

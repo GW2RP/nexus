@@ -30,14 +30,15 @@ import type {
   PlaceSummary,
   TerrainZoneOutline,
   WeatherArea,
-  WeatherEntry,
   WeatherProbe,
 } from "@/server/types";
+
+/** Un point sur la carte. */
+type Point = { x: number; y: number };
 
 export function MapExplorer({
   places,
   events,
-  weather,
   zones,
   areas,
   initialPlaceSlug,
@@ -45,7 +46,6 @@ export function MapExplorer({
 }: {
   places: PlaceSummary[];
   events: EventSummary[];
-  weather: WeatherEntry[];
   zones: TerrainZoneOutline[];
   areas: WeatherArea[];
   initialPlaceSlug?: string;
@@ -56,9 +56,10 @@ export function MapExplorer({
   // est justement ce qui montre pourquoi il pleut là et pas ailleurs.
   const [voirMeteo, setVoirMeteo] = useState(true);
   const [voirTerrains, setVoirTerrains] = useState(false);
-  // La sonde : un clic sur la carte relève le temps qu'il y fait. Elle se met en
-  // marche pour ne pas voler le clic qui choisit un lieu.
-  const [sonder, setSonder] = useState(false);
+  // Le point cliqué. Il est posé avant la réponse du serveur : la croix apparaît
+  // sous le doigt, et le relevé la rejoint. Plus d'interrupteur à armer — un
+  // clic sur la carte a toujours voulu dire « qu'est-ce qu'il y a là ? ».
+  const [point, setPoint] = useState<Point | null>(null);
   const [releve, setReleve] = useState<WeatherProbe | null>(null);
   const [sondeEnCours, setSondeEnCours] = useState(false);
   const [sondeEnPanne, setSondeEnPanne] = useState(false);
@@ -121,11 +122,13 @@ export function MapExplorer({
 
   /** Relève le temps au point cliqué. La grille entière ne peut pas voyager
    *  jusqu'ici, donc on demande le point au serveur. */
-  async function releverLePoint(point: { x: number; y: number }) {
+  async function releverLePoint(clique: Point) {
+    setPoint(clique);
+    setReleve(null);
     setSondeEnCours(true);
     setSondeEnPanne(false);
     try {
-      const reponse = await fetch(`/api/meteo/point?x=${point.x}&y=${point.y}`);
+      const reponse = await fetch(`/api/meteo/point?x=${clique.x}&y=${clique.y}`);
       if (!reponse.ok) throw new Error(String(reponse.status));
       setReleve((await reponse.json()) as WeatherProbe);
     } catch {
@@ -135,6 +138,19 @@ export function MapExplorer({
     } finally {
       setSondeEnCours(false);
     }
+  }
+
+  function fermerLePoint() {
+    setPoint(null);
+    setReleve(null);
+    setSondeEnPanne(false);
+  }
+
+  /** Un pin choisi et un point posé se disputeraient le même coin de l'écran :
+   *  choisir l'un retire l'autre. */
+  function choisir(id: string | null) {
+    setSelectedId(id);
+    if (id) fermerLePoint();
   }
 
   const pins = useMemo<MapPin[]>(() => {
@@ -176,6 +192,17 @@ export function MapExplorer({
   const selectedEvent =
     events.find((event) => `evenement-${event.id}` === selectedId) ?? null;
 
+  const panneauDuPoint = point ? (
+    <PointReleve
+      point={point}
+      releve={releve}
+      enCours={sondeEnCours}
+      enPanne={sondeEnPanne}
+      canPropose={canPropose}
+      onClose={fermerLePoint}
+    />
+  ) : null;
+
   return (
     <div className="flex flex-col lg:h-[calc(100dvh-82px)] lg:min-h-[560px] lg:flex-row-reverse">
       <div className="flex flex-col lg:min-h-0 lg:flex-1">
@@ -184,10 +211,10 @@ export function MapExplorer({
             pins={pins}
             shapes={shapes}
             areas={peintes}
-            probe={releve ? { x: releve.x, y: releve.y } : null}
+            probe={point}
             selectedId={selectedId}
-            onSelect={setSelectedId}
-            onPick={sonder ? releverLePoint : undefined}
+            onSelect={choisir}
+            onPick={releverLePoint}
             className="size-full bg-map-land"
           />
 
@@ -197,27 +224,16 @@ export function MapExplorer({
                 [
                   ["MÉTÉO", voirMeteo, setVoirMeteo],
                   ["TERRAINS", voirTerrains, setVoirTerrains],
-                  ["SONDER", sonder, setSonder],
                 ] as const
               ).map(([label, actif, basculer]) => (
                 <button
                   key={label}
                   type="button"
                   aria-pressed={actif}
-                  onClick={() => {
-                    // Éteindre la sonde retire le relevé et sa croix : laisser
-                    // un repère sur la carte sans le panneau qui l'explique
-                    // donnerait une marque que plus rien ne nomme.
-                    if (label === "SONDER") {
-                      setReleve(null);
-                      setSondeEnPanne(false);
-                    }
-                    basculer((valeur) => !valeur);
-                  }}
+                  onClick={() => basculer((valeur) => !valeur)}
                   className={cn(
-                    // Trois bascules tiennent sur une ligne de 320 px à
-                    // condition de serrer les flancs : sur le plus petit
-                    // téléphone elles mangeaient sinon un sixième de la carte.
+                    // Les bascules doivent tenir sur une ligne de 320 px sans
+                    // manger la carte : on serre les flancs sur téléphone.
                     "min-h-tap px-2 text-[14px] tracking-[1px] sm:px-3",
                     actif ? "bg-surface-selected text-ink" : "text-ink-muted",
                   )}
@@ -234,14 +250,6 @@ export function MapExplorer({
                 ))}
               </ul>
             ) : null}
-          </div>
-
-          <div className="pointer-events-none absolute left-4 top-4 z-[500] hidden flex-col gap-2 lg:flex">
-            {sonder ? (
-              <Sonde releve={releve} enCours={sondeEnCours} enPanne={sondeEnPanne} />
-            ) : (
-              weather.map((entry) => <Bulletin key={entry.id} entry={entry} />)
-            )}
           </div>
 
           {selectedPlace ? (
@@ -275,13 +283,21 @@ export function MapExplorer({
               onClose={() => setSelectedId(null)}
             />
           ) : null}
+
+          {/* Sur grand écran le relevé se pose dans le coin ; sous `lg` il
+              descend dans la bande, comme la légende. */}
+          {panneauDuPoint ? (
+            <div className="pointer-events-none absolute left-4 top-4 z-[600] hidden w-[320px] lg:block">
+              {panneauDuPoint}
+            </div>
+          ) : null}
         </div>
 
-        {/* Sous la carte plutôt que par-dessus : à 390 px, les deux panneaux en
-            surimpression masquaient les deux tiers de la carte. La légende tient
-            sur une ligne qui se replie, les bulletins sur une bande qui se fait
-            défiler — rien n'est retiré, tout descend. */}
-        {sonder || (voirMeteo && presents.length > 0) || weather.length > 0 ? (
+        {/* Sous la carte plutôt que par-dessus : à 390 px, un panneau en
+            surimpression masquait les deux tiers de la carte. La légende tient
+            sur une ligne qui se replie, le relevé sur un cartouche pleine
+            largeur — rien n'est retiré, tout descend. */}
+        {panneauDuPoint || (voirMeteo && presents.length > 0) ? (
           <div className="flex shrink-0 flex-col gap-2 border-t-2 border-rule bg-surface py-3 lg:hidden">
             {voirMeteo && presents.length > 0 ? (
               <ul className="flex flex-wrap gap-x-4 gap-y-1 px-gutter-app">
@@ -291,19 +307,7 @@ export function MapExplorer({
               </ul>
             ) : null}
 
-            {sonder ? (
-              <div className="px-gutter-app">
-                <Sonde releve={releve} enCours={sondeEnCours} enPanne={sondeEnPanne} />
-              </div>
-            ) : weather.length > 0 ? (
-              <ul className="flex gap-2 overflow-x-auto px-gutter-app">
-                {weather.map((entry) => (
-                  <li key={entry.id} className="shrink-0">
-                    <Bulletin entry={entry} />
-                  </li>
-                ))}
-              </ul>
-            ) : null}
+            {panneauDuPoint ? <div className="px-gutter-app">{panneauDuPoint}</div> : null}
           </div>
         ) : null}
       </div>
@@ -328,8 +332,12 @@ export function MapExplorer({
           </TabButton>
         </div>
 
-        <div className="flex flex-col gap-4 border-b border-rule p-gutter-app">
-          <div className="flex items-center gap-2 border border-rule bg-surface-inset px-3">
+        {/* La recherche et les filtres tiennent en deux lignes : empilés en
+            grille, les huit types de lieu prenaient trois rangs et repoussaient
+            la liste hors de l'écran. Ils défilent maintenant à l'horizontale,
+            et c'est la liste qui occupe la colonne. */}
+        <div className="flex flex-col gap-2 border-b border-rule py-2">
+          <div className="mx-gutter-app flex items-center gap-2 border border-rule bg-surface-inset px-3">
             <SearchIcon size={16} className="text-ink-muted" />
             <Label htmlFor="recherche-carte" hidden>
               Rechercher sur la carte
@@ -345,7 +353,7 @@ export function MapExplorer({
           </div>
 
           {tab === "lieux" ? (
-            <fieldset className="flex flex-wrap gap-2 border-0 p-0">
+            <fieldset className="flex gap-2 overflow-x-auto border-0 px-gutter-app pb-1">
               <legend className="sr-only">Filtrer par type de lieu</legend>
               <FilterButton active={!typeFilter} onClick={() => setTypeFilter(null)}>
                 TOUS
@@ -371,7 +379,7 @@ export function MapExplorer({
                   <li key={place.id}>
                     <button
                       type="button"
-                      onClick={() => setSelectedId(place.id)}
+                      onClick={() => choisir(place.id)}
                       aria-pressed={selectedId === place.id}
                       className={cn(
                         "flex w-full items-center gap-3 border-b border-hairline px-gutter-app py-4 text-left",
@@ -414,7 +422,7 @@ export function MapExplorer({
                 <li key={event.id}>
                   <button
                     type="button"
-                    onClick={() => setSelectedId(`evenement-${event.id}`)}
+                    onClick={() => choisir(`evenement-${event.id}`)}
                     aria-pressed={selectedId === `evenement-${event.id}`}
                     className={cn(
                       "flex w-full flex-col gap-1 border-b border-hairline px-gutter-app py-4 text-left",
@@ -436,26 +444,42 @@ export function MapExplorer({
           )}
         </div>
 
-        <div className="border-t border-rule p-gutter-app">
-          <p className="mb-3 text-[15px] text-ink-muted">
+        {/* Un pied de colonne sur une ligne : le bouton pleine largeur et le
+            lien qui le suivait prenaient à eux deux la hauteur de trois lieux. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-rule px-gutter-app py-2">
+          <p className="text-[15px] text-ink-muted">
             {tab === "lieux"
               ? `${visiblePlaces.length} sur ${places.length} lieux`
               : `${events.length} évènement${events.length > 1 ? "s" : ""}`}
           </p>
-          <Button asChild variant="outline" className="w-full">
-            <Link href={canPropose ? "/lieux/nouveau" : "/connexion"}>PROPOSER UN LIEU</Link>
-          </Button>
-          <Link
-            href="/meteo"
-            className="mt-3 inline-block text-[16px] text-crimson-ink underline-offset-4 hover:underline"
-          >
-            Le détail de la météo →
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/meteo"
+              className="text-[15px] text-ink-muted underline-offset-4 hover:text-ink hover:underline"
+            >
+              La météo
+            </Link>
+            <Button asChild variant="outline" size="sm">
+              <Link
+                href={proposerHref(
+                  tab === "lieux" ? "/lieux/nouveau" : "/evenements/nouveau",
+                  canPropose,
+                )}
+              >
+                {tab === "lieux" ? "PROPOSER UN LIEU" : "PROPOSER UNE SCÈNE"}
+              </Link>
+            </Button>
+          </div>
         </div>
       </aside>
-
     </div>
   );
+}
+
+/** Où mène une proposition : la page qui la reçoit, ou la connexion qui y ramène
+ *  — avec le point, sinon il faudrait le repointer après s'être connecté. */
+function proposerHref(chemin: string, canPropose: boolean): string {
+  return canPropose ? chemin : `/connexion?suite=${encodeURIComponent(chemin)}`;
 }
 
 function LigneDeLegende({ phenomene }: { phenomene: Phenomene }) {
@@ -472,63 +496,83 @@ function LigneDeLegende({ phenomene }: { phenomene: Phenomene }) {
 }
 
 /**
- * Le relevé d'un point sondé.
+ * Le point cliqué : le temps qu'il y fait, et ce qu'on peut y poser.
  *
- * Tant qu'on n'a pas cliqué, il ne dit que ce qu'il attend — pas de faux
- * chiffre, pas de tiret qui ferait croire à une mesure. Une cellule hors région
- * garde ses grandeurs : le ciel existe aussi au large.
+ * Le relevé vient de `/api/meteo/point` — la grille entière ne peut pas voyager
+ * jusqu'au navigateur, un relevé si. Tant qu'il n'est pas là, le cartouche ne
+ * montre aucun chiffre : pas de tiret qui ferait croire à une mesure. Une
+ * cellule hors région garde ses grandeurs — le ciel existe aussi au large.
+ *
+ * Les trois propositions partent avec les coordonnées : le formulaire s'ouvre
+ * avec son point déjà posé, plutôt que de faire repointer la carte. La rumeur
+ * n'a pas de point à elle ; elle emporte la région du relevé, qui est ce que le
+ * tableau des rumeurs sait retenir d'un endroit.
  */
-function Sonde({
+function PointReleve({
+  point,
   releve,
   enCours,
   enPanne,
+  canPropose,
+  onClose,
 }: {
+  point: Point;
   releve: WeatherProbe | null;
   enCours: boolean;
   enPanne: boolean;
+  canPropose: boolean;
+  onClose: () => void;
 }) {
-  return (
-    <div
-      aria-live="polite"
-      className="pointer-events-none max-w-[320px] border-2 border-crimson-edge bg-surface px-3 py-2"
-    >
-      {enPanne ? (
-        <p className="text-[15px] text-crimson-ink">Le relevé n'a pas abouti.</p>
-      ) : enCours ? (
-        <p className="text-[15px] text-ink-muted">Relevé…</p>
-      ) : releve ? (
-        <>
-          <p className="flex items-center gap-2 text-[15px] text-ink-body">
-            <WeatherGlyph condition={releve.condition} size={18} className="text-rain" />
-            {WEATHER_LABELS[releve.condition]}
-            {releve.region ? ` · ${REGION_LABELS[releve.region]}` : " · hors région"}
-          </p>
-          <p className="mt-1 text-[15px] text-ink-muted">
-            {TERRAIN_LABELS[releve.terrain]} · {releve.temperature} °C · {releve.humidite} %
-            {" · "}
-            {releve.vent} km/h · {releve.pression} hPa
-          </p>
-          {releve.phenomenes.length > 0 ? (
-            <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
-              {releve.phenomenes.map((value) => (
-                <LigneDeLegende key={value} phenomene={value} />
-              ))}
-            </ul>
-          ) : null}
-        </>
-      ) : (
-        <p className="text-[15px] text-ink-muted">Cliquez la carte pour relever le temps.</p>
-      )}
-    </div>
-  );
-}
+  const coordonnees = `x=${point.x}&y=${point.y}`;
+  const rumeur = releve?.region ? `/rumeurs?ou=${releve.region}#colporter` : "/rumeurs#colporter";
 
-function Bulletin({ entry }: { entry: WeatherEntry }) {
   return (
-    <span className="inline-flex items-center gap-2 whitespace-nowrap border-2 border-rule bg-surface px-3 py-2 text-[15px] text-ink-body">
-      <WeatherGlyph condition={entry.condition} size={18} className="text-rain" />
-      {WEATHER_LABELS[entry.condition]} sur {REGION_LABELS[entry.region]}
-    </span>
+    <div className="pointer-events-auto w-full border-2 border-crimson-edge bg-surface p-3">
+      <div aria-live="polite">
+        {enPanne ? (
+          <p className="text-[15px] text-crimson-ink">Le relevé n&apos;a pas abouti.</p>
+        ) : enCours || !releve ? (
+          <p className="text-[15px] text-ink-muted">Relevé…</p>
+        ) : (
+          <>
+            <p className="flex items-center gap-2 text-[15px] text-ink-body">
+              <WeatherGlyph condition={releve.condition} size={18} className="text-rain" />
+              {WEATHER_LABELS[releve.condition]}
+              {releve.region ? ` · ${REGION_LABELS[releve.region]}` : " · hors région"}
+            </p>
+            <p className="mt-1 text-[15px] text-ink-muted">
+              {TERRAIN_LABELS[releve.terrain]} · {releve.temperature} °C · {releve.humidite} %
+              {" · "}
+              {releve.vent} km/h · {releve.pression} hPa
+            </p>
+            {releve.phenomenes.length > 0 ? (
+              <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                {releve.phenomenes.map((value) => (
+                  <LigneDeLegende key={value} phenomene={value} />
+                ))}
+              </ul>
+            ) : null}
+          </>
+        )}
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2 border-t border-hairline pt-3">
+        <Button asChild variant="outline" size="sm">
+          <Link href={proposerHref(`/lieux/nouveau?${coordonnees}`, canPropose)}>UN LIEU</Link>
+        </Button>
+        <Button asChild variant="outline" size="sm">
+          <Link href={proposerHref(`/evenements/nouveau?${coordonnees}`, canPropose)}>
+            UNE SCÈNE
+          </Link>
+        </Button>
+        <Button asChild variant="outline" size="sm">
+          <Link href={rumeur}>UNE RUMEUR</Link>
+        </Button>
+        <Button type="button" variant="quiet" size="sm" onClick={onClose}>
+          FERMER
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -571,7 +615,7 @@ function FilterButton({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "inline-flex min-h-tap items-center border px-4 py-[11px] font-display text-[11px] font-medium tracking-[1.4px]",
+        "inline-flex min-h-tap shrink-0 items-center whitespace-nowrap border px-3 py-[11px] font-display text-[11px] font-medium tracking-[1.4px]",
         active
           ? "border-gold-ink bg-gold-ink text-on-crimson"
           : "border-chip-edge text-gold-ink hover:bg-surface-selected",

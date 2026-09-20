@@ -3,6 +3,7 @@ import ReactMarkdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 
+import { isBlobUrl } from "@/lib/images";
 import { cn } from "@/lib/utils";
 
 /** Le texte long d'une fiche, écrit en markdown par son auteur.
@@ -13,7 +14,13 @@ import { cn } from "@/lib/utils";
  *
  *  Les styles ne sont pas réinventés : le conteneur porte `.body`, et les
  *  paragraphes en héritent. Seuls les blocs qui s'en écartent — intertitre,
- *  citation, liste — reprennent une classe de `tokens.css`. */
+ *  citation, liste — reprennent une classe de `tokens.css`.
+ *
+ *  Une image ne s'affiche que si elle vient de notre magasin. Une adresse
+ *  quelconque écrite dans le champ ferait du texte d'un membre une requête vers
+ *  le serveur d'un autre — pixel de suivi compris — et rien ne garantirait
+ *  qu'elle réponde encore demain. Le seul chemin est le téléversement, qui range
+ *  l'image sous son auteur et la fait emporter avec la fiche. */
 
 const LINK_CLASSES = "text-crimson-ink underline underline-offset-4";
 
@@ -29,6 +36,24 @@ function Intertitre({ children }: ComponentPropsWithoutRef<"h3">) {
   return <h3 className="card-title text-ink">{children}</h3>;
 }
 
+/** Une image du texte. Hors magasin, elle ne s'affiche pas : on ne va pas
+ *  chercher le serveur d'un tiers parce qu'une adresse a été collée dans un
+ *  champ. Sans alternative, elle est décorative pour le lecteur d'écran — le
+ *  champ l'exige à la saisie, mais un texte écrit à la main peut en manquer. */
+function Illustration({ src, alt }: { src?: unknown; alt?: string }) {
+  if (!isBlobUrl(src)) return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={alt ?? ""}
+      loading="lazy"
+      decoding="async"
+      className="block h-auto max-w-full border border-rule"
+    />
+  );
+}
+
 export function RichText({ text, className }: { text: string; className?: string }) {
   return (
     <div className={cn("flex max-w-[70ch] flex-col gap-4 body text-ink-body", className)}>
@@ -37,10 +62,6 @@ export function RichText({ text, className }: { text: string; className?: string
         // l'éditeur montre en écrivant, et ce que les fiches d'avant le markdown
         // — écrites ligne à ligne dans une zone de texte — veulent dire.
         remarkPlugins={[remarkGfm, remarkBreaks]}
-        // Une image ne se pose pas dans un champ de texte : elle passe par le
-        // téléversement, qui la range sous son auteur.
-        disallowedElements={["img"]}
-        unwrapDisallowed
         components={{
           h1: Intertitre,
           h2: Intertitre,
@@ -62,6 +83,7 @@ export function RichText({ text, className }: { text: string; className?: string
             </blockquote>
           ),
           hr: () => <hr className="h-px border-0 bg-rule" />,
+          img: ({ src, alt }) => <Illustration src={src} alt={alt} />,
           code: ({ children }) => (
             <code className="border border-hairline bg-surface-inset px-1">{children}</code>
           ),

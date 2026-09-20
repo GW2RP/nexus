@@ -1,15 +1,16 @@
 "use client";
 
-import { upload } from "@vercel/blob/client";
 import { useRef, useState } from "react";
 
 import { CloseIcon } from "@/components/icons";
+import {
+  ACCEPTED_IMAGE_TYPES,
+  uploadFailureMessage,
+  uploadImage,
+} from "@/components/forms/upload-image";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { cn } from "@/lib/utils";
-
-const ACCEPTED = "image/jpeg,image/png,image/webp,image/avif";
-const MAX_BYTES = 5 * 1024 * 1024;
 
 /** Le téléversement d'une image, avec son alternative textuelle.
  *  L'alternative est exigée dès qu'une image est posée : sans elle, la fiche
@@ -52,27 +53,11 @@ export function ImageField({
 
   async function handleFile(file: File) {
     setFailure(null);
-
-    if (file.size > MAX_BYTES) {
-      setFailure("L'image dépasse 5 Mo. Réduisez-la avant de la téléverser.");
-      return;
-    }
-
     setBusy(true);
     try {
-      const extension = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-      const result = await upload(`${folder}/${ownerId}/${Date.now()}.${extension}`, file, {
-        access: "public",
-        handleUploadUrl: "/api/televersement",
-        contentType: file.type,
-      });
-      setUrl(result.url);
+      setUrl(await uploadImage(file, folder, ownerId));
     } catch (uploadError) {
-      setFailure(
-        uploadError instanceof Error
-          ? uploadError.message
-          : "Le téléversement n'a pas abouti. Réessayez.",
-      );
+      setFailure(uploadFailureMessage(uploadError));
     } finally {
       setBusy(false);
       // Sans cela, re-choisir le même fichier après un échec ne déclenche rien.
@@ -111,7 +96,7 @@ export function ImageField({
             ref={inputRef}
             id={`${name}-fichier`}
             type="file"
-            accept={ACCEPTED}
+            accept={ACCEPTED_IMAGE_TYPES}
             disabled={busy}
             onChange={(event) => {
               const file = event.target.files?.[0];

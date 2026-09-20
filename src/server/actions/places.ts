@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { deleteUploadedImages } from "@/lib/blob";
+import {
+  collectMarkdownImages,
+  deleteOrphanedImages,
+  deleteUploadedImages,
+} from "@/lib/blob";
 import { canEditContent, canEditPlace, canManagePlaceTeam } from "@/lib/permissions";
 import { uniqueSlug } from "@/lib/slug";
 import { Character } from "@/models/character";
@@ -152,8 +156,12 @@ export async function updatePlaceAction(
     });
 
     // Remplacer ou retirer une image abandonne l'ancienne dans le stockage,
-    // exactement comme une suppression de fiche.
-    const previousBanner = existing.bannerUrl;
+    // exactement comme une suppression de fiche. La description porte elle
+    // aussi des images : celles qu'on vient d'en retirer s'en vont avec.
+    const previousImages = [
+      existing.bannerUrl,
+      ...collectMarkdownImages(existing.description),
+    ];
 
     existing.set(toDocument(parsed.data, team));
     // La liste remplace le champ au singulier d'avant : le laisser en place
@@ -163,9 +171,11 @@ export async function updatePlaceAction(
     await existing.save();
     slug = existing.slug;
 
-    if (previousBanner && previousBanner !== existing.bannerUrl) {
-      await deleteUploadedImages([previousBanner], existing.authorId);
-    }
+    await deleteOrphanedImages(
+      previousImages,
+      [existing.bannerUrl, ...collectMarkdownImages(existing.description)],
+      existing.authorId,
+    );
   } catch (error) {
     return toActionState(error);
   }
@@ -190,7 +200,12 @@ export async function deletePlaceAction(
       return errorState("Ce lieu appartient à quelqu'un d'autre.");
     }
 
-    const images = [existing.bannerUrl, existing.logoUrl, existing.floorPlan?.imageUrl];
+    const images = [
+      existing.bannerUrl,
+      existing.logoUrl,
+      existing.floorPlan?.imageUrl,
+      ...collectMarkdownImages(existing.description),
+    ];
     await existing.deleteOne();
     await deleteUploadedImages(images, existing.authorId);
   } catch (error) {

@@ -1,9 +1,11 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ImageField } from "@/components/forms/image-field";
+import { RichTextField } from "@/components/forms/rich-text-field";
+import { MapPicker } from "@/components/map/map-picker";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { FormMessage } from "@/components/ui/form-message";
 import { SectionHeading } from "@/components/ui/section-heading";
@@ -11,6 +13,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import {
   EVENT_TYPES,
   EVENT_TYPE_LABELS,
+  type EventType,
   REGIONS,
   REGION_LABELS,
 } from "@/lib/domain";
@@ -30,18 +33,28 @@ export function EventForm({
   event,
   places,
   characters,
+  initialCoordinates,
 }: {
   /** L\'auteur du contenu : les images sont rangées sous lui. */
   ownerId: string;
   event?: EventDetail;
   places: { id: string; name: string; region: string }[];
   characters: CharacterSummary[];
+  /** Le point cliqué sur la carte, quand la scène part de là. */
+  initialCoordinates?: { x: number; y: number } | null;
 }) {
   const [state, formAction] = useActionState(
     event ? updateEventAction : createEventAction,
     idleState,
   );
   const errors = state.fieldErrors ?? {};
+
+  // Un évènement tenu dans un lieu du registre en hérite le point : la carte ne
+  // s'ouvre que pour une scène qui se tient ailleurs, sinon deux emplacements
+  // se contrediraient à l'écran. Le pin reprend le glyphe du type et le titre.
+  const [placeId, setPlaceId] = useState(event?.place?.id ?? "");
+  const [type, setType] = useState<EventType>(event?.type ?? "taverne");
+  const [title, setTitle] = useState(event?.title ?? "");
 
   return (
     <form action={formAction} className="flex max-w-[760px] flex-col gap-8">
@@ -56,13 +69,20 @@ export function EventForm({
               name="title"
               required
               maxLength={140}
-              defaultValue={event?.title}
+              value={title}
+              onChange={(field) => setTitle(field.target.value)}
               placeholder="Veillée au Lion Noir"
             />
           </Field>
 
           <Field label="Type" htmlFor="type" required error={errors.type}>
-            <Select id="type" name="type" required defaultValue={event?.type ?? "taverne"}>
+            <Select
+              id="type"
+              name="type"
+              required
+              value={type}
+              onChange={(field) => setType(field.target.value as EventType)}
+            >
               {EVENT_TYPES.map((type) => (
                 <option key={type} value={type}>
                   {EVENT_TYPE_LABELS[type]}
@@ -86,19 +106,15 @@ export function EventForm({
             />
           </Field>
 
-          <Field
+          <RichTextField
             label="Description"
-            htmlFor="description"
-            hint="Une ligne vide sépare deux paragraphes."
+            name="description"
+            folder="evenements"
+            ownerId={ownerId}
+            rows={8}
+            defaultValue={event?.description}
             error={errors.description}
-          >
-            <Textarea
-              id="description"
-              name="description"
-              rows={8}
-              defaultValue={event?.description ?? ""}
-            />
-          </Field>
+          />
 
           <Field
             label="Ce qu'il faut savoir"
@@ -150,7 +166,12 @@ export function EventForm({
             hint="La région et le point sur la carte en découlent."
             error={errors.placeId}
           >
-            <Select id="placeId" name="placeId" defaultValue={event?.place?.id ?? ""}>
+            <Select
+              id="placeId"
+              name="placeId"
+              value={placeId}
+              onChange={(field) => setPlaceId(field.target.value)}
+            >
               <option value="">Point libre sur la carte</option>
               {places.map((place) => (
                 <option key={place.id} value={place.id}>
@@ -202,6 +223,18 @@ export function EventForm({
             />
           </Field>
         </div>
+
+        {placeId ? null : (
+          <div className="mt-6">
+            <MapPicker
+              kind="evenement"
+              type={type}
+              name={title}
+              initial={event?.coordinates ?? initialCoordinates ?? null}
+              error={errors.coordinateX ?? errors.coordinateY}
+            />
+          </div>
+        )}
       </section>
 
       <section>

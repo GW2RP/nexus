@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { deleteUploadedImages } from "@/lib/blob";
+import {
+  collectMarkdownImages,
+  deleteOrphanedImages,
+  deleteUploadedImages,
+} from "@/lib/blob";
 import { canEditContent } from "@/lib/permissions";
 import { uniqueSlug } from "@/lib/slug";
 import { Character } from "@/models/character";
@@ -60,16 +64,22 @@ export async function updateCharacterAction(
     if (!parsed.ok) return parsed.state;
 
     // Remplacer ou retirer une image abandonne l'ancienne dans le stockage,
-    // exactement comme une suppression de fiche.
-    const previousPortrait = existing.portraitUrl;
+    // exactement comme une suppression de fiche. L'histoire et l'allure portent
+    // elles aussi des images : celles qu'on vient d'en retirer s'en vont avec.
+    const previousImages = [
+      existing.portraitUrl,
+      ...collectMarkdownImages(existing.story, existing.appearance),
+    ];
 
     existing.set(parsed.data);
     await existing.save();
     slug = existing.slug;
 
-    if (previousPortrait && previousPortrait !== existing.portraitUrl) {
-      await deleteUploadedImages([previousPortrait], existing.authorId);
-    }
+    await deleteOrphanedImages(
+      previousImages,
+      [existing.portraitUrl, ...collectMarkdownImages(existing.story, existing.appearance)],
+      existing.authorId,
+    );
   } catch (error) {
     return toActionState(error);
   }
@@ -92,10 +102,13 @@ export async function deleteCharacterAction(
       return errorState("Cette fiche appartient à quelqu'un d'autre.");
     }
 
-    const portrait = existing.portraitUrl;
+    const images = [
+      existing.portraitUrl,
+      ...collectMarkdownImages(existing.story, existing.appearance),
+    ];
     await existing.deleteOne();
-    // L'image vit dans le stockage, pas dans la base : elle resterait servie.
-    await deleteUploadedImages([portrait], existing.authorId);
+    // Les images vivent dans le stockage, pas dans la base : elles resteraient servies.
+    await deleteUploadedImages(images, existing.authorId);
   } catch (error) {
     return toActionState(error);
   }

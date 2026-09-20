@@ -35,6 +35,7 @@ export function PlaceForm({
   place,
   keeperOptions,
   canChangeTeam,
+  initialCoordinates,
 }: {
   /** L'auteur du contenu : les images sont rangées sous lui. */
   ownerId: string;
@@ -43,6 +44,8 @@ export function PlaceForm({
   keeperOptions: KeeperOption[];
   /** La liste des co-gérants appartient à l'auteur du lieu, pas à eux. */
   canChangeTeam: boolean;
+  /** Le point cliqué sur la carte, quand le lieu part de là. */
+  initialCoordinates?: { x: number; y: number } | null;
 }) {
   const [state, formAction] = useActionState(
     place ? updatePlaceAction : createPlaceAction,
@@ -185,6 +188,8 @@ export function PlaceForm({
           <RichTextField
             label="Description"
             name="description"
+            folder="lieux"
+            ownerId={ownerId}
             rows={8}
             defaultValue={place?.description}
             error={errors.description}
@@ -236,7 +241,7 @@ export function PlaceForm({
         <MapPicker
           type={type}
           name={name}
-          initial={place?.coordinates ?? null}
+          initial={place?.coordinates ?? initialCoordinates ?? null}
           error={errors.coordinateX ?? errors.coordinateY}
         />
       </section>

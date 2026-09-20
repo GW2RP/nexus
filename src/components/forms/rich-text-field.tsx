@@ -1,10 +1,16 @@
 "use client";
 
+import Image from "@tiptap/extension-image";
 import { EditorContent, useEditor, useEditorState, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useRef, useState } from "react";
 import { Markdown, type MarkdownStorage } from "tiptap-markdown";
 
+import {
+  ACCEPTED_IMAGE_TYPES,
+  uploadFailureMessage,
+  uploadImage,
+} from "@/components/forms/upload-image";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/field";
 import { cn } from "@/lib/utils";
@@ -34,9 +40,16 @@ declare module "@tiptap/core" {
 /** Comme à la lecture : une liste garde ses puces, donc pas de colonne flex. */
 const BLOC_LISTE = "space-y-2 pl-5";
 
+/** Le volet ouvert sous la barre d'outils. Un seul à la fois : les deux
+ *  demandent une saisie avant d'agir, et deux lignes de saisie ouvertes
+ *  ensemble ne diraient plus laquelle attend quoi. */
+type Volet = "lien" | "image" | null;
+
 export function RichTextField({
   label,
   name,
+  folder,
+  ownerId,
   hint,
   error,
   defaultValue,
@@ -44,6 +57,11 @@ export function RichTextField({
 }: {
   label: string;
   name: string;
+  /** Le dossier de rangement des images du texte : « personnages », « lieux »… */
+  folder: string;
+  /** L'auteur du contenu : les images du texte sont rangées sous lui, comme la
+   *  bannière, et seule la suppression de son contenu pourra les emporter. */
+  ownerId: string;
   hint?: string;
   error?: string;
   defaultValue?: string | null;
@@ -51,8 +69,12 @@ export function RichTextField({
   rows?: number;
 }) {
   const hiddenRef = useRef<HTMLInputElement>(null);
-  const [linkOpen, setLinkOpen] = useState(false);
+  const fichierRef = useRef<HTMLInputElement>(null);
+  const [volet, setVolet] = useState<Volet>(null);
   const [linkValue, setLinkValue] = useState("");
+  const [alt, setAlt] = useState("");
+  const [televersement, setTeleversement] = useState(false);
+  const [echec, setEchec] = useState<string | null>(null);
 
   const editor = useEditor({
     // Le rendu est repoussé au navigateur : ProseMirror n'a pas de DOM au rendu
@@ -78,6 +100,17 @@ export function RichTextField({
         // dans une fiche de personnage.
         underline: false,
         codeBlock: false,
+      }),
+      // Une image écrite dans le texte est un nœud **en ligne** : c'est ce que
+      // `![alt](adresse)` veut dire en markdown, et c'est ce qui lui permet de
+      // faire l'aller-retour sans changer de place. En bloc, elle sortirait du
+      // paragraphe à la relecture et la sérialisation ne saurait plus où la
+      // poser. `allowBase64` reste fermé : une image se téléverse, elle ne
+      // s'incruste pas dans le texte enregistré.
+      Image.configure({
+        inline: true,
+        allowBase64: false,
+        HTMLAttributes: { class: "block h-auto max-w-full border border-rule" },
       }),
       // `breaks` fait d'un retour à la ligne simple un vrai retour à la ligne,
       // comme `remark-breaks` à la lecture. Sans lui, le retour disparaît
@@ -122,6 +155,15 @@ export function RichTextField({
     }),
   });
 
+  /** Le markdown que porte le champ caché se recopie à la main après une
+   *  insertion : `onUpdate` s'en charge à la frappe, mais une image posée par
+   *  la barre d'outils n'en est pas une. */
+  function reporterLeTexte() {
+    if (hiddenRef.current && editor) {
+      hiddenRef.current.value = editor.storage.markdown.getMarkdown();
+    }
+  }
+
   function poserLien() {
     if (!editor) return;
     const adresse = linkValue.trim();
@@ -130,8 +172,27 @@ export function RichTextField({
     } else {
       editor.chain().focus().extendMarkRange("link").unsetLink().run();
     }
-    setLinkOpen(false);
+    setVolet(null);
     setLinkValue("");
+    reporterLeTexte();
+  }
+
+  async function poserImage(file: File) {
+    setEchec(null);
+    setTeleversement(true);
+    try {
+      const adresse = await uploadImage(file, folder, ownerId);
+      editor?.chain().focus().setImage({ src: adresse, alt: alt.trim() }).run();
+      reporterLeTexte();
+      setVolet(null);
+      setAlt("");
+    } catch (erreur) {
+      setEchec(uploadFailureMessage(erreur));
+    } finally {
+      setTeleversement(false);
+      // Sans cela, re-choisir le même fichier après un échec ne déclenche rien.
+      if (fichierRef.current) fichierRef.current.value = "";
+    }
   }
 
   return (
@@ -199,14 +260,25 @@ export function RichTextField({
             active={actifs?.lien}
             onClick={() => {
               setLinkValue(editor?.getAttributes("link").href ?? "");
-              setLinkOpen((open) => !open);
+              setVolet((ouvert) => (ouvert === "lien" ? null : "lien"));
             }}
           >
             LIEN
           </ToolbarButton>
+          <ToolbarButton
+            editor={editor}
+            label="Image"
+            active={volet === "image"}
+            onClick={() => {
+              setEchec(null);
+              setVolet((ouvert) => (ouvert === "image" ? null : "image"));
+            }}
+          >
+            IMAGE
+          </ToolbarButton>
         </div>
 
-        {linkOpen ? (
+        {volet === "lien" ? (
           <div className="flex flex-wrap items-center gap-2 border-b border-hairline p-2">
             <Input
               aria-label="Adresse du lien"
@@ -224,6 +296,52 @@ export function RichTextField({
             <Button type="button" variant="outline" size="sm" onClick={poserLien}>
               {linkValue.trim() ? "POSER LE LIEN" : "RETIRER LE LIEN"}
             </Button>
+          </div>
+        ) : null}
+
+        {volet === "image" ? (
+          /* L'alternative se saisit **avant** de choisir le fichier, et le
+             bouton reste fermé tant qu'elle manque : une image posée sans elle
+             ne dit plus rien à qui ne la voit pas, et il faudrait la retirer
+             pour la reposer — le markdown ne se corrige pas à la souris. */
+          <div className="flex flex-col gap-2 border-b border-hairline p-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                aria-label="Alternative textuelle de l'image"
+                value={alt}
+                onChange={(event) => setAlt(event.target.value)}
+                maxLength={240}
+                placeholder="Ce que voit quelqu'un qui n'a pas l'image"
+                className="w-auto flex-1"
+              />
+              <input
+                ref={fichierRef}
+                type="file"
+                accept={ACCEPTED_IMAGE_TYPES}
+                className="sr-only"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void poserImage(file);
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={!editor || televersement || alt.trim().length === 0}
+                onClick={() => fichierRef.current?.click()}
+              >
+                {televersement ? "TÉLÉVERSEMENT…" : "CHOISIR L'IMAGE"}
+              </Button>
+            </div>
+            <p className="caption text-ink-subtle">
+              JPEG, PNG, WebP ou AVIF. 5 Mo au plus.
+            </p>
+            {echec ? (
+              <p role="alert" className="caption text-crimson-ink">
+                {echec}
+              </p>
+            ) : null}
           </div>
         ) : null}
 

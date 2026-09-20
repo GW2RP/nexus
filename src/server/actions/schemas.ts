@@ -125,6 +125,10 @@ export const eventSchema = z
     endsAt: z.preprocess(emptyToNull, z.coerce.date().nullable().optional()),
     placeId: optionalText(40),
     freeLocationLabel: optionalText(160),
+    // Une scène hors du registre se pose sur la carte comme un lieu. Quand elle
+    // se tient dans un lieu du registre, le point vient de lui.
+    coordinateX: optionalInteger(0, CONTINENT_WIDTH),
+    coordinateY: optionalInteger(0, CONTINENT_HEIGHT),
     region: optionalEnum(REGIONS),
     capacity: optionalInteger(0, 999),
     bannerUrl: optionalUrl("L'adresse de la bannière doit être une URL."),
