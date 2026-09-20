@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { MapCanvas } from "@/components/map/map-canvas";
+import { Button } from "@/components/ui/button";
 import type { MapCellRun, MapShape } from "@/components/map/tyria-map";
 import { REGION_LABELS, TERRAINS, TERRAIN_LABELS } from "@/lib/domain";
 import {
@@ -130,7 +132,7 @@ export function TerrainGridPreview({
   return (
     <div className="flex flex-col gap-4">
       <div className="framed">
-        <div className="h-[520px] w-full overflow-hidden border border-rule">
+        <div className="relative h-[520px] w-full overflow-hidden border border-rule">
           <MapCanvas
             pins={[]}
             shapes={shapes}
@@ -138,6 +140,20 @@ export function TerrainGridPreview({
             onPick={sonder}
             className="size-full bg-map-land"
           />
+
+          {/* La zone relevée s'ouvre depuis la carte : elle est déjà sous les
+              yeux, la retrouver dans la liste plus bas est un détour. Le calque
+              laisse passer les clics ; seul le bouton les prend, sans quoi il
+              couvrirait un coin de carte qu'on ne pourrait plus sonder. */}
+          {ping?.auPoint ? (
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-[1000] flex justify-end p-3">
+              <Button asChild variant="outline" size="sm" className="pointer-events-auto bg-surface">
+                <Link href={`/admin/terrains/${ping.auPoint.id}`}>
+                  MODIFIER {ping.auPoint.name.toLocaleUpperCase("fr-FR")}
+                </Link>
+              </Button>
+            </div>
+          ) : null}
         </div>
       </div>
 
