@@ -3,9 +3,10 @@
 import { useMemo, useState } from "react";
 
 import { MapCanvas } from "@/components/map/map-canvas";
-import type { MapCell, MapShape } from "@/components/map/tyria-map";
+import type { MapCellRun, MapShape } from "@/components/map/tyria-map";
 import { REGION_LABELS, TERRAINS, TERRAIN_LABELS } from "@/lib/domain";
 import {
+  GRID_COLS,
   cellCenter,
   cellColumn,
   cellIndexAt,
@@ -72,18 +73,45 @@ export function TerrainGridPreview({
   // ce continent elle en couvre la quasi-totalité, et à teinte égale elle
   // effacerait justement ce qu'on vient vérifier. La plaine ne se dessine pas :
   // c'est le terrain de ce que personne n'a couvert.
-  const painted = useMemo<MapCell[]>(() => {
-    const cellules: MapCell[] = [];
-    for (let index = 0; index < grille.length; index += 1) {
-      const terrain = TERRAINS[grille.charCodeAt(index) - 48];
-      if (!terrain || terrain === "plaine") continue;
-      cellules.push({
-        index,
+  //
+  // Les cellules partent recousues par lignes : une suite de voisines de même
+  // terrain devient un seul rectangle. Ces rectangles n'ayant pas de trait, le
+  // dessin est le même au pixel près — mais la mer, qui couvre presque tout le
+  // continent, passe de cent mille calques à quelques centaines.
+  const painted = useMemo<MapCellRun[]>(() => {
+    const suites: MapCellRun[] = [];
+    let debut = -1;
+    let rang = -1;
+
+    const fermer = (fin: number) => {
+      if (debut < 0) return;
+      const terrain = TERRAINS[rang];
+      suites.push({
+        index: debut,
+        length: fin - debut,
         tone: TERRAIN_TONES[terrain],
         fill: terrain === "mer" ? 0.1 : 0.4,
       });
+      debut = -1;
+    };
+
+    for (let index = 0; index < grille.length; index += 1) {
+      const code = grille.charCodeAt(index) - 48;
+      const terrain = TERRAINS[code];
+      // Une suite ne franchit pas le bord de la grille : le rectangle d'une
+      // ligne reviendrait sinon à l'autre bout du continent.
+      const coupe = index % GRID_COLS === 0 || code !== rang;
+      if (coupe) fermer(index);
+      if (!terrain || terrain === "plaine") {
+        rang = -1;
+        continue;
+      }
+      if (debut < 0) debut = index;
+      rang = code;
     }
-    return cellules;
+    fermer(grille.length);
+
+    return suites;
   }, [grille]);
 
   function sonder(point: Point) {

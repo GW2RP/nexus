@@ -22,16 +22,19 @@ const RATTRAPAGE_JOURS = 3;
 const RATTRAPAGE_MAX = RATTRAPAGE_JOURS * STEPS_PER_DAY;
 
 /**
- * Une semaine d'historique, et pas trente jours.
+ * On garde exactement ce qui peut encore servir : le plafond de rattrapage.
  *
- * Un pas pèse 701 Ko à la maille de 512 px, contre 176 Ko à 1 024 : trente jours
- * de conservation passaient de 62 à 246 Mo, pour des documents que rien ne relit.
- * L'avancement reprend toujours le **dernier** pas écrit, et la prévision se
- * rejoue en avant depuis lui ; un pas vieux de plus de trois jours ne peut même
- * plus servir à rattraper, le plafond de rattrapage étant là. Ce qui reste
- * derrière est une archive, et une semaine d'archive coûte 57 Mo.
+ * Un pas pèse 2,73 Mo à la maille de 256 px. Une semaine d'archive en faisait
+ * 230 Mo, pour des documents que rien ne relit : l'avancement reprend toujours
+ * le **dernier** pas écrit, la prévision se rejoue en avant depuis lui, et un
+ * pas plus vieux que `RATTRAPAGE_JOURS` ne peut même plus servir à rattraper.
+ * Au-delà de cette limite, un pas n'est plus une archive, c'est du poids mort —
+ * trois jours en coûtent 98.
+ *
+ * La durée se lit sur le plafond de rattrapage plutôt que de le répéter : les
+ * deux ne peuvent pas diverger, et il n'y a qu'un nombre à bouger.
  */
-const RETENTION_JOURS = 7;
+const RETENTION_JOURS = RATTRAPAGE_JOURS;
 
 export type StoredStep = WeatherStepDocument & { _id: unknown };
 
