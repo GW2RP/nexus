@@ -56,6 +56,71 @@ viserait près d'un sommet déjà posé. Et l'éditeur **cadre la carte sur le t
 qu'il ouvre (`initialFrame`) : à la vue par défaut, une zone posée ailleurs tombe
 entièrement hors du cadre, et ses sommets ne sont ni visibles ni saisissables.
 
+## L'agenda : scènes privées, séries et groupes
+
+**Une scène est publique ou privée, pas trois choses.** Une scène privée porte
+toujours un code de partage ; les invités nommés et le groupe associé s'y
+ajoutent. Un troisième état « réservée à un groupe » ne dirait rien de plus
+qu'une liste d'invités vide.
+
+On la voit par **cinq chemins, et cinq seulement** : on l'organise, on y est
+invité nommément, on est du groupe qui lui est associé, on y est déjà inscrit,
+ou on présente son code. `canSeeEvent` porte la règle, et l'inscription la
+rejoue — une scène privée ne se rejoint pas en postant son identifiant.
+L'administration lit une scène signalée par sa fiche, mais **pas** par l'agenda :
+son agenda n'est pas celui de tout le monde.
+
+**Le code est l'adresse** : `/invitation/K7M2-QW9D`. Le slug n'apparaît nulle
+part, donc une annonce privée ne se devine pas en essayant des noms, et le
+changer ferme l'ancien lien sans toucher aux inscriptions. Son index est
+**partiel** (`shareCode: {$type: "string"}`), pas `sparse` : un index creux
+ignore le champ absent mais indexe le `null`, et deux scènes redevenues
+publiques se heurteraient.
+
+**Rien ne s'écrit à la simple visite d'un lien.** La liste des invités reste
+celle que l'organisateur a faite, pas celle des curieux qui ont ouvert le lien.
+
+**Une série est une règle, et des séances matérialisées.** La règle vit dans
+`EventSeries` ; chaque séance est une annonce entière — son adresse, ses
+inscriptions, son pin, son lien de partage — sinon il faudrait refaire tout ce
+qui s'accroche à un évènement. Une série sans fin écrit un **lot**
+(`OCCURRENCES_PAR_LOT`) et se prolonge depuis sa page : cinquante-deux annonces
+pour une veillée hebdomadaire rempliraient l'agenda d'un an de scènes que
+personne n'a promises.
+
+La règle se relit toujours sur **`anchorAt`**, jamais sur la dernière séance
+écrite : `prochainesSeances` sépare l'ancre du point de reprise pour cela. Sans
+cette séparation, « le dernier samedi » devient « le quatrième » dès qu'un mois
+n'en compte que quatre.
+
+**La pause se recopie sur chaque séance** (`seriesPausedAt`). L'agenda filtre
+alors en une passe ; le charger série par série fausserait la limite de la
+requête. Et **retirer une séance n'est pas la supprimer** : elle garde ses
+inscrits et se rétablit — c'est pourquoi le mot est « retirer », le bouton
+d'abandon d'une modale s'appelant déjà « annuler ».
+
+**Modifier une annonce ne modifie que sa séance.** Propager le texte aux
+suivantes emporterait les images des séances passées, qui partagent la même
+description : `deleteOrphanedImages` compare l'avant et l'après d'un seul
+document. La cadence, la pause et les séances se règlent sur `/seances`, et
+d'un seul endroit.
+
+**Les heures se lisent et s'écrivent à l'heure du serveur de jeu.** Un champ
+`datetime-local` envoie « 2026-10-17T21:00 » sans fuseau ; `new Date()` le
+lirait en UTC sur Vercel, et la veillée tapée à 21h00 se tiendrait à 23h00.
+`fromGameInput` et `toGameInput` font foi des deux côtés du formulaire. La
+récurrence rend l'écart visible : une scène du samedi 23h00 deviendrait « le
+troisième dimanche ».
+
+**Pour un groupe, « public » dit qui le voit, pas qui peut y entrer** : dans les
+deux cas, c'est le meneur qui ajoute les membres, par leur pseudo. Le meneur est
+membre de droit — il compte, mais ne figure pas dans `memberIds`.
+
+**Ce qui est privé ne sort jamais** : ni du plan du site, ni des compteurs
+publics (`countUpcomingEvents`, le compte d'évènements d'un lieu), ni des
+métadonnées, qui passent en `noIndex`. `groupIdsOf` ne passe pas par `remember` :
+c'est une lecture d'accès, et elle ne se sert pas périmée.
+
 ## La météo
 
 Elle est **simulée**, pas écrite : personne ne pose un bulletin à la main.

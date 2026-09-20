@@ -29,6 +29,110 @@ const timeFormatter = new Intl.DateTimeFormat("fr-FR", {
   timeZone: GAME_TIME_ZONE,
 });
 
+/** L'horloge du serveur de jeu, décomposée.
+ *
+ *  Une date stockée est un instant UTC ; ce qui se lit et se calcule, c'est
+ *  l'heure de Paris. Ajouter sept jours en millisecondes déplacerait la scène
+ *  d'une heure au passage à l'heure d'été — 21 h deviendrait 20 h. Toute série
+ *  se calcule donc sur ces composantes civiles, jamais sur l'instant. */
+export type GameCivil = {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+};
+
+const civilParts = new Intl.DateTimeFormat("en-CA", {
+  timeZone: GAME_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23",
+});
+
+/** L'heure qu'il est sur le serveur de jeu, décomposée. */
+export function gameCivil(date: Date): GameCivil {
+  const parts = civilParts.formatToParts(date);
+  const read = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value ?? "0");
+  return {
+    year: read("year"),
+    month: read("month"),
+    day: read("day"),
+    hour: read("hour"),
+    minute: read("minute"),
+    second: read("second"),
+  };
+}
+
+/** De combien de minutes le serveur de jeu devance UTC à cet instant. */
+function gameOffsetMinutes(date: Date): number {
+  const civil = gameCivil(date);
+  const asUtc = Date.UTC(
+    civil.year,
+    civil.month - 1,
+    civil.day,
+    civil.hour,
+    civil.minute,
+    civil.second,
+  );
+  return (asUtc - date.getTime()) / 60_000;
+}
+
+/** L'instant dont l'horloge du serveur de jeu affiche cette date et cette heure. */
+export function fromGameCivil(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute = 0,
+): Date {
+  const guess = Date.UTC(year, month - 1, day, hour, minute);
+  // Deux passes : la première corrige le décalage courant, la seconde le cas
+  // rare où la correction elle-même traverse un changement d'heure.
+  let instant = new Date(guess - gameOffsetMinutes(new Date(guess)) * 60_000);
+  instant = new Date(guess - gameOffsetMinutes(instant) * 60_000);
+  return instant;
+}
+
+const deuxChiffres = (value: number) => String(value).padStart(2, "0");
+
+/** « 2026-10-17T21:00 » — ce qu'un champ `datetime-local` attend, écrit à
+ *  l'heure du serveur de jeu. Le formulaire annonce cette horloge : il doit
+ *  donc la rendre, et non celle du serveur qui calcule la page. */
+export function toGameInput(date: Date): string {
+  const civil = gameCivil(date);
+  return `${civil.year}-${deuxChiffres(civil.month)}-${deuxChiffres(civil.day)}T${deuxChiffres(
+    civil.hour,
+  )}:${deuxChiffres(civil.minute)}`;
+}
+
+/** Ce qu'un champ `datetime-local` ou `date` désigne, lu à l'heure du serveur
+ *  de jeu — et `null` si ce n'est pas une date.
+ *
+ *  `new Date("2026-10-17T21:00")` lirait la chaîne dans le fuseau du serveur,
+ *  UTC sur Vercel : la scène tapée à 21h00 se tiendrait à 23h00 à l'écran.
+ *  Un jour sans heure vaut la fin de ce jour-là — « jusqu'au 30 novembre »
+ *  inclut le 30 novembre. */
+export function fromGameInput(value: string): Date | null {
+  const lu = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?$/.exec(value.trim());
+  if (!lu) return null;
+  const [, year, month, day, hour, minute] = lu;
+  return hour === undefined
+    ? fromGameCivil(Number(year), Number(month), Number(day), 23, 59)
+    : fromGameCivil(Number(year), Number(month), Number(day), Number(hour), Number(minute));
+}
+
+/** « 2026-11-30 » — ce qu'un champ `date` attend, même horloge. */
+export function toGameDateInput(date: Date): string {
+  return toGameInput(date).slice(0, 10);
+}
+
 /** « samedi 26 septembre 2026 » */
 export function formatLongDate(date: Date): string {
   return dateFormatter.format(date);

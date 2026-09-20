@@ -67,7 +67,7 @@ export default async function PlacePage({ params }: Props) {
   if (!place) notFound();
 
   const [events, weather] = await Promise.all([
-    listEvents({ placeId: place.id, limit: 6, viewerId: user?.id ?? null }),
+    listEvents({ placeId: place.id, limit: 6, viewer: user }),
     // Le lieu a des coordonnées : on prend le temps de sa cellule, pas la
     // moyenne de sa région. La brume d'un marais n'est pas celle de la Kryte.
     place.coordinates

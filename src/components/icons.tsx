@@ -253,6 +253,60 @@ export function LayersIcon(props: IconProps) {
   );
 }
 
+/** Le cadenas d'une scène ou d'un groupe privé : ce qui n'est pas à l'agenda. */
+export function LockIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3" y="7" width="10" height="7" />
+      <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" />
+    </Icon>
+  );
+}
+
+/** Le maillon d'un lien de partage. */
+export function LinkIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M6.5 9.5 9.5 6.5" />
+      <path d="M7 4.5 8.8 2.7a2.9 2.9 0 0 1 4.1 4.1L11.1 8.6" />
+      <path d="M9 11.5 7.2 13.3a2.9 2.9 0 0 1-4.1-4.1L4.9 7.4" />
+    </Icon>
+  );
+}
+
+/** Les deux flèches d'une série qui se répète. */
+export function RepeatIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3 7a5 5 0 0 1 5-5h4.5" />
+      <path d="M10.5 0.5 13 2l-2.5 1.5" />
+      <path d="M13 9a5 5 0 0 1-5 5H3.5" />
+      <path d="M5.5 11.5 3 13l2.5 1.5" />
+    </Icon>
+  );
+}
+
+/** Le cercle d'un groupe. */
+export function GroupIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="6" cy="5.5" r="2.5" />
+      <path d="M1.5 14c0-2.5 2-4.2 4.5-4.2s4.5 1.7 4.5 4.2" />
+      <path d="M11 3.4a2.5 2.5 0 0 1 0 4.8" />
+      <path d="M12 9.9c1.6.5 2.5 1.9 2.5 4.1" />
+    </Icon>
+  );
+}
+
+/** La pause d'une série. */
+export function PauseIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M6 3.5v9M10 3.5v9" />
+    </Icon>
+  );
+}
+
 /** La marque : le losange tyrien barré. */
 export function NexusMark({ size = 28, className }: { size?: number; className?: string }) {
   return (

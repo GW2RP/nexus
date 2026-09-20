@@ -33,8 +33,8 @@ export default async function AccountPage() {
   const [characters, places, registrations, authored] = await Promise.all([
     listCharactersOf(user.id),
     listPlaces({ authorId: user.id, pageSize: 24 }),
-    listEvents({ registeredFor: user.id, viewerId: user.id, limit: 20 }),
-    listEvents({ authorId: user.id, viewerId: user.id, includePast: true, limit: 20 }),
+    listEvents({ registeredFor: user.id, viewer: user, limit: 20 }),
+    listEvents({ authorId: user.id, viewer: user, includePast: true, limit: 20 }),
   ]);
 
   return (

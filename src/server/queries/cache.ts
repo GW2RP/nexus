@@ -28,6 +28,7 @@ export const TAGS = {
   places: "lieux",
   events: "evenements",
   rumors: "rumeurs",
+  groups: "groupes",
   weather: "meteo",
   terrain: "terrains",
 } as const;

@@ -1,4 +1,4 @@
-import type { Role } from "@/lib/domain";
+import type { EventVisibility, GroupVisibility, Role } from "@/lib/domain";
 import type { SessionUser } from "@/lib/session";
 
 /** Les droits du hub.
@@ -72,4 +72,80 @@ export function canManagePlaceTeam(
 /** On ne signale jamais son propre contenu : l'auteur voit « Modifier » à la place. */
 export function canReportContent(user: SessionUser | null, authorId: string): boolean {
   return canContribute(user) && user.id !== authorId;
+}
+
+/** Ce qu'il faut savoir d'une scène pour décider si quelqu'un la voit. */
+export type EventAccess = {
+  visibility: EventVisibility;
+  authorId: string;
+  invitedUserIds: string[];
+  groupId: string | null;
+};
+
+/** Ce que le lecteur apporte : ses groupes, son inscription, et le code qu'il
+ *  a présenté dans l'adresse. */
+export type ViewerAccess = {
+  groupIds?: string[];
+  registered?: boolean;
+  /** Le lien de partage a été suivi et son code correspond. */
+  withShareCode?: boolean;
+};
+
+/** Qui voit une scène.
+ *
+ *  Une scène publique se lit sans compte. Une scène privée se lit par cinq
+ *  chemins, et cinq seulement : on l'organise, on y est invité nommément, on
+ *  est du groupe qui lui est associé, on y est déjà inscrit, ou on présente
+ *  son code de partage. L'administration voit tout : un contenu signalé doit
+ *  pouvoir être lu par ceux qui le modèrent.
+ *
+ *  Le code suffit sans compte : « qui a le lien peut consulter ». Rejoindre,
+ *  en revanche, demande un compte — c'est `canContribute` qui le dit. */
+export function canSeeEvent(
+  user: SessionUser | null,
+  event: EventAccess,
+  viewer: ViewerAccess = {},
+): boolean {
+  if (event.visibility === "publique") return true;
+  if (viewer.withShareCode) return true;
+  if (!user) return false;
+  if (user.id === event.authorId || isAdmin(user)) return true;
+  if (event.invitedUserIds.includes(user.id)) return true;
+  if (viewer.registered) return true;
+  return Boolean(event.groupId && viewer.groupIds?.includes(event.groupId));
+}
+
+/** Qui peut inviter à une scène, lire son code et le changer : qui peut la
+ *  modifier, c'est-à-dire son auteur et l'administration — celle-ci peut déjà
+ *  supprimer la scène, lui cacher son lien ne protégerait rien. Un invité,
+ *  lui, n'invite pas à son tour : sinon la liste échapperait à celui qui a posé
+ *  la scène, comme pour les co-gérants d'un lieu. */
+export function canManageEventGuests(user: SessionUser | null, authorId: string): boolean {
+  return canEditContent(user, authorId);
+}
+
+export type GroupAccess = {
+  visibility: GroupVisibility;
+  authorId: string;
+  memberIds: string[];
+};
+
+/** Un membre du groupe : ses membres, et le meneur, qui en est de droit. */
+export function isGroupMember(user: SessionUser | null, group: GroupAccess): boolean {
+  if (!user) return false;
+  return user.id === group.authorId || group.memberIds.includes(user.id);
+}
+
+/** Qui voit un groupe. « Public » dit qui le voit, pas qui peut y entrer :
+ *  dans les deux cas, c'est le meneur qui ajoute les membres. */
+export function canSeeGroup(user: SessionUser | null, group: GroupAccess): boolean {
+  if (group.visibility === "public") return true;
+  if (!user) return false;
+  return isAdmin(user) || isGroupMember(user, group);
+}
+
+/** Qui mène le groupe : celui qui l'a fondé, ou l'administration. Un membre
+ *  n'en adjoint pas d'autres. */
+export function canManageGroup(user: SessionUser | null, group: { authorId: string }): boolean {
+  return canEditContent(user, group.authorId);
 }

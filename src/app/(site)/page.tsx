@@ -35,7 +35,7 @@ export default async function HomePage() {
   const user = await getCurrentUser();
 
   const [events, rumors, characters, places, pinnedRumors, weather] = await Promise.all([
-    listEvents({ limit: 3, viewerId: user?.id ?? null }),
+    listEvents({ limit: 3, viewer: user }),
     listRumors({ pageSize: 3, viewerId: user?.id ?? null }),
     listCharacters({ pageSize: 4 }),
     listPlacesForMap(),

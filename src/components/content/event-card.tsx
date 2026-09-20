@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { PinIcon } from "@/components/icons";
+import { EventAccessChips } from "@/components/content/event-access-chips";
 import { EventTypeChip } from "@/components/ui/chip";
 import { Card, CardFooter, CardHeader } from "@/components/ui/card";
 import { formatGameTime, formatWeekday } from "@/lib/dates";
@@ -17,7 +18,10 @@ export function EventCard({ event }: { event: EventSummary }) {
   return (
     <Card className="gap-3 p-5 sm:p-6">
       <CardHeader>
-        <EventTypeChip type={event.type} />
+        <span className="flex flex-wrap items-center gap-2">
+          <EventTypeChip type={event.type} />
+          <EventAccessChips event={event} />
+        </span>
         <span className="text-right leading-[1.3]">
           <span className="block font-display text-[14px] text-ink">
             {formatTyrianDate(startsAt, { year: false })}

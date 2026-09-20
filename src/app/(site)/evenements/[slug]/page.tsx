@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { EventAccessChips } from "@/components/content/event-access-chips";
+import { EventSharePanel } from "@/components/content/event-share-panel";
 import { RegistrationPanel } from "@/components/content/registration-panel";
 import { WeatherBadge } from "@/components/content/weather-badge";
 import { ReportDialog } from "@/components/report-dialog";
@@ -16,6 +18,7 @@ import { RichText } from "@/components/ui/rich-text";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { EVENT_TYPE_LABELS, REGION_LABELS, raceLabel } from "@/lib/domain";
 import { GAME_TIME_ZONE, formatGameTime, formatLongDate } from "@/lib/dates";
+import { GroupIcon, LockIcon, RepeatIcon } from "@/components/icons";
 import { canContribute, canEditContent, canReportContent } from "@/lib/permissions";
 import { SITE_URL, breadcrumbJsonLd, buildMetadata, jsonLdScript } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
@@ -37,7 +40,10 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const event = await getEventBySlug(slug);
+  // La session se lit ici aussi : sans elle, l'onglet d'une scène privée
+  // annoncerait « introuvable » à qui vient pourtant d'y être invité.
+  const user = await getCurrentUser();
+  const event = await getEventBySlug(slug, user);
   if (!event) {
     return buildMetadata({
       title: "Évènement introuvable",
@@ -61,13 +67,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     modifiedTime: event.updatedAt,
     authors: event.author ? [event.author.name] : undefined,
     keywords: [event.title, EVENT_TYPE_LABELS[event.type], "évènement RP Guild Wars 2"],
+    // Une scène privée n'a rien à faire dans un index : son adresse est tout
+    // ce qui la protège, et `generateMetadata` la lit sans session.
+    noIndex: event.visibility === "privee",
   });
 }
 
 export default async function EventPage({ params }: Props) {
   const { slug } = await params;
   const user = await getCurrentUser();
-  const event = await getEventBySlug(slug, user?.id ?? null);
+  const event = await getEventBySlug(slug, user);
   if (!event) notFound();
 
   const [characters, weather] = await Promise.all([
@@ -132,7 +141,10 @@ export default async function EventPage({ params }: Props) {
         dimensions={event.bannerUrl ? undefined : "1600 × 500"}
         aspect="16 / 5"
       >
-        <EventTypeChip type={event.type} onImage className="absolute left-4 top-4" />
+        <span className="absolute left-4 top-4 flex flex-wrap items-center gap-2">
+          <EventTypeChip type={event.type} onImage />
+          <EventAccessChips event={event} onImage />
+        </span>
       </FramedMedia>
 
       <div className="mt-10 flex flex-col gap-12 lg:flex-row lg:gap-14">
@@ -156,6 +168,27 @@ export default async function EventPage({ params }: Props) {
               </>
             ) : null}
           </p>
+
+          {event.cancelled ? (
+            <p className="mt-6 flex items-start gap-3 border-2 border-rule bg-chip px-4 py-[14px] body-compact text-ink-body">
+              <RepeatIcon size={17} className="mt-1 text-ink-subtle" />
+              <span>
+                Cette séance a été retirée de sa série : elle ne se tient pas, et elle a quitté
+                l&apos;agenda. Les autres séances ne changent pas.
+              </span>
+            </p>
+          ) : null}
+
+          {event.visibility === "privee" ? (
+            <p className="mt-6 flex items-start gap-3 border border-rule bg-surface-inset px-4 py-[14px] body-compact text-ink-body">
+              <LockIcon size={17} className="mt-1 text-ink-subtle" />
+              <span>
+                Hors de l&apos;agenda public. Seuls les comptes invités, ceux qui ont le lien
+                {event.group ? `, et les membres de ${event.group.name}` : ""} voient cette
+                annonce.
+              </span>
+            </p>
+          ) : null}
 
           {event.description ? <RichText text={event.description} className="mt-7" /> : null}
 
@@ -263,6 +296,55 @@ export default async function EventPage({ params }: Props) {
               />
             </div>
           </Card>
+
+          {isOwner && event.visibility === "privee" && event.shareCode ? (
+            <Card accent className="mb-6 gap-4 p-6">
+              <p className="font-display text-[12px] font-medium tracking-[3.5px] text-gold-eyebrow">
+                PARTAGE
+              </p>
+              <EventSharePanel
+                eventId={event.id}
+                shareUrl={`${SITE_URL}/invitation/${event.shareCode}`}
+                shareCode={event.shareCode}
+                invited={event.invited}
+                authorId={event.authorId}
+                registeredIds={event.registeredUserIds}
+              />
+            </Card>
+          ) : null}
+
+          {event.group ? (
+            <section className="mb-6" aria-labelledby="groupe-de-la-scene">
+              <SectionHeading id="groupe-de-la-scene" title="Groupe associé" compact />
+              <p className="flex items-center gap-2 font-display text-[18px]">
+                <GroupIcon size={15} className="text-ink-subtle" />
+                <Link href={`/groupes/${event.group.slug}`} className="hover:underline">
+                  {event.group.name}
+                </Link>
+              </p>
+              <p className="mt-1 text-[16px] text-ink-muted">
+                Ses membres voient la scène et peuvent la rejoindre.
+              </p>
+            </section>
+          ) : null}
+
+          {event.seriesDetail ? (
+            <section className="mb-6" aria-labelledby="serie-de-la-scene">
+              <SectionHeading id="serie-de-la-scene" title="Répétition" compact />
+              <p className="flex items-center gap-2 text-[17px]">
+                <RepeatIcon size={15} className="text-ink-subtle" />
+                {event.seriesDetail.paused ? "Série en pause" : event.seriesDetail.rule}
+              </p>
+              <p className="mt-2">
+                <Link
+                  href={`/evenements/${event.slug}/seances`}
+                  className="text-[17px] text-crimson-ink underline-offset-4 hover:underline"
+                >
+                  Voir les séances →
+                </Link>
+              </p>
+            </section>
+          ) : null}
 
           {weather ? (
             <section className="mb-6" aria-labelledby="meteo-evenement">

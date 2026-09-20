@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { EventAccessChips } from "@/components/content/event-access-chips";
 import { EventTypeChip, StatusBadge } from "@/components/ui/chip";
 import { formatGameTime, formatWeekday } from "@/lib/dates";
 import { toTyrianDate } from "@/lib/tyrian-calendar";
@@ -37,6 +38,7 @@ export function EventRow({ event }: { event: EventSummary }) {
             </Link>
           </h3>
           <EventTypeChip type={event.type} />
+          <EventAccessChips event={event} />
         </div>
         <p className="mt-1 meta text-ink-muted">
           {formatWeekday(startsAt)} · {facts.join(" · ")}

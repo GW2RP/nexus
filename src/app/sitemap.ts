@@ -3,6 +3,7 @@ import type { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/env";
 import { listCharacterSlugs } from "@/server/queries/characters";
 import { listEventSlugs } from "@/server/queries/events";
+import { listGroupSlugs } from "@/server/queries/groups";
 import { listPlaceSlugs } from "@/server/queries/places";
 
 export const revalidate = 3600;
@@ -13,6 +14,7 @@ const STATIC_ROUTES: { path: string; priority: number; changeFrequency: Metadata
   { path: "/evenements", priority: 0.9, changeFrequency: "daily" },
   { path: "/personnages", priority: 0.8, changeFrequency: "daily" },
   { path: "/lieux", priority: 0.8, changeFrequency: "daily" },
+  { path: "/groupes", priority: 0.7, changeFrequency: "weekly" },
   { path: "/rumeurs", priority: 0.8, changeFrequency: "hourly" },
   { path: "/meteo", priority: 0.6, changeFrequency: "daily" },
   { path: "/inscription", priority: 0.4, changeFrequency: "yearly" },
@@ -34,10 +36,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Si la base n'est pas joignable, le plan de site reste valide avec ses seules
   // pages fixes plutôt que d'échouer.
   try {
-    const [characters, places, events] = await Promise.all([
+    // Seuls les contenus publics y figurent : une scène privée et un cercle
+    // privé y donneraient leur adresse à tous les moteurs.
+    const [characters, places, events, groups] = await Promise.all([
       listCharacterSlugs(),
       listPlaceSlugs(),
       listEventSlugs(),
+      listGroupSlugs(),
     ]);
 
     return [
@@ -59,6 +64,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         lastModified: new Date(updatedAt),
         changeFrequency: "daily" as const,
         priority: 0.6,
+      })),
+      ...groups.map(({ slug, updatedAt }) => ({
+        url: `${SITE_URL}/groupes/${slug}`,
+        lastModified: new Date(updatedAt),
+        changeFrequency: "weekly" as const,
+        priority: 0.5,
       })),
     ];
   } catch {

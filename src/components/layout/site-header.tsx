@@ -14,6 +14,7 @@ export const NAV_ITEMS = [
   { href: "/personnages", label: "Personnages" },
   { href: "/lieux", label: "Lieux" },
   { href: "/evenements", label: "Évènements" },
+  { href: "/groupes", label: "Groupes" },
   { href: "/rumeurs", label: "Rumeurs" },
 ] as const;
 

@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { EventCalendar } from "@/components/content/event-calendar";
 import { EventRow } from "@/components/content/event-row";
+import { InvitationCodeForm } from "@/components/content/invitation-code-form";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FilterChips } from "@/components/ui/filter-chips";
@@ -44,6 +45,12 @@ export default async function EventsPage({
   const type = typeof params.type === "string" ? (params.type as EventType) : undefined;
   const region = typeof params.region === "string" ? (params.region as Region) : undefined;
   const onlyMine = params.mes === "1" && Boolean(user);
+  // « Publiques », « sur invitation », « mes groupes » : la même liste, vue par
+  // le bout qu'on choisit. Sans valeur, tout ce que le compte a le droit de voir.
+  const acces =
+    params.acces === "publiques" || params.acces === "invitation" || params.acces === "groupes"
+      ? params.acces
+      : undefined;
 
   const now = new Date();
   const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
@@ -53,7 +60,8 @@ export default async function EventsPage({
     type: EVENT_TYPES.includes(type as EventType) ? type : undefined,
     region: REGIONS.includes(region as Region) ? region : undefined,
     registeredFor: onlyMine ? user!.id : undefined,
-    viewerId: user?.id ?? null,
+    access: acces,
+    viewer: user,
     from: view === "calendrier" ? monthStart : undefined,
     to: view === "calendrier" ? monthEnd : undefined,
     includePast: view === "calendrier",
@@ -140,6 +148,8 @@ export default async function EventsPage({
             Uniquement mes inscriptions
           </Link>
         ) : null}
+
+        <InvitationCodeForm labelHidden className="sm:ml-auto" />
       </div>
 
       <div className="mb-8 flex flex-col gap-3">
@@ -161,6 +171,18 @@ export default async function EventsPage({
             label: REGION_LABELS[value].toLocaleUpperCase("fr-FR"),
           }))}
         />
+        {user ? (
+          <FilterChips
+            name="acces"
+            legend="Filtrer par accès"
+            allLabel="TOUTES LES SCÈNES"
+            options={[
+              { value: "publiques", label: "PUBLIQUES" },
+              { value: "invitation", label: "SUR INVITATION" },
+              { value: "groupes", label: "MES GROUPES" },
+            ]}
+          />
+        ) : null}
       </div>
 
       {events.length === 0 ? (
