@@ -212,6 +212,8 @@ export function CharacterForm({
           <RichTextField
             label="Histoire"
             name="story"
+            folder="personnages"
+            ownerId={ownerId}
             rows={10}
             defaultValue={character?.story}
             error={errors.story}
@@ -220,6 +222,8 @@ export function CharacterForm({
           <RichTextField
             label="Allure et manières"
             name="appearance"
+            folder="personnages"
+            ownerId={ownerId}
             rows={5}
             defaultValue={character?.appearance}
             error={errors.appearance}

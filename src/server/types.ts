@@ -137,6 +137,8 @@ export type RumorSummary = {
   place: { id: string; slug: string; name: string } | null;
   heardAtLabel: string | null;
   region: Region | null;
+  /** Le point sur la carte, quand la rumeur en porte un. */
+  coordinates: { x: number; y: number } | null;
   echoCount: number;
   viewerHasEchoed: boolean;
   authorId: string;

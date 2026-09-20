@@ -11,6 +11,7 @@ import { LoadMore } from "@/components/ui/load-more";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { REGIONS, REGION_LABELS, type Region } from "@/lib/domain";
+import { readPointParam } from "@/lib/map";
 import { canContribute, canReportContent } from "@/lib/permissions";
 import { buildMetadata } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
@@ -35,6 +36,13 @@ export default async function RumorsPage({
   const user = await getCurrentUser();
 
   const region = typeof params.region === "string" ? (params.region as Region) : undefined;
+  // « ou » est la région du point cliqué sur la carte : elle remplit le
+  // formulaire, elle ne filtre pas la liste — « region », lui, filtre.
+  const heardIn = typeof params.ou === "string" ? (params.ou as Region) : undefined;
+  const pinned = readPointParam(
+    typeof params.x === "string" ? params.x : undefined,
+    typeof params.y === "string" ? params.y : undefined,
+  );
   const sort = params.tri === "reprises" ? "reprises" : "recentes";
   const page = Number(params.page ?? 1) || 1;
 
@@ -116,13 +124,18 @@ export default async function RumorsPage({
         </div>
 
         <aside className="lg:w-[340px] lg:shrink-0">
-          <Card accent className="mb-8 gap-4 p-6">
+          <Card id="colporter" accent className="mb-8 gap-4 p-6">
             <h2 className="font-display text-[18px] font-semibold tracking-[1px]">
               CE QUE VOUS AVEZ ENTENDU DIRE
             </h2>
             {user ? (
               canContribute(user) ? (
-                <RumorForm characters={characters} places={places} />
+                <RumorForm
+                  characters={characters}
+                  places={places}
+                  defaultRegion={REGIONS.includes(heardIn as Region) ? heardIn : null}
+                  initialCoordinates={pinned}
+                />
               ) : (
                 <p className="body-compact text-ink-body">
                   Votre compte est suspendu : vous ne pouvez plus colporter de rumeur.

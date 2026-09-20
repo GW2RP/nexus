@@ -14,11 +14,16 @@ const GLYPHS: Record<string, string> = {
   guilde: '<path d="M4.5 2.5 h7 v7 l-3.5 -2 -3.5 2 z M8 9.5 v4"/>',
   intrigue: '<path d="M8 2.5 v11 M4 5 h8 M3 5 l-1.5 3.5 h3 z M13 5 l1.5 3.5 h-3 z"/>',
   ruine: '<path d="M3 13 h10 M4.5 13 v-6 M7.5 13 v-8 M10.5 13 v-5"/>',
+  rumeur: '<path d="M2.5 3.5 h11 v7 h-6.7 l-2.8 2.8 v-2.8 h-1.5 z M5.5 7 h5"/>',
 };
 
-export type MarkerState = "lieu" | "en-cours" | "annonce" | "selectionne";
+/** Ce qu'un pin peut désigner. Une rumeur n'a pas de type à elle — elle est son
+ *  propre type, et c'est son glyphe qui le dit. */
+export type PinType = PlaceType | EventType | "rumeur";
 
-export function markerHtml(type: PlaceType | EventType, state: MarkerState): string {
+export type MarkerState = "lieu" | "en-cours" | "annonce" | "rumeur" | "selectionne";
+
+export function markerHtml(type: PinType, state: MarkerState): string {
   const glyph = GLYPHS[type] ?? GLYPHS.taverne;
   const size = state === "selectionne" ? 44 : 34;
 
@@ -28,6 +33,10 @@ export function markerHtml(type: PlaceType | EventType, state: MarkerState): str
       "background:var(--crimson);border:2px solid var(--crimson-edge);color:var(--on-crimson);",
     annonce:
       "background:var(--surface);border:2px dashed var(--gold);color:var(--gold-ink);",
+    // Ni or ni plein : une rumeur n'est ni un lieu du registre ni une scène
+    // annoncée. Le trait carmin la range du côté de ce qui se raconte.
+    rumeur:
+      "background:var(--surface);border:2px solid var(--crimson-edge);color:var(--crimson-ink);",
     selectionne:
       "background:var(--crimson);border:3px solid var(--surface);outline:2px solid var(--crimson-edge);color:var(--on-crimson);",
   };

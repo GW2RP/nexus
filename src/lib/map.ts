@@ -62,3 +62,18 @@ export function clampX(value: number): number {
 export function clampY(value: number): number {
   return Math.min(Math.max(value, 0), CONTINENT_HEIGHT);
 }
+
+/** Le point qu'une adresse transporte — « /lieux/nouveau?x=…&y=… », tel que la
+ *  carte le pose. Tout ce qui n'est pas deux nombres ne vaut rien : un point
+ *  à moitié lu placerait le formulaire en pleine mer sans que personne l'ait
+ *  demandé. */
+export function readPointParam(
+  x: string | undefined,
+  y: string | undefined,
+): { x: number; y: number } | null {
+  if (!x || !y) return null;
+  const abscisse = Number(x);
+  const ordonnee = Number(y);
+  if (!Number.isFinite(abscisse) || !Number.isFinite(ordonnee)) return null;
+  return { x: clampX(Math.round(abscisse)), y: clampY(Math.round(ordonnee)) };
+}

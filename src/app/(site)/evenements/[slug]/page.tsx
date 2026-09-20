@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EventTypeChip } from "@/components/ui/chip";
 import { FramedMedia } from "@/components/ui/framed-media";
+import { RichText } from "@/components/ui/rich-text";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { EVENT_TYPE_LABELS, REGION_LABELS, raceLabel } from "@/lib/domain";
 import { GAME_TIME_ZONE, formatGameTime, formatLongDate } from "@/lib/dates";
@@ -156,19 +157,7 @@ export default async function EventPage({ params }: Props) {
             ) : null}
           </p>
 
-          {event.description ? (
-            <div className="mt-7 flex max-w-[70ch] flex-col gap-4">
-              {event.description
-                .split(/\n{2,}/)
-                .map((paragraph) => paragraph.trim())
-                .filter(Boolean)
-                .map((paragraph, index) => (
-                  <p key={index} className="body text-ink-body">
-                    {paragraph}
-                  </p>
-                ))}
-            </div>
-          ) : null}
+          {event.description ? <RichText text={event.description} className="mt-7" /> : null}
 
           {event.practicalNotes.length > 0 ? (
             <section className="mt-10" aria-labelledby="a-savoir">

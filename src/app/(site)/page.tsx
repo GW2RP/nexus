@@ -16,7 +16,7 @@ import { getCurrentUser } from "@/lib/session";
 import { listCharacters } from "@/server/queries/characters";
 import { listEvents } from "@/server/queries/events";
 import { listPlacesForMap } from "@/server/queries/places";
-import { listRumors } from "@/server/queries/rumors";
+import { listRumors, listRumorsForMap } from "@/server/queries/rumors";
 import { getCurrentWeather } from "@/server/queries/weather";
 
 export const metadata: Metadata = buildMetadata({
@@ -34,11 +34,12 @@ export const metadata: Metadata = buildMetadata({
 export default async function HomePage() {
   const user = await getCurrentUser();
 
-  const [events, rumors, characters, places, weather] = await Promise.all([
+  const [events, rumors, characters, places, pinnedRumors, weather] = await Promise.all([
     listEvents({ limit: 3, viewerId: user?.id ?? null }),
     listRumors({ pageSize: 3, viewerId: user?.id ?? null }),
     listCharacters({ pageSize: 4 }),
     listPlacesForMap(),
+    listRumorsForMap(),
     getCurrentWeather(),
   ]);
 
@@ -112,7 +113,7 @@ export default async function HomePage() {
         />
         <div className="flex flex-col gap-7 lg:flex-row lg:items-stretch">
           <div className="flex-2 lg:basis-0">
-            <MapPreview places={places} events={events} />
+            <MapPreview places={places} events={events} rumors={pinnedRumors} />
           </div>
           <div className="flex flex-1 flex-col lg:basis-0">
             {weather.length > 0 ? (
@@ -127,6 +128,7 @@ export default async function HomePage() {
               <LegendItem shape="square-outline">Sièges de guilde</LegendItem>
               <LegendItem shape="round-solid">Évènement en cours</LegendItem>
               <LegendItem shape="round-dashed">Évènement annoncé</LegendItem>
+              <LegendItem shape="round-crimson">Rumeur épinglée</LegendItem>
             </ul>
             <Button asChild variant="outline" className="mt-auto">
               <Link href={user ? "/lieux/nouveau" : "/connexion"}>PROPOSER UN LIEU</Link>
@@ -185,7 +187,12 @@ function LegendItem({
   shape,
   children,
 }: {
-  shape: "round-outline" | "square-outline" | "round-solid" | "round-dashed";
+  shape:
+    | "round-outline"
+    | "square-outline"
+    | "round-solid"
+    | "round-dashed"
+    | "round-crimson";
   children: React.ReactNode;
 }) {
   const classes = {
@@ -193,6 +200,7 @@ function LegendItem({
     "square-outline": "border-[1.5px] border-gold-eyebrow",
     "round-solid": "rounded-full bg-crimson",
     "round-dashed": "rounded-full border-[1.5px] border-dashed border-gold-eyebrow",
+    "round-crimson": "rounded-full border-[1.5px] border-crimson-edge",
   }[shape];
 
   return (

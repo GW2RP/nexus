@@ -44,10 +44,18 @@ export async function createRumorAction(
       }
     }
 
+    const { coordinateX, coordinateY, ...fields } = parsed.data;
+
     await Rumor.create({
-      ...parsed.data,
+      ...fields,
       characterId: characterId ?? undefined,
       placeId: objectIdOrNull(parsed.data.placeId ?? null) ?? undefined,
+      // Le point est celui que l'auteur a posé, ou aucun. Il ne se déduit pas du
+      // lieu d'écoute : voir le modèle.
+      coordinates:
+        typeof coordinateX === "number" && typeof coordinateY === "number"
+          ? { x: coordinateX, y: coordinateY }
+          : undefined,
       authorId: user.id,
       echoedBy: [],
       echoCount: 0,
@@ -57,6 +65,7 @@ export async function createRumorAction(
   }
 
   revalidatePath("/rumeurs");
+  revalidatePath("/carte");
   revalidatePath("/");
   return successState("La rumeur est au tableau.");
 }
@@ -127,5 +136,6 @@ export async function deleteRumorAction(
   }
 
   revalidatePath("/rumeurs");
+  revalidatePath("/carte");
   return successState("La rumeur est retirée du tableau.");
 }

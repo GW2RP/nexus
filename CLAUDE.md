@@ -178,15 +178,56 @@ La légende ne liste que les phénomènes effectivement au ciel : pas d'entrée 
 un jour de beau temps. Vent fort et forte chaleur ne sont pas des conditions —
 ils se cumulent à celle de la cellule.
 
-**La sonde** (`SONDER`) relève le temps au point cliqué, par
+**Un clic sur la carte relève le temps au point cliqué**, par
 `/api/meteo/point` : la grille entière ne peut pas voyager jusqu'au navigateur,
-un relevé si. Elle se met en marche pour ne pas voler le clic qui choisit un
-lieu, et s'éteindre retire le relevé avec sa croix.
+un relevé si. C'est le comportement par défaut, sans interrupteur à armer — un
+clic sur la carte a toujours voulu dire « qu'est-ce qu'il y a là ? ». La croix se
+pose avant la réponse, et le relevé la rejoint.
+
+Le même cartouche porte **ce qu'on peut poser là** : un lieu, une scène, une
+rumeur. Les deux premiers emportent le point dans l'adresse (`?x=…&y=…`), que
+`readPointParam` relit et que le formulaire ouvre avec sa carte déjà cadrée
+dessus — sinon il faudrait repointer ce qu'on vient de pointer. Et à travers la
+connexion : le chemin complet, coordonnées comprises, part dans `suite`. La
+rumeur, elle, n'a pas de point à elle ; elle emporte la **région** du relevé
+(`?ou=…`, distinct du `region` qui filtre la liste), qui est ce que le tableau
+des rumeurs sait retenir d'un endroit.
+
+Le point posé et le pin choisi se disputeraient le même coin de l'écran :
+choisir l'un retire l'autre.
+
+**Une rumeur peut porter un point, et c'est facultatif.** Son formulaire garde
+donc sa carte repliée — la plupart des rumeurs courent la Tyrie sans endroit à
+elles, et une carte dépliée d'office occuperait la colonne pour un champ que
+personne n'a demandé. Elle s'ouvre d'elle-même quand la rumeur arrive de la
+carte, avec son point déjà posé.
+
+Ce point **ne se déduit pas du lieu d'écoute** : une rumeur entendue à la
+taverne se trouve déjà par la taverne, et l'y recopier doublerait chaque pin de
+lieu d'autant de rumeurs. Un évènement, lui, hérite bien du point de son lieu —
+il n'y en a qu'un par scène.
+
+Une rumeur épinglée n'a pas de fiche à elle : son pin la donne **en entier**
+dans son panneau, borné en hauteur et déroulant, et renvoie au tableau par une
+ancre (`/rumeurs#rumeur-<id>`) pour la reprendre ou la signaler. Ses pins se
+retirent d'un interrupteur (`RUMEURS`) : elles ne sont ni un lieu du registre ni
+une scène annoncée, et qui cherche une taverne n'a pas à les contourner. Elles
+ne suivent ni la recherche ni le filtre de la colonne, qui portent sur les
+lieux.
+
+**Les bulletins de région ne sont plus sur la carte** : « Dégagé sur Kryte »
+répété six fois occupait un tiers de l'écran pour dire ce que les taches disent
+déjà en couleur. Le détail chiffré reste sur `/meteo`.
 
 **Sous `lg`, rien ne se pose sur la carte** hors les interrupteurs : légende et
-bulletins descendent dans une bande sous la carte, qui occupe la moitié haute de
+relevé descendent dans une bande sous la carte, qui occupe la moitié haute de
 l'écran. Un panneau en surimpression calibré pour un écran large masque les deux
 tiers d'un téléphone.
+
+La colonne de gauche est la **liste**, pas ses commandes : les filtres de type
+tiennent sur une seule ligne qui défile — empilés, les types prenaient trois
+rangs — et le pied de colonne range le compte, la météo et la proposition sur
+une ligne. Un bouton pleine largeur y valait la hauteur de trois lieux.
 
 Le mobilier de Leaflet (attribution, zoom) est rebranché sur les jetons dans
 `globals.css`. Ces règles-là sont **hors couche et volontairement spécifiques** :
@@ -212,6 +253,24 @@ Tout chemin qui retire une image d'un contenu — suppression de la fiche,
 remplacement, suppression de modération — passe par `deleteUploadedImages`. Il ne
 touche jamais une adresse étrangère au magasin, et ne fait jamais échouer son
 appelant.
+
+**Un texte long porte ses propres images**, pas seulement sa bannière : l'éditeur
+en téléverse par le même chemin, et le markdown enregistré les écrit
+`![alternative](adresse)`. Elles comptent donc dans le ménage —
+`collectMarkdownImages` les relit, et `deleteOrphanedImages` compare ce que le
+contenu portait à ce qu'il porte encore. Comparer les deux listes plutôt que
+supprimer l'ancienne évite d'emporter une image seulement déplacée d'un
+paragraphe à l'autre.
+
+**À la lecture, une image ne s'affiche que si elle vient du magasin**
+(`isBlobUrl`). Une adresse quelconque collée dans un champ ferait du texte d'un
+membre une requête vers le serveur d'un autre — pixel de suivi compris — et rien
+ne garantirait qu'elle réponde encore demain.
+
+**L'alternative se saisit avant le fichier**, et le bouton reste fermé tant
+qu'elle manque : une image posée sans elle ne dit plus rien à qui ne la voit pas,
+et il faudrait la retirer pour la reposer — le markdown ne se corrige pas à la
+souris.
 
 ## Frontières
 

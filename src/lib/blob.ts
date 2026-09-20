@@ -2,6 +2,8 @@ import "server-only";
 
 import { del } from "@vercel/blob";
 
+import { isBlobUrl } from "@/lib/images";
+
 /** Le ménage du stockage d'images.
  *
  *  Une image téléversée vit dans Vercel Blob, pas dans MongoDB : supprimer la
@@ -15,7 +17,7 @@ import { del } from "@vercel/blob";
  *  faire détruire le fichier d'autrui.
  */
 
-const BLOB_HOST_SUFFIX = ".blob.vercel-storage.com";
+export { collectMarkdownImages, isBlobUrl } from "@/lib/images";
 
 export const IMAGE_FOLDERS = ["personnages", "lieux", "evenements"] as const;
 export type ImageFolder = (typeof IMAGE_FOLDERS)[number];
@@ -23,16 +25,6 @@ export type ImageFolder = (typeof IMAGE_FOLDERS)[number];
 /** Le chemin sous lequel une image est rangée dans le magasin. */
 export function blobPathname(folder: ImageFolder, ownerId: string, extension: string): string {
   return `${folder}/${ownerId}/${Date.now()}.${extension}`;
-}
-
-/** Une adresse est-elle servie par un magasin Blob ? */
-export function isBlobUrl(url: unknown): url is string {
-  if (typeof url !== "string" || url.length === 0) return false;
-  try {
-    return new URL(url).hostname.endsWith(BLOB_HOST_SUFFIX);
-  } catch {
-    return false;
-  }
 }
 
 type BlobPath = { folder: string; ownerId: string; file: string };
@@ -95,4 +87,22 @@ export async function deleteUploadedImages(
   } catch (error) {
     console.error("Images non supprimées du stockage :", ours, error);
   }
+}
+
+/** Le ménage après une modification : ce que le contenu portait, ce qu'il porte
+ *  encore, et la différence part au magasin.
+ *
+ *  Une bannière remplacée n'est plus le seul cas : un texte long porte ses
+ *  propres images, et en effacer une dans l'éditeur doit l'emporter aussi.
+ *  Comparer les deux listes évite de supprimer ce qui a seulement été déplacé
+ *  d'un paragraphe à l'autre. */
+export async function deleteOrphanedImages(
+  before: (string | null | undefined)[],
+  after: (string | null | undefined)[],
+  ownerId: string,
+): Promise<void> {
+  const kept = new Set(after.filter((url): url is string => Boolean(url)));
+  const dropped = before.filter((url): url is string => typeof url === "string" && url.length > 0 && !kept.has(url));
+  if (dropped.length === 0) return;
+  await deleteUploadedImages(dropped, ownerId);
 }
