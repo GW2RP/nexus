@@ -155,14 +155,17 @@ export const getWeatherAt = cache(
 );
 
 /**
- * La frise déjà calculée, par longueur demandée.
+ * La frise déjà calculée, une entrée par longueur demandée.
  *
  * Rejouer douze pas coûte 1,75 s à la maille de 256 px, et `/meteo` est rendue
- * à la requête : sans ce cache, chaque visiteur les rejouerait. La frise ne
- * dépend que du pas courant — le moteur est déterministe, et le terrain voyage
- * dans le pas lui-même — donc le numéro de pas suffit à l'identifier. Il n'y a
- * par conséquent aucune péremption à régler : un pas nouveau est une clé
- * nouvelle, et l'ancienne entrée est remplacée.
+ * à la requête : sans ce cache, chaque visiteur les rejouerait.
+ *
+ * Une frise est entièrement déterminée par deux choses, et rien d'autre : le pas
+ * d'où elle part et le nombre de pas demandés — le moteur est déterministe, et
+ * le terrain voyage dans le pas lui-même. La longueur est donc la clé, et
+ * l'entrée porte le pas qu'elle a joué : quand le pas courant change, l'entrée
+ * ne lui correspond plus et se recalcule sur place. Il n'y a par conséquent
+ * aucune horloge à régler, et rien à invalider de l'extérieur.
  *
  * Le cache vit dans l'instance, pas dans un magasin partagé : sur une instance
  * fraîche, le premier visiteur paie encore la frise. C'est le prix d'un cache
