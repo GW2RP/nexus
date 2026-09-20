@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 
+import { useKeptFormValues } from "@/components/forms/keep-values";
 import { Button } from "@/components/ui/button";
 import { ImageField } from "@/components/forms/image-field";
 import { RichTextField } from "@/components/forms/rich-text-field";
@@ -40,8 +41,11 @@ export function CharacterForm({
   );
   const errors = state.fieldErrors ?? {};
 
+  // React vide un formulaire soumis : cette garde lui laisse ses valeurs.
+  const formulaire = useKeptFormValues();
+
   return (
-    <form action={formAction} className="flex max-w-[760px] flex-col gap-8">
+    <form ref={formulaire} action={formAction} className="flex max-w-[760px] flex-col gap-8">
       {character ? <input type="hidden" name="id" value={character.id} /> : null}
 
       <section>

@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 
+import { useKeptFormValues } from "@/components/forms/keep-values";
 import { AccountPicker } from "@/components/forms/account-picker";
 import { ImageField } from "@/components/forms/image-field";
 import { RichTextField } from "@/components/forms/rich-text-field";
@@ -41,11 +42,14 @@ export function GroupForm({
   );
   const errors = state.fieldErrors ?? {};
 
+  // React vide un formulaire soumis : cette garde lui laisse ses valeurs.
+  const formulaire = useKeptFormValues();
+
   const [visibility, setVisibility] = useState<GroupVisibility>(group?.visibility ?? "prive");
   const [members, setMembers] = useState<AuthorSummary[]>(group?.members ?? []);
 
   return (
-    <form action={formAction} className="flex max-w-[760px] flex-col gap-8">
+    <form ref={formulaire} action={formAction} className="flex max-w-[760px] flex-col gap-8">
       {group ? <input type="hidden" name="id" value={group.id} /> : null}
       {members.map((member) => (
         <input key={member.id} type="hidden" name="memberIds[]" value={member.id} />

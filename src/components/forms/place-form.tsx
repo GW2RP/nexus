@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 
+import { useKeptFormValues } from "@/components/forms/keep-values";
 import { AccountPicker } from "@/components/forms/account-picker";
 import { Button } from "@/components/ui/button";
 import { ImageField } from "@/components/forms/image-field";
@@ -52,6 +53,9 @@ export function PlaceForm({
   );
   const errors = state.fieldErrors ?? {};
 
+  // React vide un formulaire soumis : cette garde lui laisse ses valeurs.
+  const formulaire = useKeptFormValues();
+
   // Le pin de la carte reprend le glyphe du type choisi et le nom saisi.
   const [type, setType] = useState<PlaceType>(place?.type ?? "taverne");
   const [name, setName] = useState(place?.name ?? "");
@@ -98,7 +102,7 @@ export function PlaceForm({
   }, [ownerId, managerKey]);
 
   return (
-    <form action={formAction} className="flex max-w-[760px] flex-col gap-8">
+    <form ref={formulaire} action={formAction} className="flex max-w-[760px] flex-col gap-8">
       {place ? <input type="hidden" name="id" value={place.id} /> : null}
       {managers.map((manager) => (
         <input key={manager.id} type="hidden" name="managerIds[]" value={manager.id} />
