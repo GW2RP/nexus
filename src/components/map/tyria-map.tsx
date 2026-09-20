@@ -10,8 +10,8 @@ import {
   phenomeneMarkerHtml,
   sondeMarkerHtml,
   type MarkerState,
+  type PinType,
 } from "@/components/map/map-marker-html";
-import type { EventType, PlaceType } from "@/lib/domain";
 import { CELL_SIZE, cellRect } from "@/lib/weather/grid";
 import type { Phenomene } from "@/lib/weather/phenomena";
 import type { MapTone } from "@/lib/weather/tones";
@@ -40,8 +40,8 @@ const ESPACEMENT_GRAPPE = 28;
 
 export type MapPin = {
   id: string;
-  kind: "lieu" | "evenement";
-  type: PlaceType | EventType;
+  kind: "lieu" | "evenement" | "rumeur";
+  type: PinType;
   name: string;
   meta: string;
   href: string;

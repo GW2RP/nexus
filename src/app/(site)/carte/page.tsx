@@ -6,6 +6,7 @@ import { buildMetadata } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
 import { listEvents } from "@/server/queries/events";
 import { listPlacesForMap } from "@/server/queries/places";
+import { listRumorsForMap } from "@/server/queries/rumors";
 import { getWeatherAreas, listTerrainZones } from "@/server/queries/weather";
 
 export const metadata: Metadata = buildMetadata({
@@ -24,9 +25,10 @@ export default async function MapPage({
   const { lieu } = await searchParams;
   const user = await getCurrentUser();
 
-  const [places, events, zones, areas] = await Promise.all([
+  const [places, events, rumors, zones, areas] = await Promise.all([
     listPlacesForMap(),
     listEvents({ viewerId: user?.id ?? null, limit: 60 }),
+    listRumorsForMap(),
     listTerrainZones(),
     getWeatherAreas(),
   ]);
@@ -37,6 +39,7 @@ export default async function MapPage({
       <MapExplorer
         places={places}
         events={events}
+        rumors={rumors}
         zones={zones}
         areas={areas}
         initialPlaceSlug={lieu}

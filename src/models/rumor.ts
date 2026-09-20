@@ -13,6 +13,14 @@ const rumorSchema = new Schema(
     /** Lieu d'écoute libre quand ce n'est pas un lieu du registre. */
     heardAtLabel: { type: String, trim: true, maxlength: 160 },
     region: { type: String, enum: REGIONS, index: true },
+    /** Le point où elle se dit, quand son auteur a voulu l'épingler. Il est
+     *  posé à la main et ne se déduit pas du lieu d'écoute : une rumeur
+     *  entendue à la taverne se trouve déjà par la taverne, et l'y recopier
+     *  doublerait chaque pin de lieu d'autant de rumeurs. */
+    coordinates: {
+      x: { type: Number },
+      y: { type: Number },
+    },
     /** Les comptes qui ont repris la rumeur ; le compteur en découle. */
     echoedBy: [{ type: String }],
     echoCount: { type: Number, default: 0, index: true },

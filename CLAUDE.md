@@ -196,6 +196,25 @@ des rumeurs sait retenir d'un endroit.
 Le point posé et le pin choisi se disputeraient le même coin de l'écran :
 choisir l'un retire l'autre.
 
+**Une rumeur peut porter un point, et c'est facultatif.** Son formulaire garde
+donc sa carte repliée — la plupart des rumeurs courent la Tyrie sans endroit à
+elles, et une carte dépliée d'office occuperait la colonne pour un champ que
+personne n'a demandé. Elle s'ouvre d'elle-même quand la rumeur arrive de la
+carte, avec son point déjà posé.
+
+Ce point **ne se déduit pas du lieu d'écoute** : une rumeur entendue à la
+taverne se trouve déjà par la taverne, et l'y recopier doublerait chaque pin de
+lieu d'autant de rumeurs. Un évènement, lui, hérite bien du point de son lieu —
+il n'y en a qu'un par scène.
+
+Une rumeur épinglée n'a pas de fiche à elle : son pin la donne **en entier**
+dans son panneau, borné en hauteur et déroulant, et renvoie au tableau par une
+ancre (`/rumeurs#rumeur-<id>`) pour la reprendre ou la signaler. Ses pins se
+retirent d'un interrupteur (`RUMEURS`) : elles ne sont ni un lieu du registre ni
+une scène annoncée, et qui cherche une taverne n'a pas à les contourner. Elles
+ne suivent ni la recherche ni le filtre de la colonne, qui portent sur les
+lieux.
+
 **Les bulletins de région ne sont plus sur la carte** : « Dégagé sur Kryte »
 répété six fois occupait un tiers de l'écran pour dire ce que les taches disent
 déjà en couleur. Le détail chiffré reste sur `/meteo`.

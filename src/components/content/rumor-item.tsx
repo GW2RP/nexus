@@ -11,7 +11,11 @@ import { formatRelativePast } from "@/lib/dates";
 import type { RumorSummary } from "@/server/types";
 
 /** Une rumeur au tableau. La reprendre la fait monter dans les plus reprises ;
- *  on ne reprend qu'une fois et on peut se rétracter. */
+ *  on ne reprend qu'une fois et on peut se rétracter.
+ *
+ *  Elle porte une ancre : une rumeur épinglée sur la carte n'a pas de fiche à
+ *  elle, donc son pin renvoie ici, sur la ligne exacte. `scroll-mt` laisse la
+ *  place de l'en-tête collant, sans quoi elle arriverait dessous. */
 export function RumorItem({
   rumor,
   canEcho,
@@ -31,7 +35,10 @@ export function RumorItem({
   ].filter(Boolean);
 
   return (
-    <li className="border-b border-hairline py-[17px] last:border-b-0">
+    <li
+      id={`rumeur-${rumor.id}`}
+      className="scroll-mt-24 border-b border-hairline py-[17px] target:bg-surface-selected last:border-b-0"
+    >
       <p
         className={cn(
           "mb-2 italic leading-[1.5] text-ink",

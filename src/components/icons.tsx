@@ -82,6 +82,15 @@ export function RuinIcon(props: IconProps) {
 
 /* --- Glyphes d'interface ----------------------------------------------------- */
 
+/** Ce qui se dit : une bulle, et le fil de ce qu'on y raconte. */
+export function RumorIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M2.5 3.5 h11 v7 h-6.7 l-2.8 2.8 v-2.8 h-1.5 z M5.5 7 h5" />
+    </Icon>
+  );
+}
+
 export function PinIcon(props: IconProps) {
   return (
     <Icon {...props}>

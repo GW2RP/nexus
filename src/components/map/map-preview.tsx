@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { MapCanvas } from "@/components/map/map-canvas";
 import type { MapPin } from "@/components/map/tyria-map";
 import { PLACE_TYPE_LABELS, REGION_LABELS } from "@/lib/domain";
-import type { EventSummary, PlaceSummary } from "@/server/types";
+import type { EventSummary, PlaceSummary, RumorSummary } from "@/server/types";
 
 /** L'aperçu de la carte sur l'accueil : les mêmes tuiles et les mêmes pins que
  *  la carte plein écran, mais on la regarde sans la manipuler.
@@ -18,10 +18,14 @@ import type { EventSummary, PlaceSummary } from "@/server/types";
 export function MapPreview({
   places,
   events,
+  rumors,
   href = "/carte",
 }: {
   places: PlaceSummary[];
   events: EventSummary[];
+  /** Les rumeurs épinglées. L'aperçu montre les mêmes pins que la carte : en
+   *  omettre une sorte ferait mentir la légende posée à côté. */
+  rumors: RumorSummary[];
   /** Là où mène le clic. */
   href?: string;
 }) {
@@ -54,8 +58,22 @@ export function MapPreview({
         state: event.liveStatus === "en-cours" ? "en-cours" : "annonce",
       }));
 
-    return [...placePins, ...eventPins];
-  }, [places, events]);
+    const rumorPins: MapPin[] = rumors
+      .filter((rumor) => rumor.coordinates)
+      .map((rumor) => ({
+        id: `rumeur-${rumor.id}`,
+        kind: "rumeur",
+        type: "rumeur",
+        name: rumor.body.length > 70 ? `${rumor.body.slice(0, 70)}…` : rumor.body,
+        meta: rumor.place?.name ?? rumor.heardAtLabel ?? "Colportée là",
+        href: `/rumeurs#rumeur-${rumor.id}`,
+        x: rumor.coordinates!.x,
+        y: rumor.coordinates!.y,
+        state: "rumeur",
+      }));
+
+    return [...placePins, ...eventPins, ...rumorPins];
+  }, [places, events, rumors]);
 
   return (
     <div className="framed">

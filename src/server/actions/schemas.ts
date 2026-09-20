@@ -156,6 +156,10 @@ export const rumorSchema = z.object({
   placeId: optionalText(40),
   heardAtLabel: optionalText(160),
   region: optionalEnum(REGIONS),
+  // Le point est facultatif : une rumeur court la Tyrie sans forcément avoir un
+  // endroit à elle. Quand elle en a un, il se pose sur la carte.
+  coordinateX: optionalInteger(0, CONTINENT_WIDTH),
+  coordinateY: optionalInteger(0, CONTINENT_HEIGHT),
 });
 
 /** Un sommet du tracé, borné par le continent lui-même. */

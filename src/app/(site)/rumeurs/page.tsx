@@ -11,6 +11,7 @@ import { LoadMore } from "@/components/ui/load-more";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { REGIONS, REGION_LABELS, type Region } from "@/lib/domain";
+import { readPointParam } from "@/lib/map";
 import { canContribute, canReportContent } from "@/lib/permissions";
 import { buildMetadata } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
@@ -38,6 +39,10 @@ export default async function RumorsPage({
   // « ou » est la région du point cliqué sur la carte : elle remplit le
   // formulaire, elle ne filtre pas la liste — « region », lui, filtre.
   const heardIn = typeof params.ou === "string" ? (params.ou as Region) : undefined;
+  const pinned = readPointParam(
+    typeof params.x === "string" ? params.x : undefined,
+    typeof params.y === "string" ? params.y : undefined,
+  );
   const sort = params.tri === "reprises" ? "reprises" : "recentes";
   const page = Number(params.page ?? 1) || 1;
 
@@ -129,6 +134,7 @@ export default async function RumorsPage({
                   characters={characters}
                   places={places}
                   defaultRegion={REGIONS.includes(heardIn as Region) ? heardIn : null}
+                  initialCoordinates={pinned}
                 />
               ) : (
                 <p className="body-compact text-ink-body">

@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import { PhenomeneGlyph, PlaceGlyph, WeatherGlyph } from "@/components/type-glyph";
 import { MapCanvas } from "@/components/map/map-canvas";
 import type { MapArea, MapPin, MapShape } from "@/components/map/tyria-map";
-import { SearchIcon } from "@/components/icons";
+import { RumorIcon, SearchIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/field";
 import {
@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import type {
   EventSummary,
   PlaceSummary,
+  RumorSummary,
   TerrainZoneOutline,
   WeatherArea,
   WeatherProbe,
@@ -39,6 +40,7 @@ type Point = { x: number; y: number };
 export function MapExplorer({
   places,
   events,
+  rumors,
   zones,
   areas,
   initialPlaceSlug,
@@ -46,6 +48,8 @@ export function MapExplorer({
 }: {
   places: PlaceSummary[];
   events: EventSummary[];
+  /** Les rumeurs qui portent un point — les autres n'ont rien à faire ici. */
+  rumors: RumorSummary[];
   zones: TerrainZoneOutline[];
   areas: WeatherArea[];
   initialPlaceSlug?: string;
@@ -56,6 +60,11 @@ export function MapExplorer({
   // est justement ce qui montre pourquoi il pleut là et pas ailleurs.
   const [voirMeteo, setVoirMeteo] = useState(true);
   const [voirTerrains, setVoirTerrains] = useState(false);
+  // Les rumeurs épinglées se montrent d'emblée — les cacher par défaut
+  // reviendrait à ne pas les poser. Mais elles se retirent : elles ne sont ni
+  // un lieu du registre ni une scène annoncée, et qui cherche une taverne n'a
+  // pas à les contourner.
+  const [voirRumeurs, setVoirRumeurs] = useState(true);
   // Le point cliqué. Il est posé avant la réponse du serveur : la croix apparaît
   // sous le doigt, et le relevé la rejoint. Plus d'interrupteur à armer — un
   // clic sur la carte a toujours voulu dire « qu'est-ce qu'il y a là ? ».
@@ -185,9 +194,29 @@ export function MapExplorer({
         state: event.liveStatus === "en-cours" ? ("en-cours" as const) : ("annonce" as const),
       }));
 
-    return [...placePins, ...eventPins];
-  }, [visiblePlaces, events]);
+    // Une rumeur n'a pas de type : son glyphe est son type. Elle ne suit ni la
+    // recherche ni le filtre de la colonne, qui portent sur les lieux.
+    const rumorPins: MapPin[] = voirRumeurs
+      ? rumors
+          .filter((rumor) => rumor.coordinates)
+          .map((rumor) => ({
+            id: `rumeur-${rumor.id}`,
+            kind: "rumeur" as const,
+            type: "rumeur" as const,
+            name: extrait(rumor.body),
+            meta: attributionDe(rumor),
+            href: `/rumeurs#rumeur-${rumor.id}`,
+            x: rumor.coordinates!.x,
+            y: rumor.coordinates!.y,
+            state: "rumeur" as const,
+          }))
+      : [];
 
+    return [...placePins, ...eventPins, ...rumorPins];
+  }, [visiblePlaces, events, rumors, voirRumeurs]);
+
+  const selectedRumor =
+    rumors.find((rumor) => `rumeur-${rumor.id}` === selectedId) ?? null;
   const selectedPlace = places.find((place) => place.id === selectedId) ?? null;
   const selectedEvent =
     events.find((event) => `evenement-${event.id}` === selectedId) ?? null;
@@ -224,6 +253,7 @@ export function MapExplorer({
                 [
                   ["MÉTÉO", voirMeteo, setVoirMeteo],
                   ["TERRAINS", voirTerrains, setVoirTerrains],
+                  ["RUMEURS", voirRumeurs, setVoirRumeurs],
                 ] as const
               ).map(([label, actif, basculer]) => (
                 <button
@@ -252,7 +282,9 @@ export function MapExplorer({
             ) : null}
           </div>
 
-          {selectedPlace ? (
+          {selectedRumor ? (
+            <RumeurPanel rumeur={selectedRumor} onClose={() => setSelectedId(null)} />
+          ) : selectedPlace ? (
             <DetailPanel
               title={selectedPlace.name}
               meta={[
@@ -476,6 +508,20 @@ export function MapExplorer({
   );
 }
 
+/** Le titre d'un pin de rumeur : de quoi la reconnaître au survol, pas de quoi
+ *  la lire. Le panneau, lui, la donne en entier. */
+function extrait(body: string): string {
+  return body.length > 70 ? `${body.slice(0, 70)}…` : body;
+}
+
+/** Qui la dit : le personnage s'il y en a un, sinon le compte qui l'a
+ *  colportée. Une rumeur sans source n'est pas une rumeur sans auteur. */
+function attributionDe(rumeur: RumorSummary): string {
+  if (rumeur.character) return `Rapportée par ${rumeur.character.name}`;
+  if (rumeur.author) return `Colportée par ${rumeur.author.name}`;
+  return "Sans source";
+}
+
 /** Où mène une proposition : la page qui la reçoit, ou la connexion qui y ramène
  *  — avec le point, sinon il faudrait le repointer après s'être connecté. */
 function proposerHref(chemin: string, canPropose: boolean): string {
@@ -505,8 +551,7 @@ function LigneDeLegende({ phenomene }: { phenomene: Phenomene }) {
  *
  * Les trois propositions partent avec les coordonnées : le formulaire s'ouvre
  * avec son point déjà posé, plutôt que de faire repointer la carte. La rumeur
- * n'a pas de point à elle ; elle emporte la région du relevé, qui est ce que le
- * tableau des rumeurs sait retenir d'un endroit.
+ * emporte en plus la région du relevé, qu'elle sait ranger dans son champ.
  */
 function PointReleve({
   point,
@@ -524,7 +569,11 @@ function PointReleve({
   onClose: () => void;
 }) {
   const coordonnees = `x=${point.x}&y=${point.y}`;
-  const rumeur = releve?.region ? `/rumeurs?ou=${releve.region}#colporter` : "/rumeurs#colporter";
+  // La rumeur emporte le point comme les deux autres, et la région du relevé en
+  // prime : le formulaire n'a alors plus rien à faire deviner.
+  const rumeur = `/rumeurs?${coordonnees}${
+    releve?.region ? `&ou=${releve.region}` : ""
+  }#colporter`;
 
   return (
     <div className="pointer-events-auto w-full border-2 border-crimson-edge bg-surface p-3">
@@ -623,6 +672,37 @@ function FilterButton({
     >
       {children}
     </button>
+  );
+}
+
+/** La rumeur épinglée, en entier : elle n'a pas de fiche à elle, donc le
+ *  panneau est le seul endroit où la lire depuis la carte. Bornée en hauteur et
+ *  déroulante — six cents caractères tiendraient sinon sur la moitié de la
+ *  carte. Le lien mène au tableau, où elle se reprend et se signale. */
+function RumeurPanel({ rumeur, onClose }: { rumeur: RumorSummary; onClose: () => void }) {
+  return (
+    <div className="absolute inset-x-4 bottom-4 z-[600] w-auto border-2 border-crimson-edge bg-surface p-5 sm:left-4 sm:w-[318px]">
+      <p className="max-h-[32dvh] overflow-y-auto text-[18px] italic leading-[1.5] text-ink">
+        {rumeur.body}
+      </p>
+      <p className="mt-2 flex items-center gap-2 text-[16px] text-ink-muted">
+        <RumorIcon size={15} className="text-crimson-ink" />
+        {[attributionDe(rumeur), rumeur.place?.name ?? rumeur.heardAtLabel]
+          .filter(Boolean)
+          .join(" · ")}
+      </p>
+      <p className="mt-1 text-[16px] text-crimson-ink">
+        {rumeur.echoCount} reprise{rumeur.echoCount > 1 ? "s" : ""}
+      </p>
+      <div className="mt-4 flex gap-3">
+        <Button asChild variant="outline" size="sm">
+          <Link href={`/rumeurs#rumeur-${rumeur.id}`}>AU TABLEAU</Link>
+        </Button>
+        <Button type="button" variant="quiet" size="sm" onClick={onClose}>
+          FERMER
+        </Button>
+      </div>
+    </div>
   );
 }
 

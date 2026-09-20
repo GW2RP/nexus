@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { MapCanvas } from "@/components/map/map-canvas";
 import type { MapPin } from "@/components/map/tyria-map";
 import { Button } from "@/components/ui/button";
-import type { EventType, PlaceType } from "@/lib/domain";
+import type { PinType } from "@/components/map/map-marker-html";
 import { clampX, clampY } from "@/lib/map";
 
 /** La moitié du cadre d'ouverture quand un point est déjà posé, en pixels de
@@ -13,6 +13,14 @@ import { clampX, clampY } from "@/lib/map";
  *  zoom maximal. À la vue par défaut, un point posé ailleurs qu'au cœur de la
  *  Tyrie tomberait hors du cadre — on ne saurait ni qu'il existe ni où. */
 const DEMI_CADRE = 6_000;
+
+/** Ce que le pin annonce, faute d'un nom déjà saisi, et ce que la carte demande
+ *  tant que rien n'est posé. */
+const MOTS: Record<"lieu" | "evenement" | "rumeur", { sans: string; consigne: string }> = {
+  lieu: { sans: "Ce lieu", consigne: "Cliquez sur la carte pour poser le lieu." },
+  evenement: { sans: "Cet évènement", consigne: "Cliquez sur la carte pour poser la scène." },
+  rumeur: { sans: "Cette rumeur", consigne: "Cliquez sur la carte pour poser la rumeur." },
+};
 
 /** Choisir un emplacement en pointant la carte, plutôt qu'en tapant deux
  *  coordonnées. Les valeurs partent quand même dans le formulaire, par deux
@@ -22,13 +30,18 @@ export function MapPicker({
   type,
   name,
   initial,
+  height = 420,
   error,
 }: {
-  /** Ce qu'on pose : le pin reprend le glyphe du lieu ou de l'évènement. */
-  kind?: "lieu" | "evenement";
-  type: PlaceType | EventType;
+  /** Ce qu'on pose : le pin en reprend le glyphe. Une rumeur est son propre
+   *  type et n'en attend donc pas. */
+  kind?: "lieu" | "evenement" | "rumeur";
+  type?: PinType;
   name: string;
   initial?: { x: number; y: number } | null;
+  /** La hauteur de la carte, en pixels. Une colonne latérale ne peut pas en
+   *  donner autant qu'une page de formulaire. */
+  height?: number;
   error?: string;
 }) {
   const [point, setPoint] = useState<{ x: number; y: number } | null>(initial ?? null);
@@ -55,8 +68,8 @@ export function MapPicker({
         {
           id: "choisi",
           kind,
-          type,
-          name: name || (kind === "lieu" ? "Ce lieu" : "Cet évènement"),
+          type: type ?? "rumeur",
+          name: name || MOTS[kind].sans,
           meta: "Emplacement choisi",
           href: "#",
           x: point.x,
@@ -72,7 +85,7 @@ export function MapPicker({
       <input type="hidden" name="coordinateY" value={point?.y ?? ""} />
 
       <div className="framed">
-        <div className="h-[420px] w-full overflow-hidden border border-rule">
+        <div className="w-full overflow-hidden border border-rule" style={{ height }}>
           <MapCanvas
             pins={pins}
             onPick={setPoint}
@@ -84,11 +97,7 @@ export function MapPicker({
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p aria-live="polite" className="text-[16px] text-ink-muted">
-          {point
-            ? `Point posé en ${point.x} · ${point.y}.`
-            : kind === "lieu"
-              ? "Cliquez sur la carte pour poser le lieu."
-              : "Cliquez sur la carte pour poser la scène."}
+          {point ? `Point posé en ${point.x} · ${point.y}.` : MOTS[kind].consigne}
         </p>
         {point ? (
           <Button type="button" variant="outline" size="sm" onClick={() => setPoint(null)}>
