@@ -109,6 +109,9 @@ export default async function SeriesPage({ params }: Props) {
             <p className="mb-2 meta text-ink-muted">
               {tenues} tenue{tenues > 1 ? "s" : ""}
               {retirees > 0 ? ` · ${retirees} retirée${retirees > 1 ? "s" : ""}` : ""}
+              {series.maxOccurrences
+                ? ` · ${series.occurrenceCount} écrites sur les ${series.maxOccurrences} promises`
+                : ""}
             </p>
             <ul>
               {aVenir.map((occurrence, rang) => (
@@ -147,7 +150,7 @@ export default async function SeriesPage({ params }: Props) {
                 <span className="min-w-0 flex-1">
                   <Link
                     href={`/evenements/${occurrence.slug}`}
-                    className="text-[18px] text-ink-muted hover:underline"
+                    className="body-compact text-ink-muted hover:underline"
                   >
                     {formatLongDate(new Date(occurrence.startsAt))}
                   </Link>

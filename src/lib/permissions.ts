@@ -115,9 +115,11 @@ export function canSeeEvent(
   return Boolean(event.groupId && viewer.groupIds?.includes(event.groupId));
 }
 
-/** Qui peut inviter à une scène, changer son code et lui associer un groupe :
- *  celui qui l'organise. Un invité n'invite pas à son tour — sinon la liste
- *  échapperait à celui qui a posé la scène, comme pour les co-gérants d'un lieu. */
+/** Qui peut inviter à une scène, lire son code et le changer : qui peut la
+ *  modifier, c'est-à-dire son auteur et l'administration — celle-ci peut déjà
+ *  supprimer la scène, lui cacher son lien ne protégerait rien. Un invité,
+ *  lui, n'invite pas à son tour : sinon la liste échapperait à celui qui a posé
+ *  la scène, comme pour les co-gérants d'un lieu. */
 export function canManageEventGuests(user: SessionUser | null, authorId: string): boolean {
   return canEditContent(user, authorId);
 }

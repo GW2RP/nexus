@@ -187,13 +187,19 @@ async function ecrireSeances({
   return { dates, premierSlug };
 }
 
-/** Combien de séances une série écrit d'un coup. Une série sans fin n'écrit pas
- *  l'éternité : elle écrit un lot, et se prolonge depuis sa page. */
-function tailleDuLot(data: EventInput): number {
-  if (data.seriesEnd === "compte" && typeof data.seriesCount === "number") {
-    return Math.min(data.seriesCount, OCCURRENCES_MAX);
-  }
-  return OCCURRENCES_PAR_LOT;
+/** Le nombre de séances promis, ou `null` quand la série n'en promet pas.
+ *  Il est écrit sur la série : c'est lui qui fait disparaître « prolonger »
+ *  quand le compte est atteint. */
+function plafondPromis(data: EventInput): number | null {
+  if (data.seriesEnd !== "compte" || typeof data.seriesCount !== "number") return null;
+  return Math.min(data.seriesCount, OCCURRENCES_MAX);
+}
+
+/** Combien de séances s'écrivent d'un coup. Toujours un lot, promesse ou non :
+ *  écrire soixante annonces dans une seule action tiendrait la personne devant
+ *  un formulaire qui n'en finit pas. Le reste s'écrit en prolongeant. */
+function tailleDuLot(plafond: number | null): number {
+  return Math.min(OCCURRENCES_PAR_LOT, plafond ?? OCCURRENCES_PAR_LOT);
 }
 
 export async function createEventAction(
@@ -219,11 +225,13 @@ export async function createEventAction(
       });
     } else {
       const until = data.seriesEnd === "date" && data.seriesUntil instanceof Date ? data.seriesUntil : null;
+      const plafond = plafondPromis(data);
       const series = await EventSeries.create({
         recurrence: data.recurrence,
         monthlyMode: data.monthlyMode,
         anchorAt: data.startsAt,
         until: until ?? undefined,
+        maxOccurrences: plafond ?? undefined,
         lastOccurrenceAt: data.startsAt,
         occurrenceCount: 1,
         authorId: user.id,
@@ -247,7 +255,7 @@ export async function createEventAction(
         seriesId: series._id,
         ancre: data.startsAt,
         apres: data.startsAt,
-        combien: tailleDuLot(data) - 1,
+        combien: tailleDuLot(plafond) - 1,
         indexDepart: 2,
         pausedAt: null,
       });
@@ -522,10 +530,13 @@ export async function extendSeriesAction(
     if (series.until) return errorState("Cette série a une fin : elle ne se prolonge pas.");
 
     const ecrites = series.occurrenceCount ?? 0;
-    const reste = OCCURRENCES_MAX - ecrites;
+    const plafond = series.maxOccurrences ?? OCCURRENCES_MAX;
+    const reste = plafond - ecrites;
     if (reste <= 0) {
       return errorState(
-        `Une série ne dépasse pas ${OCCURRENCES_MAX} séances. Annoncez-en une nouvelle.`,
+        series.maxOccurrences
+          ? `Cette série en promettait ${series.maxOccurrences} : elle les a toutes. Annoncez-en une nouvelle.`
+          : `Une série ne dépasse pas ${OCCURRENCES_MAX} séances. Annoncez-en une nouvelle.`,
       );
     }
 

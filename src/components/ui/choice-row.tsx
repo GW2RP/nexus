@@ -45,7 +45,7 @@ export function ChoiceRow({
         className="mt-1 size-[18px] shrink-0 rounded-none accent-[var(--crimson)]"
       />
       <span className="flex flex-col gap-1">
-        <span className="text-[18px] text-ink">{title}</span>
+        <span className="body-compact text-ink">{title}</span>
         {hint ? <span className="caption text-ink-muted">{hint}</span> : null}
         {children}
       </span>

@@ -78,7 +78,7 @@ export default async function InvitationPage({ params }: Props) {
         </div>
 
         {event.summary ? (
-          <p className="mb-8 text-[19px] leading-[1.65] text-ink-body">{event.summary}</p>
+          <p className="mb-8 body text-ink-body">{event.summary}</p>
         ) : null}
 
         <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
@@ -140,7 +140,7 @@ function LienPerime({ code }: { code: string }) {
   return (
     <div className="mx-auto max-w-[760px] px-gutter-mobile py-10 lg:px-gutter-desktop">
       <PageHeader eyebrow="INVITATION" title="Ce lien n'ouvre plus rien" />
-      <p className="mb-8 text-[19px] leading-[1.65] text-ink-body">
+      <p className="mb-8 body text-ink-body">
         Le code <span className="font-display font-semibold tracking-[1px]">{code}</span> a été
         changé par l&apos;organisateur, ou l&apos;annonce a été retirée.
       </p>

@@ -140,6 +140,8 @@ export type EventSeriesDetail = {
   until: string | null;
   /** Combien de séances ont été écrites, retirées comprises. */
   occurrenceCount: number;
+  /** Le nombre de séances promis, quand la série s'arrête après un compte. */
+  maxOccurrences: number | null;
   /** Une série sans fin s'écrit par lots : il reste de la place pour un autre. */
   canExtend: boolean;
 };
@@ -152,13 +154,14 @@ export type EventDetail = EventSummary & {
   author: AuthorSummary | null;
   placeDetail: { id: string; slug: string; name: string; district: string | null; summary: string | null; region: Region } | null;
   participants: { id: string; name: string; slug: string; race: Race; gender: Gender }[];
-  /** Le code du lien de partage. Rendu à qui organise la scène, et à personne
-   *  d'autre : le donner à un invité reviendrait à lui laisser inviter. */
+  /** Le code du lien de partage. Rendu à qui peut modifier la scène — son
+   *  auteur, et l'administration, comme partout ailleurs dans le hub. Pas à un
+   *  invité : le lui donner reviendrait à le laisser inviter à son tour. */
   shareCode: string | null;
-  /** Les comptes invités nommément, pour la même raison rendus à l'organisateur. */
+  /** Les comptes invités nommément, rendus aux mêmes et pour la même raison. */
   invited: AuthorSummary[];
-  /** Les comptes inscrits, rendus au seul organisateur : la liste des invités
-   *  dit « inscrit » plutôt que « invité » pour ceux qui ont déjà répondu. */
+  /** Les comptes inscrits, rendus aux mêmes : la liste des invités dit
+   *  « inscrit » plutôt que « invité » pour ceux qui ont déjà répondu. */
   registeredUserIds: string[];
   /** La règle de la série, quand la scène en fait partie. */
   seriesDetail: EventSeriesDetail | null;

@@ -222,6 +222,9 @@ async function hydrateEvents(docs: EventDoc[], viewerId: string | null): Promise
 }
 
 function toSeriesDetail(doc: EventSeriesDocument & { _id: unknown }): EventSeriesDetail {
+  // Une série sans compte promis s'arrête à la borne dure ; une série qui en a
+  // un s'arrête là, et son bouton « prolonger » disparaît au bon moment.
+  const plafond = doc.maxOccurrences ?? OCCURRENCES_MAX;
   return {
     id: String(doc._id),
     recurrence: doc.recurrence as Exclude<Recurrence, "aucune">,
@@ -234,7 +237,8 @@ function toSeriesDetail(doc: EventSeriesDocument & { _id: unknown }): EventSerie
     paused: Boolean(doc.pausedAt),
     until: toIsoOrNull(doc.until),
     occurrenceCount: doc.occurrenceCount ?? 0,
-    canExtend: !doc.until && (doc.occurrenceCount ?? 0) < OCCURRENCES_MAX,
+    maxOccurrences: doc.maxOccurrences ?? null,
+    canExtend: !doc.until && (doc.occurrenceCount ?? 0) < plafond,
   };
 }
 
@@ -268,8 +272,9 @@ async function loadEvent(
 
   const [summary] = await hydrateEvents([doc], viewer?.id ?? null);
 
-  // Le code de partage et la liste des invités ne sortent que pour qui
-  // organise : les donner à un invité reviendrait à le laisser inviter.
+  // Le code de partage et la liste des invités ne sortent que pour qui peut
+  // modifier la scène — son auteur, et l'administration : les donner à un
+  // invité reviendrait à le laisser inviter à son tour.
   const manages = Boolean(viewer && (viewer.id === doc.authorId || viewer.role === "administration"));
 
   const [authors, organiser, place, registrations, series] = await Promise.all([

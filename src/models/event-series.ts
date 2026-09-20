@@ -25,8 +25,14 @@ const eventSeriesSchema = new Schema(
     monthlyMode: { type: String, enum: MONTHLY_MODES, default: "quantieme" },
     /** Le début de la première séance : il porte l'heure et le jour de la règle. */
     anchorAt: { type: Date, required: true },
-    /** Le dernier jour admis, quand la série en a un. */
+    /** Le dernier jour admis, quand la série s'arrête à une date. */
     until: { type: Date },
+    /** Le nombre de séances promis, quand la série s'arrête après un compte.
+     *  Il est écrit, et non déduit de ce qui a déjà été produit : sans lui, une
+     *  série annoncée « après douze séances » se prolongerait au-delà, et
+     *  l'écran promettrait une chose pendant que la règle en permettrait une
+     *  autre. */
+    maxOccurrences: { type: Number },
     /** La série est en pause depuis cet instant. Ses séances à venir quittent
      *  l'agenda sans perdre leurs inscrits, et y reviennent à la reprise. */
     pausedAt: { type: Date },
