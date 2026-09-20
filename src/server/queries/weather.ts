@@ -29,6 +29,7 @@ import {
   terrainFromDocument,
   type StoredStep,
 } from "@/server/weather/simulation";
+import { TAGS, remember } from "@/server/queries/cache";
 import type {
   TerrainZoneOutline,
   WeatherArea,
@@ -37,6 +38,15 @@ import type {
 } from "@/server/types";
 
 type Loaded = { state: WorldState; terrain: BakedTerrain };
+
+/** Le filet des lectures de météo, en secondes.
+ *
+ *  L'invalidation qui fait foi est l'étiquette, retirée par `/api/meteo/avancer`
+ *  à chaque pas joué. Ce délai ne sert qu'au cas où un avancement passerait sans
+ *  le dire — un déploiement pendant le cron, un appel manuel du script. Il est
+ *  plus court que les deux heures d'un pas : au pire on relit un pas déjà lu,
+ *  jamais on n'en manque un. */
+const FILET_METEO = 30 * 60;
 
 /**
  * Le dernier pas écrit, dépaqueté une seule fois par rendu de page.
@@ -121,15 +131,28 @@ function indexesByRegion(terrain: BakedTerrain): Map<Region, number[]> {
   return byRegion;
 }
 
-/** La météo en cours, une entrée par région dessinée. */
-export async function getCurrentWeather(): Promise<WeatherEntry[]> {
-  const loaded = await loadCurrentStep();
-  if (!loaded) return [];
-  const byRegion = indexesByRegion(loaded.terrain);
-  return REGIONS.map((region) => aggregate(loaded, region, byRegion.get(region) ?? [])).filter(
-    (entry): entry is WeatherEntry => entry !== null,
-  );
-}
+/** La météo en cours, une entrée par région dessinée.
+ *
+ *  Cachée, comme les autres lectures de météo — et c'est ici que le cache pèse
+ *  le plus lourd : un pas fait 2,73 Mo, et la moindre pastille de temps sur
+ *  l'accueil, une fiche de lieu ou la carte le faisait descendre d'Atlas puis
+ *  dépaqueter. Six nombres par région en sortent. Le résultat ne change qu'au
+ *  pas suivant, donc `/api/meteo/avancer` retire l'étiquette et rien d'autre ne
+ *  la touche ; l'heure par-dessus n'est qu'un filet, au cas où un avancement
+ *  passerait sans le dire. */
+export const getCurrentWeather = remember(
+  async function getCurrentWeather(): Promise<WeatherEntry[]> {
+    const loaded = await loadCurrentStep();
+    if (!loaded) return [];
+    const byRegion = indexesByRegion(loaded.terrain);
+    return REGIONS.map((region) => aggregate(loaded, region, byRegion.get(region) ?? [])).filter(
+      (entry): entry is WeatherEntry => entry !== null,
+    );
+  },
+  ["weather:current"],
+  [TAGS.weather],
+  FILET_METEO,
+);
 
 export const getWeatherForRegion = cache(async (region: Region): Promise<WeatherEntry | null> => {
   const loaded = await loadCurrentStep();
@@ -155,23 +178,65 @@ export const getWeatherAt = cache(
 );
 
 /**
- * La frise déjà calculée, une entrée par longueur demandée.
+ * Le numéro du pas courant, et lui seul.
  *
- * Rejouer douze pas coûte 1,75 s à la maille de 256 px, et `/meteo` est rendue
- * à la requête : sans ce cache, chaque visiteur les rejouerait.
- *
- * Une frise est entièrement déterminée par deux choses, et rien d'autre : le pas
- * d'où elle part et le nombre de pas demandés — le moteur est déterministe, et
- * le terrain voyage dans le pas lui-même. La longueur est donc la clé, et
- * l'entrée porte le pas qu'elle a joué : quand le pas courant change, l'entrée
- * ne lui correspond plus et se recalcule sur place. Il n'y a par conséquent
- * aucune horloge à régler, et rien à invalider de l'extérieur.
- *
- * Le cache vit dans l'instance, pas dans un magasin partagé : sur une instance
- * fraîche, le premier visiteur paie encore la frise. C'est le prix d'un cache
- * qui ne demande ni configuration ni invalidation.
+ * Un pas fait 2,73 Mo ; son numéro fait quelques octets. Savoir *où l'on en
+ * est* ne demande pas de descendre le pas entier, et c'est tout ce qu'il faut
+ * pour retrouver une frise déjà jouée.
  */
-const frises = new Map<number, { stepIndex: number; entries: WeatherEntry[] }>();
+const currentStepIndex = remember(
+  async function currentStepIndex(): Promise<number | null> {
+    await connectToDatabase();
+    const doc = await WeatherStep.findOne({ cellSize: CELL_SIZE, stepsPerDay: STEPS_PER_DAY })
+      .select({ stepIndex: 1 })
+      .sort({ stepIndex: -1 })
+      .lean();
+    return typeof doc?.stepIndex === "number" ? doc.stepIndex : null;
+  },
+  ["weather:step-index"],
+  [TAGS.weather],
+  FILET_METEO,
+);
+
+/**
+ * La frise d'un pas donné.
+ *
+ * Elle est entièrement déterminée par deux choses, et rien d'autre : le pas d'où
+ * elle part et le nombre de pas demandés — le moteur est déterministe, et le
+ * terrain voyage dans le pas lui-même. Les deux forment donc la clé, et **rien
+ * ne l'invalide** : une frise déjà jouée ne changera jamais, il n'y a ni horloge
+ * à régler ni étiquette à retirer. Le pas suivant demande simplement une autre
+ * clé.
+ *
+ * Rejouer douze pas coûte 1,75 s à la maille de 256 px. Ce cache-ci vit dans le
+ * magasin de Next, pas dans l'instance : une instance fraîche ne refait plus le
+ * calcul, et la frise ne se paie qu'une fois par pas pour tout le hub.
+ */
+const friseDuPas = remember(
+  async function friseDuPas(stepIndex: number, limit: number): Promise<WeatherEntry[]> {
+    const loaded = await loadCurrentStep();
+    // Le pas a tourné entre la lecture de son numéro et celle de son contenu :
+    // on rend la frise du pas qu'on a, plutôt qu'un mélange des deux.
+    if (!loaded || loaded.state.stepIndex !== stepIndex) return [];
+
+    const byRegion = indexesByRegion(loaded.terrain);
+    const entries: WeatherEntry[] = [];
+    let state = loaded.state;
+
+    for (let i = 1; i <= limit; i += 1) {
+      state = advanceStep(state, loaded.terrain, loaded.state.stepIndex + i);
+      const projete: Loaded = { state, terrain: loaded.terrain };
+      for (const region of REGIONS) {
+        const entry = aggregate(projete, region, byRegion.get(region) ?? []);
+        if (entry) entries.push(entry);
+      }
+    }
+
+    return entries;
+  },
+  ["weather:forecast"],
+  [],
+);
 
 /**
  * Les pas à venir.
@@ -181,30 +246,9 @@ const frises = new Map<number, { stepIndex: number; entries: WeatherEntry[] }>()
  * écrira. Rien n'est enregistré ici.
  */
 export async function getUpcomingWeather(limit = 8): Promise<WeatherEntry[]> {
-  const loaded = await loadCurrentStep();
-  if (!loaded) return [];
-
-  const connue = frises.get(limit);
-  // On rend une copie : le tableau rangé ici est relu à chaque requête, et un
-  // appelant qui le trierait abîmerait la frise de tous les suivants.
-  if (connue && connue.stepIndex === loaded.state.stepIndex) return [...connue.entries];
-
-  const byRegion = indexesByRegion(loaded.terrain);
-  const entries: WeatherEntry[] = [];
-  let state = loaded.state;
-
-  for (let i = 1; i <= limit; i += 1) {
-    const stepIndex = loaded.state.stepIndex + i;
-    state = advanceStep(state, loaded.terrain, stepIndex);
-    const projete: Loaded = { state, terrain: loaded.terrain };
-    for (const region of REGIONS) {
-      const entry = aggregate(projete, region, byRegion.get(region) ?? []);
-      if (entry) entries.push(entry);
-    }
-  }
-
-  frises.set(limit, { stepIndex: loaded.state.stepIndex, entries });
-  return [...entries];
+  const stepIndex = await currentStepIndex();
+  if (stepIndex === null) return [];
+  return friseDuPas(stepIndex, limit);
 }
 
 /**
@@ -220,46 +264,51 @@ export async function getUpcomingWeather(limit = 8): Promise<WeatherEntry[]> {
  * mesuré, les 143 360 cellules de la grille tiennent en quelques centaines de
  * sommets une fois recousues.
  */
-export async function getWeatherAreas(): Promise<WeatherArea[]> {
-  const loaded = await loadCurrentStep();
-  if (!loaded) return [];
+export const getWeatherAreas = remember(
+  async function getWeatherAreas(): Promise<WeatherArea[]> {
+    const loaded = await loadCurrentStep();
+    if (!loaded) return [];
 
-  const parPhenomene = new Map<Phenomene, number[]>();
-  const precipitations = new Map<number, number>();
-  for (let index = 0; index < CELL_COUNT; index += 1) {
-    if (!loaded.terrain.region[index]) continue;
-    const cell = readCell(loaded.state, index, loaded.terrain);
-    // L'ordre de priorité vit dans `phenomeneDominant` : le redire ici le ferait
-    // diverger au premier changement de règle.
-    const dominant = phenomeneDominant(cell);
-    if (!dominant) continue;
-    precipitations.set(index, cell.precipitation);
-    const liste = parPhenomene.get(dominant);
-    if (liste) liste.push(index);
-    else parPhenomene.set(dominant, [index]);
-  }
-
-  const zones: WeatherArea[] = [];
-  for (const phenomene of PHENOMENES) {
-    const cellules = parPhenomene.get(phenomene);
-    if (!cellules) continue;
-    for (const tache of taches(cellules)) {
-      const contour = contourDe(tache);
-      if (contour.anneaux.length === 0) continue;
-      const pluie =
-        tache.reduce((somme, index) => somme + (precipitations.get(index) ?? 0), 0) / tache.length;
-      zones.push({
-        id: `${phenomene}-${tache[0]}`,
-        phenomene,
-        anneaux: contour.anneaux,
-        centre: contour.centre,
-        cellules: contour.cellules,
-        precipitation: Math.round(pluie),
-      });
+    const parPhenomene = new Map<Phenomene, number[]>();
+    const precipitations = new Map<number, number>();
+    for (let index = 0; index < CELL_COUNT; index += 1) {
+      if (!loaded.terrain.region[index]) continue;
+      const cell = readCell(loaded.state, index, loaded.terrain);
+      // L'ordre de priorité vit dans `phenomeneDominant` : le redire ici le ferait
+      // diverger au premier changement de règle.
+      const dominant = phenomeneDominant(cell);
+      if (!dominant) continue;
+      precipitations.set(index, cell.precipitation);
+      const liste = parPhenomene.get(dominant);
+      if (liste) liste.push(index);
+      else parPhenomene.set(dominant, [index]);
     }
-  }
-  return zones;
-}
+
+    const zones: WeatherArea[] = [];
+    for (const phenomene of PHENOMENES) {
+      const cellules = parPhenomene.get(phenomene);
+      if (!cellules) continue;
+      for (const tache of taches(cellules)) {
+        const contour = contourDe(tache);
+        if (contour.anneaux.length === 0) continue;
+        const pluie =
+          tache.reduce((somme, index) => somme + (precipitations.get(index) ?? 0), 0) / tache.length;
+        zones.push({
+          id: `${phenomene}-${tache[0]}`,
+          phenomene,
+          anneaux: contour.anneaux,
+          centre: contour.centre,
+          cellules: contour.cellules,
+          precipitation: Math.round(pluie),
+        });
+      }
+    }
+    return zones;
+  },
+  ["weather:areas"],
+  [TAGS.weather],
+  FILET_METEO,
+);
 
 /**
  * Le temps en un point précis de la carte.
@@ -291,18 +340,23 @@ export async function getWeatherProbe(x: number, y: number): Promise<WeatherProb
   };
 }
 
-export async function listTerrainZones(): Promise<TerrainZoneOutline[]> {
-  await connectToDatabase();
-  const docs = await TerrainZone.find({}).sort(ORDRE_DAPPLICATION).lean();
-  return docs.map((doc) => ({
-    id: String(doc._id),
-    name: doc.name,
-    terrain: doc.terrain as Terrain,
-    region: (doc.region as Region | undefined) ?? null,
-    altitude: typeof doc.altitude === "number" ? doc.altitude : 0,
-    points: (doc.points ?? []).map((point) => ({ x: point.x, y: point.y })),
-  }));
-}
+/** Les tracés de terrain : ils ne bougent que depuis l'administration. */
+export const listTerrainZones = remember(
+  async function listTerrainZones(): Promise<TerrainZoneOutline[]> {
+      await connectToDatabase();
+      const docs = await TerrainZone.find({}).sort(ORDRE_DAPPLICATION).lean();
+      return docs.map((doc) => ({
+        id: String(doc._id),
+        name: doc.name,
+        terrain: doc.terrain as Terrain,
+        region: (doc.region as Region | undefined) ?? null,
+        altitude: typeof doc.altitude === "number" ? doc.altitude : 0,
+        points: (doc.points ?? []).map((point) => ({ x: point.x, y: point.y })),
+      }));
+  },
+  ["weather:terrain-zones"],
+  [TAGS.terrain],
+);
 
 export const getTerrainZone = cache(async (id: string): Promise<TerrainZoneOutline | null> => {
   await connectToDatabase();

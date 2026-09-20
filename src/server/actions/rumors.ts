@@ -6,6 +6,8 @@ import { canEditContent } from "@/lib/permissions";
 import { Character } from "@/models/character";
 import { Rumor } from "@/models/rumor";
 import {
+  invalidate,
+  TAGS,
   errorState,
   objectIdOrNull,
   parseForm,
@@ -64,6 +66,7 @@ export async function createRumorAction(
     return toActionState(error);
   }
 
+  invalidate(TAGS.rumors);
   revalidatePath("/rumeurs");
   revalidatePath("/carte");
   revalidatePath("/");
@@ -109,6 +112,7 @@ export async function echoRumorAction(
 
     if (!updated) return errorState("Cette rumeur n'est plus au tableau.");
 
+    invalidate(TAGS.rumors);
     revalidatePath("/rumeurs");
     const nowEchoed = (updated.echoedBy ?? []).includes(user.id);
     return successState(nowEchoed ? "Vous l'avez reprise." : "Vous ne la reprenez plus.");
@@ -135,6 +139,7 @@ export async function deleteRumorAction(
     return toActionState(error);
   }
 
+  invalidate(TAGS.rumors);
   revalidatePath("/rumeurs");
   revalidatePath("/carte");
   return successState("La rumeur est retirée du tableau.");

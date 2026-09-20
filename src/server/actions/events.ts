@@ -14,6 +14,8 @@ import { Event } from "@/models/event";
 import { Place } from "@/models/place";
 import { Registration } from "@/models/registration";
 import {
+  invalidate,
+  TAGS,
   errorState,
   objectIdOrNull,
   parseForm,
@@ -83,6 +85,7 @@ export async function createEventAction(
     return toActionState(error);
   }
 
+  invalidate(TAGS.events);
   revalidatePath("/evenements");
   revalidatePath("/carte");
   revalidatePath("/");
@@ -127,6 +130,7 @@ export async function updateEventAction(
     return toActionState(error);
   }
 
+  invalidate(TAGS.events);
   revalidatePath(`/evenements/${slug}`);
   revalidatePath("/evenements");
   redirect(`/evenements/${slug}`);
@@ -151,6 +155,7 @@ export async function deleteEventAction(
     return toActionState(error);
   }
 
+  invalidate(TAGS.events);
   revalidatePath("/evenements");
   revalidatePath("/carte");
   redirect("/evenements");

@@ -1,7 +1,8 @@
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { env } from "@/lib/env";
+import { TAGS } from "@/server/queries/cache";
 import { advanceWeather } from "@/server/weather/simulation";
 
 /** Le rattrapage peut enchaîner plusieurs pas : la valeur par défaut est courte. */
@@ -38,6 +39,11 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   if (produced.length > 0) {
+    // `revalidateTag` et non `updateTag` : celui-ci n'existe que dans une action
+    // serveur, et ceci est une route. `expire: 0` refuse de servir du périmé —
+    // le premier visiteur après un pas doit voir le pas qui vient d'être écrit,
+    // pas le précédent. Il n'y a qu'un avancement par heure pour le payer.
+    revalidateTag(TAGS.weather, { expire: 0 });
     revalidatePath("/meteo");
     revalidatePath("/carte");
     revalidatePath("/");

@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import {
+  invalidate,
+  TAGS,
   errorState,
   objectIdOrNull,
   idleState,
@@ -18,6 +20,7 @@ import { ORDRE_DAPPLICATION, TerrainZone } from "@/models/terrain-zone";
 /** Une zone change le terrain de la simulation : la carte, la météo et l'accueil
  *  en dépendent tous les trois. */
 function revalidateWeather() {
+  invalidate(TAGS.terrain);
   revalidatePath("/admin/terrains");
   revalidatePath("/meteo");
   revalidatePath("/carte");

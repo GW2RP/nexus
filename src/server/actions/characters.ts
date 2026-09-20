@@ -12,6 +12,8 @@ import { canEditContent } from "@/lib/permissions";
 import { uniqueSlug } from "@/lib/slug";
 import { Character } from "@/models/character";
 import {
+  invalidate,
+  TAGS,
   errorState,
   objectIdOrNull,
   parseForm,
@@ -41,6 +43,7 @@ export async function createCharacterAction(
     return toActionState(error);
   }
 
+  invalidate(TAGS.characters);
   revalidatePath("/personnages");
   revalidatePath("/");
   redirect(`/personnages/${slug}`);
@@ -84,6 +87,7 @@ export async function updateCharacterAction(
     return toActionState(error);
   }
 
+  invalidate(TAGS.characters);
   revalidatePath(`/personnages/${slug}`);
   revalidatePath("/personnages");
   redirect(`/personnages/${slug}`);
@@ -113,6 +117,7 @@ export async function deleteCharacterAction(
     return toActionState(error);
   }
 
+  invalidate(TAGS.characters);
   revalidatePath("/personnages");
   redirect("/personnages");
 }

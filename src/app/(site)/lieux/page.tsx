@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { PlaceCard } from "@/components/content/place-card";
 import { Button } from "@/components/ui/button";
+import { CardGridSkeleton } from "@/components/ui/card-grid-skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FilterChips } from "@/components/ui/filter-chips";
 import { LoadMore } from "@/components/ui/load-more";
 import { PageHeader } from "@/components/ui/page-header";
 import { SearchToolbar } from "@/components/ui/search-toolbar";
+import { PendingResults, UrlFilters } from "@/components/ui/url-filters";
 import {
   PLACE_TYPES,
   PLACE_TYPE_LABELS,
@@ -29,25 +32,118 @@ export const metadata: Metadata = buildMetadata({
   keywords: ["lieux RP Guild Wars 2", "taverne RP Tyrie", "siège de guilde GW2"],
 });
 
-export default async function PlacesPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  const params = await searchParams;
-  const user = await getCurrentUser();
+type Params = Record<string, string | string[] | undefined>;
 
+/** Les options de lecture, tirées de l'URL. Le sous-titre et la liste comptent
+ *  la même chose : sans cette fonction, l'un dirait « 2 lieux » pendant que
+ *  l'autre en montrerait un. Les deux appels retombent sur la même entrée de
+ *  cache, donc cela ne fait pas une requête de plus. */
+function lireOptions(params: Params) {
   const type = typeof params.type === "string" ? (params.type as PlaceType) : undefined;
   const region = typeof params.region === "string" ? (params.region as Region) : undefined;
-  const page = Number(params.page ?? 1) || 1;
-
-  const { items, total, hasMore } = await listPlaces({
+  return {
     query: typeof params.q === "string" ? params.q : undefined,
     type: PLACE_TYPES.includes(type as PlaceType) ? type : undefined,
     region: REGIONS.includes(region as Region) ? region : undefined,
-    page,
-    pageSize: 12 * page,
-  });
+    page: Number(params.page ?? 1) || 1,
+  };
+}
+
+/** Le registre des lieux. Même découpage que celui des personnages : la page
+ *  ne suspend pas, seule la liste le fait. */
+export default function PlacesPage({ searchParams }: { searchParams: Promise<Params> }) {
+  return (
+    <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 lg:px-gutter-desktop">
+      <PageHeader
+        title="Registre des lieux"
+        subtitle={
+          <Suspense fallback={null}>
+            <Compte searchParams={searchParams} />
+          </Suspense>
+        }
+        action={
+          <Suspense fallback={<BoutonProposer href="/connexion" />}>
+            <BoutonSelonLeCompte />
+          </Suspense>
+        }
+      />
+
+      <UrlFilters>
+        <SearchToolbar
+          searchLabel="Rechercher un lieu"
+          searchPlaceholder="Taverne, guilde, ruine…"
+        />
+
+        <div className="mb-8 flex flex-col gap-3">
+          <FilterChips
+            name="type"
+            legend="Filtrer par type de lieu"
+            allLabel="TOUS LES TYPES"
+            options={PLACE_TYPES.map((value) => ({
+              value,
+              label: PLACE_TYPE_LABELS[value].toLocaleUpperCase("fr-FR"),
+            }))}
+          />
+          <FilterChips
+            name="region"
+            legend="Filtrer par région"
+            allLabel="TOUTE LA TYRIE"
+            options={REGIONS.map((value) => ({
+              value,
+              label: REGION_LABELS[value].toLocaleUpperCase("fr-FR"),
+            }))}
+          />
+        </div>
+
+        <PendingResults>
+          <Suspense fallback={<CardGridSkeleton count={6} />}>
+            <Resultats searchParams={searchParams} />
+          </Suspense>
+        </PendingResults>
+      </UrlFilters>
+    </div>
+  );
+}
+
+async function Compte({ searchParams }: { searchParams: Promise<Params> }) {
+  const options = lireOptions(await searchParams);
+  const { total } = await listPlaces({ ...options, pageSize: 12 * options.page });
+  if (total === 0) return null;
+  return `${total} lieu${total > 1 ? "x" : ""}`;
+}
+
+function BoutonProposer({ href }: { href: string }) {
+  return (
+    <Button asChild size="lead">
+      <Link href={href}>PROPOSER UN LIEU</Link>
+    </Button>
+  );
+}
+
+async function BoutonSelonLeCompte() {
+  const user = await getCurrentUser();
+  return <BoutonProposer href={canContribute(user) ? "/lieux/nouveau" : "/connexion"} />;
+}
+
+async function Resultats({ searchParams }: { searchParams: Promise<Params> }) {
+  const params = await searchParams;
+  const options = lireOptions(params);
+  const page = options.page;
+
+  const { items, total, hasMore } = await listPlaces({ ...options, pageSize: 12 * page });
+
+  if (items.length === 0) {
+    return (
+      <EmptyState
+        title="Aucun lieu ne correspond"
+        action={
+          <Suspense fallback={null}>
+            <LienProposer />
+          </Suspense>
+        }
+      />
+    );
+  }
 
   const listJsonLd = {
     "@context": "https://schema.org",
@@ -68,67 +164,25 @@ export default async function PlacesPage({
   };
 
   return (
-    <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 lg:px-gutter-desktop">
+    <>
       <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdScript(listJsonLd)} />
+      <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+        {items.map((place) => (
+          <li key={place.id} className="flex">
+            <PlaceCard place={place} />
+          </li>
+        ))}
+      </ul>
+      <LoadMore page={page} hasMore={hasMore} searchParams={params} />
+    </>
+  );
+}
 
-      <PageHeader
-        title="Registre des lieux"
-        subtitle={total > 0 ? `${total} lieu${total > 1 ? "x" : ""}` : undefined}
-        action={
-          <Button asChild size="lead">
-            <Link href={canContribute(user) ? "/lieux/nouveau" : "/connexion"}>
-              PROPOSER UN LIEU
-            </Link>
-          </Button>
-        }
-      />
-
-      <SearchToolbar searchLabel="Rechercher un lieu" searchPlaceholder="Taverne, guilde, ruine…" />
-
-      <div className="mb-8 flex flex-col gap-3">
-        <FilterChips
-          name="type"
-          legend="Filtrer par type de lieu"
-          allLabel="TOUS LES TYPES"
-          options={PLACE_TYPES.map((value) => ({
-            value,
-            label: PLACE_TYPE_LABELS[value].toLocaleUpperCase("fr-FR"),
-          }))}
-        />
-        <FilterChips
-          name="region"
-          legend="Filtrer par région"
-          allLabel="TOUTE LA TYRIE"
-          options={REGIONS.map((value) => ({
-            value,
-            label: REGION_LABELS[value].toLocaleUpperCase("fr-FR"),
-          }))}
-        />
-      </div>
-
-      {items.length > 0 ? (
-        <>
-          <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-            {items.map((place) => (
-              <li key={place.id} className="flex">
-                <PlaceCard place={place} />
-              </li>
-            ))}
-          </ul>
-          <LoadMore page={page} hasMore={hasMore} searchParams={params} />
-        </>
-      ) : (
-        <EmptyState
-          title="Aucun lieu ne correspond"
-          action={
-            <Button asChild variant="outline">
-              <Link href={canContribute(user) ? "/lieux/nouveau" : "/connexion"}>
-                PROPOSER UN LIEU
-              </Link>
-            </Button>
-          }
-        />
-      )}
-    </div>
+async function LienProposer() {
+  const user = await getCurrentUser();
+  return (
+    <Button asChild variant="outline">
+      <Link href={canContribute(user) ? "/lieux/nouveau" : "/connexion"}>PROPOSER UN LIEU</Link>
+    </Button>
   );
 }

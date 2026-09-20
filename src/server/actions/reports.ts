@@ -15,6 +15,8 @@ import { Report } from "@/models/report";
 import { Rumor } from "@/models/rumor";
 import { User } from "@/models/user";
 import {
+  invalidate,
+  TAGS,
   errorState,
   objectIdOrNull,
   parseForm,
@@ -190,6 +192,10 @@ export async function resolveReportAction(
     return toActionState(error);
   }
 
+  // Une décision de modération peut supprimer ou masquer n'importe quel type de
+  // contenu, et le signalement ne dit pas toujours lequel a bougé : on retire
+  // les quatre familles plutôt que de deviner.
+  invalidate(TAGS.characters, TAGS.places, TAGS.events, TAGS.rumors);
   revalidatePath("/admin/signalements");
   redirect("/admin/signalements");
 }

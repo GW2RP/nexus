@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import type { Race } from "@/lib/domain";
+import { TAGS, remember } from "@/server/queries/cache";
 import { Character, type CharacterDocument } from "@/models/character";
 import { Place } from "@/models/place";
 import {
@@ -51,49 +52,84 @@ function toSummary(doc: CharacterDocument & { _id: unknown }): CharacterSummary 
   };
 }
 
-export async function listCharacters(options: ListOptions = {}) {
-  await connectToDatabase();
+/** Le registre, filtré et paginé. Cachée par jeu d'options : une race, un tri
+ *  et une page forment leur propre entrée, et un retour en arrière ne repart
+ *  pas jusqu'à Atlas. */
+export const listCharacters = remember(
+  async function listCharacters(options: ListOptions = {}) {
+    await connectToDatabase();
 
-  const pageSize = options.pageSize ?? PAGE_SIZE;
-  const page = Math.max(1, options.page ?? 1);
-  const filter: QueryFilter = { hidden: { $ne: true } };
+    const pageSize = options.pageSize ?? PAGE_SIZE;
+    const page = Math.max(1, options.page ?? 1);
+    const filter: QueryFilter = { hidden: { $ne: true } };
 
-  if (options.race) filter.race = options.race;
-  if (options.authorId) filter.authorId = options.authorId;
-  if (options.withPortrait) filter.portraitUrl = { $nin: [null, ""] };
-  if (options.query) {
-    const regex = searchRegex(options.query);
-    filter.$or = [{ name: regex }, { title: regex }, { summary: regex }];
-  }
+    if (options.race) filter.race = options.race;
+    if (options.authorId) filter.authorId = options.authorId;
+    if (options.withPortrait) filter.portraitUrl = { $nin: [null, ""] };
+    if (options.query) {
+      const regex = searchRegex(options.query);
+      filter.$or = [{ name: regex }, { title: regex }, { summary: regex }];
+    }
 
-  const [docs, total] = await Promise.all([
-    Character.find(filter as never)
-      .sort(SORTS[options.sort ?? "recents"])
-      .skip((page - 1) * pageSize)
-      .limit(pageSize)
-      .lean(),
-    Character.countDocuments(filter as never),
-  ]);
+    const [docs, total] = await Promise.all([
+      Character.find(filter as never)
+        .sort(SORTS[options.sort ?? "recents"])
+        .skip((page - 1) * pageSize)
+        .limit(pageSize)
+        .lean(),
+      Character.countDocuments(filter as never),
+    ]);
 
-  return {
-    items: docs.map((doc) => toSummary(doc as CharacterDocument & { _id: unknown })),
-    total,
-    page,
-    pageSize,
-    hasMore: page * pageSize < total,
-  };
-}
+    return {
+      items: docs.map((doc) => toSummary(doc as CharacterDocument & { _id: unknown })),
+      total,
+      page,
+      pageSize,
+      hasMore: page * pageSize < total,
+    };
+  },
+  ["characters:list"],
+  [TAGS.characters],
+);
 
-export async function countCharacters() {
-  await connectToDatabase();
-  const since = new Date();
-  since.setDate(since.getDate() - 90);
-  const [total, recent] = await Promise.all([
-    Character.countDocuments({ hidden: { $ne: true } }),
-    Character.countDocuments({ hidden: { $ne: true }, createdAt: { $gte: since } }),
-  ]);
-  return { total, recent };
-}
+/** Le sous-titre du registre : combien de fiches, et combien depuis un trimestre.
+ *
+ *  Un seul aller-retour plutôt que deux `countDocuments` : les deux comptes
+ *  lisent la même collection avec le même filtre de base, et `$facet` les tire
+ *  d'un seul passage.
+ *
+ *  La fenêtre de quatre-vingt-dix jours se referme d'elle-même : c'est la seule
+ *  lecture du hub dont le résultat change sans que personne n'écrive, donc la
+ *  seule qui a besoin d'une horloge. Une heure suffit pour un compte affiché
+ *  en sous-titre. */
+export const countCharacters = remember(
+  async function countCharacters() {
+    await connectToDatabase();
+    const since = new Date();
+    since.setDate(since.getDate() - 90);
+
+    const [row] = await Character.aggregate<{ total: number; recent: number }>([
+      { $match: { hidden: { $ne: true } } },
+      {
+        $facet: {
+          total: [{ $count: "n" }],
+          recent: [{ $match: { createdAt: { $gte: since } } }, { $count: "n" }],
+        },
+      },
+      {
+        $project: {
+          total: { $ifNull: [{ $arrayElemAt: ["$total.n", 0] }, 0] },
+          recent: { $ifNull: [{ $arrayElemAt: ["$recent.n", 0] }, 0] },
+        },
+      },
+    ]);
+
+    return { total: row?.total ?? 0, recent: row?.recent ?? 0 };
+  },
+  ["characters:count"],
+  [TAGS.characters],
+  3600,
+);
 
 export const getCharacterBySlug = cache(async (slug: string): Promise<CharacterDetail | null> => {
   await connectToDatabase();

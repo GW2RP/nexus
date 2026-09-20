@@ -1,14 +1,22 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { useOptimistic } from "react";
 
+import { useUrlFilters } from "@/components/ui/url-filters";
 import { cn } from "@/lib/utils";
 
 export type FilterOption = { value: string; label: string };
 
 /** La rangée de filtres : même forme que la puce de type, mais ce sont des boutons.
  *  Le premier est un « tout » actif par défaut. Les filtres vivent dans l'URL —
- *  c'est ce qui permet de partager un lien de liste filtrée. */
+ *  c'est ce qui permet de partager un lien de liste filtrée.
+ *
+ *  La puce cliquée s'allume avant que le serveur réponde : c'est un choix, et
+ *  un choix se voit au moment où on le fait. `useOptimistic` la rend à sa
+ *  valeur réelle dès que la navigation aboutit — ou revient en arrière si elle
+ *  échoue, plutôt que de laisser une puce allumée sur une liste qui n'a pas
+ *  changé. */
 export function FilterChips({
   name,
   options,
@@ -22,19 +30,12 @@ export function FilterChips({
   legend: string;
   className?: string;
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
-  const current = searchParams.get(name);
+  const { go } = useUrlFilters();
+  const [current, setCurrent] = useOptimistic(searchParams.get(name));
 
   function select(value: string | null) {
-    const params = new URLSearchParams(searchParams.toString());
-    if (value) params.set(name, value);
-    else params.delete(name);
-    // Un changement de filtre remet la liste à sa première page.
-    params.delete("page");
-    const query = params.toString();
-    router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    go({ [name]: value }, () => setCurrent(value));
   }
 
   return (
