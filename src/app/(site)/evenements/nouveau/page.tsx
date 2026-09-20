@@ -8,6 +8,7 @@ import { canContribute } from "@/lib/permissions";
 import { buildMetadata } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
 import { listCharactersOf } from "@/server/queries/characters";
+import { listGroupsLedBy } from "@/server/queries/groups";
 import { listPlaceOptions } from "@/server/queries/places";
 
 export const metadata: Metadata = buildMetadata({
@@ -27,9 +28,10 @@ export default async function NewEventPage({
   if (!user) redirect("/connexion?suite=/evenements/nouveau");
   if (!canContribute(user)) redirect("/evenements");
 
-  const [places, characters] = await Promise.all([
+  const [places, characters, groups] = await Promise.all([
     listPlaceOptions(),
     listCharactersOf(user.id),
+    listGroupsLedBy(user.id),
   ]);
 
   return (
@@ -42,6 +44,7 @@ export default async function NewEventPage({
         ownerId={user.id}
         places={places}
         characters={characters}
+        groups={groups}
         initialCoordinates={readPointParam(x, y)}
       />
     </div>

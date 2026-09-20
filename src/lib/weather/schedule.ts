@@ -12,7 +12,7 @@
  * en déduit le pas dû. Les tâches planifiées ne sont qu'un battement de cœur.
  */
 
-import { GAME_TIME_ZONE } from "@/lib/dates";
+import { fromGameCivil, gameCivil } from "@/lib/dates";
 
 export const HOURS_PER_STEP = 2;
 export const STEPS_PER_DAY = 24 / HOURS_PER_STEP;
@@ -48,61 +48,9 @@ const BORNES_DE_TRANCHE: { depuis: number; slice: StepSlice }[] = [
   { depuis: 0, slice: "nuit" },
 ];
 
-type Civil = { year: number; month: number; day: number; hour: number; minute: number; second: number };
-
-const PARTS = new Intl.DateTimeFormat("en-CA", {
-  timeZone: GAME_TIME_ZONE,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  hourCycle: "h23",
-});
-
-/** L'heure qu'il est à Paris, décomposée. */
-function civilAt(date: Date): Civil {
-  const parts = PARTS.formatToParts(date);
-  const read = (type: Intl.DateTimeFormatPartTypes) =>
-    Number(parts.find((part) => part.type === type)?.value ?? "0");
-  return {
-    year: read("year"),
-    month: read("month"),
-    day: read("day"),
-    hour: read("hour"),
-    minute: read("minute"),
-    second: read("second"),
-  };
-}
-
-/** De combien de minutes Paris devance UTC à cet instant. */
-function offsetMinutesAt(date: Date): number {
-  const civil = civilAt(date);
-  const asUtc = Date.UTC(
-    civil.year,
-    civil.month - 1,
-    civil.day,
-    civil.hour,
-    civil.minute,
-    civil.second,
-  );
-  return (asUtc - date.getTime()) / 60_000;
-}
-
-/** L'instant dont l'horloge de Paris affiche cette date et cette heure. */
-function fromCivil(year: number, month: number, day: number, hour: number): Date {
-  const guess = Date.UTC(year, month - 1, day, hour);
-  // Deux passes : la première corrige le décalage courant, la seconde le cas
-  // rare où la correction elle-même traverse un changement d'heure.
-  let instant = new Date(guess - offsetMinutesAt(new Date(guess)) * 60_000);
-  instant = new Date(guess - offsetMinutesAt(instant) * 60_000);
-  return instant;
-}
-
 /** Le numéro du pas en cours à cet instant. */
 export function stepIndexAt(date: Date): number {
-  const civil = civilAt(date);
+  const civil = gameCivil(date);
   const days = Math.floor(Date.UTC(civil.year, civil.month - 1, civil.day) / 86_400_000) - EPOCH_DAY;
   // À deux heures par pas, le changement d'heure ne passe plus inaperçu : au
   // printemps l'heure 2 n'existe pas, donc son numéro n'est jamais rendu ; à
@@ -118,7 +66,7 @@ export function stepStart(stepIndex: number): Date {
   const days = Math.floor(stepIndex / STEPS_PER_DAY);
   const slice = stepIndex - days * STEPS_PER_DAY;
   const midnight = new Date((EPOCH_DAY + days) * 86_400_000);
-  return fromCivil(
+  return fromGameCivil(
     midnight.getUTCFullYear(),
     midnight.getUTCMonth() + 1,
     midnight.getUTCDate(),

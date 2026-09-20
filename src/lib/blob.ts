@@ -19,7 +19,7 @@ import { isBlobUrl } from "@/lib/images";
 
 export { collectMarkdownImages, isBlobUrl } from "@/lib/images";
 
-export const IMAGE_FOLDERS = ["personnages", "lieux", "evenements"] as const;
+export const IMAGE_FOLDERS = ["personnages", "lieux", "evenements", "groupes"] as const;
 export type ImageFolder = (typeof IMAGE_FOLDERS)[number];
 
 /** Le chemin sous lequel une image est rangée dans le magasin. */

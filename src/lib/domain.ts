@@ -40,6 +40,46 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   intrigue: "Intrigue",
 };
 
+/** Qui peut voir une scène.
+ *
+ *  Deux états, pas trois : une scène privée porte toujours un code de partage,
+ *  et le groupe comme les invités nominatifs s'y ajoutent. Un troisième état
+ *  « réservée à un groupe » ne dirait rien de plus — il dirait seulement que la
+ *  liste d'invités est vide. */
+export const EVENT_VISIBILITIES = ["publique", "privee"] as const;
+export type EventVisibility = (typeof EVENT_VISIBILITIES)[number];
+
+export const EVENT_VISIBILITY_LABELS: Record<EventVisibility, string> = {
+  publique: "Publique",
+  privee: "Privée",
+};
+
+/** La cadence d'une série. Une scène qui ne se répète pas n'a pas de série. */
+export const RECURRENCES = ["aucune", "hebdomadaire", "mensuelle"] as const;
+export type Recurrence = (typeof RECURRENCES)[number];
+
+export const RECURRENCE_LABELS: Record<Recurrence, string> = {
+  aucune: "Ne se répète pas",
+  hebdomadaire: "Chaque semaine",
+  mensuelle: "Chaque mois",
+};
+
+/** « Le 17 de chaque mois » et « le troisième samedi du mois » sont deux séries
+ *  différentes qui partent du même jour. Le choix revient à l'organisateur :
+ *  rien dans la date de début ne permet de le deviner. */
+export const MONTHLY_MODES = ["quantieme", "rang-jour"] as const;
+export type MonthlyMode = (typeof MONTHLY_MODES)[number];
+
+/** Qui voit un groupe. Dans les deux cas, c'est le meneur qui ajoute les
+ *  membres : « public » dit qui voit le groupe, pas qui peut y entrer. */
+export const GROUP_VISIBILITIES = ["public", "prive"] as const;
+export type GroupVisibility = (typeof GROUP_VISIBILITIES)[number];
+
+export const GROUP_VISIBILITY_LABELS: Record<GroupVisibility, string> = {
+  public: "Public",
+  prive: "Privé",
+};
+
 export const PLACE_TYPES = ["taverne", "guilde", "ruine", "commerce"] as const;
 export type PlaceType = (typeof PLACE_TYPES)[number];
 

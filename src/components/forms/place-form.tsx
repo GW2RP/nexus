@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 
-import { CloseIcon } from "@/components/icons";
+import { AccountPicker } from "@/components/forms/account-picker";
 import { Button } from "@/components/ui/button";
 import { ImageField } from "@/components/forms/image-field";
 import { RichTextField } from "@/components/forms/rich-text-field";
@@ -23,7 +23,6 @@ import { cn } from "@/lib/utils";
 import {
   createPlaceAction,
   listKeeperOptionsAction,
-  searchAccountsAction,
   updatePlaceAction,
 } from "@/server/actions/places";
 import type { AuthorSummary, PlaceDetail } from "@/server/types";
@@ -217,9 +216,13 @@ export function PlaceForm({
           />
 
           {canChangeTeam ? (
-            <ManagerPicker
-              managers={managers}
-              authorId={ownerId}
+            <AccountPicker
+              label="Co-gérants"
+              inputId="co-gerant"
+              hint="Ils modifieront la fiche avec vous. La liste reste à vous."
+              removeLabel={(name) => `Retirer ${name} des co-gérants`}
+              selected={managers}
+              excludeIds={[ownerId]}
               onAdd={(account) =>
                 setManagers((current) =>
                   current.some((manager) => manager.id === account.id)
@@ -316,134 +319,6 @@ function KeeperPicker({
       ) : (
         <p className="caption text-ink-subtle">Aucun personnage à proposer.</p>
       )}
-      {error ? (
-        <p role="alert" className="caption text-crimson-ink">
-          {error}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-/** Les co-gérants : des comptes cherchés par leur pseudo, qui pourront modifier
- *  le lieu. La liste reste à l'auteur — un co-gérant ne s'en adjoint pas d'autres. */
-function ManagerPicker({
-  managers,
-  authorId,
-  onAdd,
-  onRemove,
-  error,
-}: {
-  managers: AuthorSummary[];
-  authorId: string;
-  onAdd: (account: AuthorSummary) => void;
-  onRemove: (id: string) => void;
-  error?: string;
-}) {
-  const [query, setQuery] = useState("");
-  // Le résultat porte le terme qu'il répond : tant que les deux diffèrent, la
-  // recherche est en cours, et « aucun compte » serait dit trop tôt. `accounts`
-  // à `null` dit que la recherche a échoué — ce qui n'est pas la même chose que
-  // n'avoir trouvé personne.
-  const [result, setResult] = useState<{
-    terme: string;
-    accounts: AuthorSummary[] | null;
-  } | null>(null);
-
-  const terme = query.trim();
-
-  useEffect(() => {
-    if (terme.length < 2) return;
-
-    // La recherche part après la frappe, pas à chaque touche : huit pseudos ne
-    // valent pas une requête par caractère. `abandoned` couvre ce que
-    // `clearTimeout` ne couvre pas : la requête déjà partie, dont la réponse
-    // tardive écraserait sinon celle d'un terme plus récent.
-    let abandoned = false;
-    const timer = setTimeout(() => {
-      searchAccountsAction(terme)
-        .then((accounts) => {
-          if (!abandoned) setResult({ terme, accounts });
-        })
-        .catch(() => {
-          if (!abandoned) setResult({ terme, accounts: null });
-        });
-    }, 300);
-
-    return () => {
-      abandoned = true;
-      clearTimeout(timer);
-    };
-  }, [terme]);
-
-  const reponse = result?.terme === terme ? result : null;
-  const proposed = (reponse?.accounts ?? []).filter(
-    (account) => account.id !== authorId && !managers.some((manager) => manager.id === account.id),
-  );
-
-  return (
-    <div className="flex flex-col gap-2">
-      <Label htmlFor="co-gerant">Co-gérants</Label>
-
-      {managers.length > 0 ? (
-        <ul className="flex flex-wrap gap-2">
-          {managers.map((manager) => (
-            <li
-              key={manager.id}
-              className="inline-flex items-center gap-2 border border-chip-edge bg-chip px-[10px] py-[7px]"
-            >
-              <span className="text-[16px] text-ink">{manager.name}</span>
-              <button
-                type="button"
-                onClick={() => onRemove(manager.id)}
-                aria-label={`Retirer ${manager.name} des co-gérants`}
-                className="text-ink-muted hover:text-crimson-ink"
-              >
-                <CloseIcon size={14} />
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      <Input
-        id="co-gerant"
-        type="search"
-        autoComplete="off"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        placeholder="Pseudo du joueur"
-      />
-
-      {proposed.length > 0 ? (
-        <ul className="flex flex-col border border-rule">
-          {proposed.map((account) => (
-            <li key={account.id} className="border-b border-hairline last:border-b-0">
-              <button
-                type="button"
-                onClick={() => {
-                  onAdd(account);
-                  setQuery("");
-                }}
-                className="flex min-h-tap w-full items-center px-[14px] text-left text-[17px] text-ink hover:bg-surface-selected"
-              >
-                {account.name}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      {reponse?.accounts && proposed.length === 0 ? (
-        <p className="caption text-ink-subtle">Aucun compte à ce nom.</p>
-      ) : null}
-
-      {reponse && reponse.accounts === null ? (
-        <p role="alert" className="caption text-crimson-ink">
-          La recherche n&apos;a pas abouti. Réessayez.
-        </p>
-      ) : null}
-
       {error ? (
         <p role="alert" className="caption text-crimson-ink">
           {error}

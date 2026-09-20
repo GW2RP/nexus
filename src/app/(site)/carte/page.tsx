@@ -27,7 +27,7 @@ export default async function MapPage({
 
   const [places, events, rumors, zones, areas] = await Promise.all([
     listPlacesForMap(),
-    listEvents({ viewerId: user?.id ?? null, limit: 60 }),
+    listEvents({ viewer: user, limit: 60 }),
     listRumorsForMap(),
     listTerrainZones(),
     getWeatherAreas(),

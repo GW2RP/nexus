@@ -28,11 +28,20 @@ export function RegistrationPanel({
   characters,
   isSignedIn,
   canRegister,
+  shareCode = null,
+  returnPath,
 }: {
   event: EventDetail;
   characters: CharacterSummary[];
   isSignedIn: boolean;
   canRegister: boolean;
+  /** Le code du lien par lequel on est arrivé. Il vaut l'accès : l'action le
+   *  revérifie, car une scène privée ne se rejoint pas en postant son
+   *  identifiant. */
+  shareCode?: string | null;
+  /** Où revenir après la connexion. Par défaut l'annonce ; depuis un lien de
+   *  partage, le lien lui-même — sans son code, la scène redevient introuvable. */
+  returnPath?: string;
 }) {
   const [registerState, registerAction] = useActionState(registerToEventAction, idleState);
   const [unregisterState, unregisterAction] = useActionState(
@@ -40,6 +49,8 @@ export function RegistrationPanel({
     idleState,
   );
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const retour = returnPath ?? `/evenements/${event.slug}`;
 
   const full =
     event.capacity !== null && event.capacity > 0 && event.registeredCount >= event.capacity;
@@ -51,7 +62,7 @@ export function RegistrationPanel({
           L'inscription demande un compte. Elle est annulable jusqu'à l'heure du rendez-vous.
         </p>
         <Button asChild size="lead">
-          <Link href={`/connexion?suite=/evenements/${event.slug}`}>SE CONNECTER POUR S'INSCRIRE</Link>
+          <Link href={`/connexion?suite=${encodeURIComponent(retour)}`}>SE CONNECTER POUR S&apos;INSCRIRE</Link>
         </Button>
       </div>
     );
@@ -114,6 +125,7 @@ export function RegistrationPanel({
   return (
     <form action={registerAction} className="flex flex-col gap-4">
       <input type="hidden" name="eventId" value={event.id} />
+      {shareCode ? <input type="hidden" name="code" value={shareCode} /> : null}
 
       {characters.length > 0 ? (
         <Field

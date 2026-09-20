@@ -1,11 +1,16 @@
 import { z } from "zod";
 
+import { fromGameInput } from "@/lib/dates";
 import { CONTINENT_HEIGHT, CONTINENT_WIDTH } from "@/lib/map";
 import {
   EVENT_TYPES,
+  EVENT_VISIBILITIES,
   GENDERS,
+  GROUP_VISIBILITIES,
+  MONTHLY_MODES,
   PLACE_TYPES,
   RACES,
+  RECURRENCES,
   REGIONS,
   REPORT_REASONS,
   REPORT_TARGETS,
@@ -59,6 +64,21 @@ const idList = (max: number, message: string) =>
       return Array.isArray(value) ? value : [value];
     },
     z.array(trimmed(40).min(1)).max(max, message),
+  );
+
+/** Les champs de date lisent l'horloge du serveur de jeu, celle que le
+ *  formulaire annonce — pas celle du serveur qui reçoit le formulaire.
+ *  `fromGameInput` porte la règle ; la récurrence la rend visible : une veillée
+ *  tapée samedi 23h00 deviendrait « le troisième dimanche » sans elle. */
+const lireHeureDeJeu = (value: unknown) =>
+  typeof value === "string" ? (fromGameInput(value) ?? value) : value;
+
+const gameDate = (message: string) => z.preprocess(lireHeureDeJeu, z.coerce.date({ message }));
+
+const optionalGameDate = () =>
+  z.preprocess(
+    (value) => lireHeureDeJeu(emptyToNull(value)),
+    z.coerce.date().nullable().optional(),
   );
 
 const optionalInteger = (min: number, max: number, message?: string) =>
@@ -121,8 +141,8 @@ export const eventSchema = z
     type: z.enum(EVENT_TYPES),
     summary: optionalText(300),
     description: optionalText(20000),
-    startsAt: z.coerce.date({ message: "La date de début est attendue." }),
-    endsAt: z.preprocess(emptyToNull, z.coerce.date().nullable().optional()),
+    startsAt: gameDate("La date de début est attendue."),
+    endsAt: optionalGameDate(),
     placeId: optionalText(40),
     freeLocationLabel: optionalText(160),
     // Une scène hors du registre se pose sur la carte comme un lieu. Quand elle
@@ -135,6 +155,16 @@ export const eventSchema = z
     bannerAlt: optionalText(240),
     organiserCharacterId: optionalText(40),
     practicalNotes: optionalText(2000),
+    /** Publique ou privée. Une scène privée quitte l'agenda et reçoit un code. */
+    visibility: z.enum(EVENT_VISIBILITIES).default("publique"),
+    /** Le groupe dont les membres la voient. L'action vérifie qu'on le mène. */
+    groupId: optionalText(40),
+    invitedUserIds: idList(30, "Une scène ne s'ouvre pas à plus de trente invités."),
+    recurrence: z.enum(RECURRENCES).default("aucune"),
+    monthlyMode: z.enum(MONTHLY_MODES).default("quantieme"),
+    seriesEnd: z.enum(["sans-fin", "compte", "date"]).default("sans-fin"),
+    seriesCount: optionalInteger(2, 60, "Le nombre de séances s'écrit en entier."),
+    seriesUntil: optionalGameDate(),
   })
   .refine((value) => value.placeId || value.freeLocationLabel, {
     message: "Choisissez un lieu du registre, ou décrivez un point libre sur la carte.",
@@ -147,7 +177,38 @@ export const eventSchema = z
   .refine((value) => !value.bannerUrl || Boolean(value.bannerAlt?.trim()), {
     message: ALT_REQUIRED,
     path: ["bannerAlt"],
-  });
+  })
+  // Une fin par date sans date, ou par nombre sans nombre, ne dit rien : le
+  // formulaire le demande déjà, et une soumission qui le contourne aussi.
+  .refine(
+    (value) => value.recurrence === "aucune" || value.seriesEnd !== "date" || Boolean(value.seriesUntil),
+    { message: "Donnez le dernier jour de la série.", path: ["seriesUntil"] },
+  )
+  .refine(
+    (value) =>
+      value.recurrence === "aucune" ||
+      value.seriesEnd !== "date" ||
+      !value.seriesUntil ||
+      value.seriesUntil > value.startsAt,
+    { message: "La fin de la série vient après sa première séance.", path: ["seriesUntil"] },
+  )
+  .refine(
+    (value) => value.recurrence === "aucune" || value.seriesEnd !== "compte" || Boolean(value.seriesCount),
+    { message: "Donnez le nombre de séances.", path: ["seriesCount"] },
+  );
+
+const groupFields = z.object({
+  name: trimmed(120).min(2, "Le nom fait au moins deux caractères."),
+  visibility: z.enum(GROUP_VISIBILITIES),
+  summary: optionalText(400),
+  description: optionalText(20000),
+  bannerUrl: optionalUrl("L'adresse de la bannière doit être une URL."),
+  bannerAlt: optionalText(240),
+  memberIds: idList(100, "Un groupe ne compte pas plus de cent membres."),
+});
+
+const groupAlt = altAccompaniesImage<z.infer<typeof groupFields>>("bannerUrl", "bannerAlt");
+export const groupSchema = groupFields.refine(groupAlt.check, groupAlt.options);
 
 export const rumorSchema = z.object({
   body: trimmed(600).min(20, "Une rumeur tient en au moins vingt caractères."),

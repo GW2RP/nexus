@@ -80,7 +80,7 @@ export default async function CharacterPage({ params }: Props) {
 
   const [rumors, events] = await Promise.all([
     listRumors({ characterId: character.id, pageSize: 3, viewerId: user?.id ?? null }),
-    listEvents({ limit: 4, viewerId: user?.id ?? null }),
+    listEvents({ limit: 4, viewer: user }),
   ]);
 
   const canEdit = canEditContent(user, character.authorId);

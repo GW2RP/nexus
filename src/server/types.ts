@@ -1,8 +1,12 @@
 import type {
   EventType,
+  EventVisibility,
   Gender,
+  GroupVisibility,
+  MonthlyMode,
   PlaceType,
   Race,
+  Recurrence,
   Region,
   ReportReason,
   ReportStatus,
@@ -113,6 +117,31 @@ export type EventSummary = {
   authorId: string;
   bannerUrl: string | null;
   pinned: boolean;
+  /** Publique, ou privée — auquel cas elle n'est pas à l'agenda public. */
+  visibility: EventVisibility;
+  /** Le groupe qui la voit, quand elle en a un. */
+  group: { id: string; slug: string; name: string } | null;
+  /** La série dont elle est une séance. Assez pour la puce « chaque semaine ». */
+  series: { id: string; recurrence: Recurrence; paused: boolean } | null;
+  /** Le rang de la séance dans sa série, à partir de 1. */
+  occurrenceIndex: number | null;
+  /** La séance a été retirée de sa série : elle n'est plus tenue. */
+  cancelled: boolean;
+};
+
+/** Ce qu'une série promet, tel que la page des séances le montre. */
+export type EventSeriesDetail = {
+  id: string;
+  recurrence: Exclude<Recurrence, "aucune">;
+  monthlyMode: MonthlyMode;
+  /** « Chaque mois, le troisième samedi à 21h00 ». */
+  rule: string;
+  paused: boolean;
+  until: string | null;
+  /** Combien de séances ont été écrites, retirées comprises. */
+  occurrenceCount: number;
+  /** Une série sans fin s'écrit par lots : il reste de la place pour un autre. */
+  canExtend: boolean;
 };
 
 export type EventDetail = EventSummary & {
@@ -123,6 +152,40 @@ export type EventDetail = EventSummary & {
   author: AuthorSummary | null;
   placeDetail: { id: string; slug: string; name: string; district: string | null; summary: string | null; region: Region } | null;
   participants: { id: string; name: string; slug: string; race: Race; gender: Gender }[];
+  /** Le code du lien de partage. Rendu à qui organise la scène, et à personne
+   *  d'autre : le donner à un invité reviendrait à lui laisser inviter. */
+  shareCode: string | null;
+  /** Les comptes invités nommément, pour la même raison rendus à l'organisateur. */
+  invited: AuthorSummary[];
+  /** Les comptes inscrits, rendus au seul organisateur : la liste des invités
+   *  dit « inscrit » plutôt que « invité » pour ceux qui ont déjà répondu. */
+  registeredUserIds: string[];
+  /** La règle de la série, quand la scène en fait partie. */
+  seriesDetail: EventSeriesDetail | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type GroupSummary = {
+  id: string;
+  slug: string;
+  name: string;
+  visibility: GroupVisibility;
+  summary: string | null;
+  bannerUrl: string | null;
+  bannerAlt: string | null;
+  /** Le meneur compris : il est membre de droit. */
+  memberCount: number;
+  upcomingEventCount: number;
+  authorId: string;
+  author: AuthorSummary | null;
+  viewerIsMember: boolean;
+};
+
+export type GroupDetail = GroupSummary & {
+  description: string | null;
+  /** Les membres, le meneur exclu — il est nommé à part. */
+  members: AuthorSummary[];
   createdAt: string;
   updatedAt: string;
 };
