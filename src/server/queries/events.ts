@@ -30,6 +30,9 @@ type ListOptions = {
   groupId?: string;
   /** Ne garder que les évènements auxquels ce compte est inscrit. */
   registeredFor?: string;
+  /** Ne garder que les scènes où ce personnage figure parmi les participants.
+   *  C'est ce que montre sa fiche : son agenda à lui, pas celui du hub. */
+  participantCharacterId?: string;
   from?: Date;
   to?: Date;
   includePast?: boolean;
@@ -111,18 +114,32 @@ export async function listEvents(options: ListOptions = {}): Promise<EventSummar
     filter.startsAt = window;
   }
 
+  // Les restrictions par inscription se posent chacune dans sa clause : deux
+  // `_id` dans le même objet s'écraseraient, et la seconde seule vaudrait.
+  const parInscription: QueryFilter[] = [];
+
   if (options.registeredFor) {
     const registrations = await Registration.find({ userId: options.registeredFor })
       .select({ eventId: 1 })
       .lean();
-    filter._id = { $in: registrations.map((registration) => registration.eventId) };
+    parInscription.push({ _id: { $in: registrations.map((registration) => registration.eventId) } });
+  }
+
+  if (options.participantCharacterId) {
+    const characterId = toObjectId(options.participantCharacterId);
+    const registrations = characterId
+      ? await Registration.find({ characterId, status: "inscrit" } as never)
+          .select({ eventId: 1 })
+          .lean()
+      : [];
+    parInscription.push({ _id: { $in: registrations.map((registration) => registration.eventId) } });
   }
 
   // Le filtre d'accès s'ajoute par `$and` : il porte ses propres `$or`, et
   // les fondre dans le filtre écraserait l'un ou l'autre.
-  const query = Event.find({ $and: [filter, await accessFilter(viewer, options.access)] } as never).sort({
-    startsAt: 1,
-  });
+  const query = Event.find({
+    $and: [filter, ...parInscription, await accessFilter(viewer, options.access)],
+  } as never).sort({ startsAt: 1 });
   if (options.limit) query.limit(options.limit);
   const docs = await query.lean();
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 
 import { PolygonPicker } from "@/components/map/polygon-picker";
+import { useKeptFormValues } from "@/components/forms/keep-values";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Slider } from "@/components/ui/field";
 import { FormMessage } from "@/components/ui/form-message";
@@ -30,10 +31,13 @@ export function TerrainZoneForm({ zone }: { zone?: TerrainZoneOutline }) {
     idleState,
   );
   const errors = state.fieldErrors ?? {};
+
+  // React vide un formulaire soumis : cette garde lui laisse ses valeurs.
+  const formulaire = useKeptFormValues();
   const [terrain, setTerrain] = useState<Terrain>(zone?.terrain ?? "mer");
 
   return (
-    <form action={formAction} className="flex max-w-[860px] flex-col gap-8">
+    <form ref={formulaire} action={formAction} className="flex max-w-[860px] flex-col gap-8">
       {zone ? <input type="hidden" name="id" value={zone.id} /> : null}
 
       <section>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 
+import { useKeptFormValues } from "@/components/forms/keep-values";
 import { AccountPicker } from "@/components/forms/account-picker";
 import { Button } from "@/components/ui/button";
 import { ChoiceRow } from "@/components/ui/choice-row";
@@ -73,6 +74,9 @@ export function EventForm({
   );
   const errors = state.fieldErrors ?? {};
 
+  // React vide un formulaire soumis : cette garde lui laisse ses valeurs.
+  const formulaire = useKeptFormValues();
+
   // Un évènement tenu dans un lieu du registre en hérite le point : la carte ne
   // s'ouvre que pour une scène qui se tient ailleurs, sinon deux emplacements
   // se contrediraient à l'écran. Le pin reprend le glyphe du type et le titre.
@@ -101,7 +105,7 @@ export function EventForm({
   const serieExistante = Boolean(event?.seriesDetail);
 
   return (
-    <form action={formAction} className="flex max-w-[760px] flex-col gap-8">
+    <form ref={formulaire} action={formAction} className="flex max-w-[760px] flex-col gap-8">
       {event ? <input type="hidden" name="id" value={event.id} /> : null}
       {visibility === "privee"
         ? guests.map((guest) => (
