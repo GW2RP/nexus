@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { DeleteContent } from "@/components/content/delete-content";
 import { TerrainZoneOrder } from "@/components/forms/terrain-zone-order";
 import { TerrainGridPreview } from "@/components/map/terrain-grid-preview";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { REGION_LABELS, TERRAIN_LABELS } from "@/lib/domain";
 import { buildMetadata } from "@/lib/seo";
+import { deleteTerrainZoneAction } from "@/server/actions/terrain-zones";
 import { getBakedTerrainGrid, listTerrainZones } from "@/server/queries/weather";
 
 export const metadata: Metadata = buildMetadata({
@@ -72,6 +74,18 @@ export default async function TerrainsPage() {
                     name={zone.name}
                     position={index + 1}
                     total={zones.length}
+                  />
+                  {/* Retirer une zone se fait d'ici comme la réordonner : c'est
+                      cette liste qu'on tient, et ouvrir la zone pour la jeter
+                      était un détour. */}
+                  <DeleteContent
+                    id={zone.id}
+                    action={deleteTerrainZoneAction}
+                    title={zone.name}
+                    question="Retirer cette zone ?"
+                    consequence="La simulation reprendra sans elle au prochain pas : le terrain qu'elle portait redevient de la plaine."
+                    excerpt={`${TERRAIN_LABELS[zone.terrain]}, ${zone.points.length} sommets`}
+                    verb="RETIRER LA ZONE"
                   />
                 </div>
               </li>
