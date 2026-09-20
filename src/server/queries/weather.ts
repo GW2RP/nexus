@@ -198,6 +198,8 @@ const currentStepIndex = remember(
   FILET_METEO,
 );
 
+type Frise = { stepIndex: number; entries: WeatherEntry[] };
+
 /**
  * La frise d'un pas donné.
  *
@@ -213,11 +215,9 @@ const currentStepIndex = remember(
  * calcul, et la frise ne se paie qu'une fois par pas pour tout le hub.
  */
 const friseDuPas = remember(
-  async function friseDuPas(stepIndex: number, limit: number): Promise<WeatherEntry[]> {
+  async function friseDuPas(stepIndex: number, limit: number): Promise<Frise | null> {
     const loaded = await loadCurrentStep();
-    // Le pas a tourné entre la lecture de son numéro et celle de son contenu :
-    // on rend la frise du pas qu'on a, plutôt qu'un mélange des deux.
-    if (!loaded || loaded.state.stepIndex !== stepIndex) return [];
+    if (!loaded) return null;
 
     const byRegion = indexesByRegion(loaded.terrain);
     const entries: WeatherEntry[] = [];
@@ -232,7 +232,12 @@ const friseDuPas = remember(
       }
     }
 
-    return entries;
+    // L'entrée porte le pas qu'elle a réellement joué, et non celui qu'on lui a
+    // demandé. Les deux peuvent différer — le numéro vient d'une lecture cachée,
+    // le contenu d'une lecture d'à présent —, et comme rien n'invalide cette
+    // entrée, une frise vide rangée là le resterait pour toujours. Mieux vaut
+    // une frise juste sous une clé fausse : l'appelant le voit et se corrige.
+    return { stepIndex: loaded.state.stepIndex, entries };
   },
   ["weather:forecast"],
   [],
@@ -248,7 +253,16 @@ const friseDuPas = remember(
 export async function getUpcomingWeather(limit = 8): Promise<WeatherEntry[]> {
   const stepIndex = await currentStepIndex();
   if (stepIndex === null) return [];
-  return friseDuPas(stepIndex, limit);
+
+  const frise = await friseDuPas(stepIndex, limit);
+  if (!frise) return [];
+  if (frise.stepIndex === stepIndex) return frise.entries;
+
+  // Notre numéro de pas était périmé. On redemande sous celui que la frise a
+  // joué : l'entrée se range à la bonne clé pour les visiteurs suivants, et
+  // celle-ci sert la frise qu'on a déjà plutôt que de ne rien montrer.
+  const corrigee = await friseDuPas(frise.stepIndex, limit);
+  return corrigee?.entries ?? frise.entries;
 }
 
 /**
@@ -343,16 +357,16 @@ export async function getWeatherProbe(x: number, y: number): Promise<WeatherProb
 /** Les tracés de terrain : ils ne bougent que depuis l'administration. */
 export const listTerrainZones = remember(
   async function listTerrainZones(): Promise<TerrainZoneOutline[]> {
-      await connectToDatabase();
-      const docs = await TerrainZone.find({}).sort(ORDRE_DAPPLICATION).lean();
-      return docs.map((doc) => ({
-        id: String(doc._id),
-        name: doc.name,
-        terrain: doc.terrain as Terrain,
-        region: (doc.region as Region | undefined) ?? null,
-        altitude: typeof doc.altitude === "number" ? doc.altitude : 0,
-        points: (doc.points ?? []).map((point) => ({ x: point.x, y: point.y })),
-      }));
+    await connectToDatabase();
+    const docs = await TerrainZone.find({}).sort(ORDRE_DAPPLICATION).lean();
+    return docs.map((doc) => ({
+      id: String(doc._id),
+      name: doc.name,
+      terrain: doc.terrain as Terrain,
+      region: (doc.region as Region | undefined) ?? null,
+      altitude: typeof doc.altitude === "number" ? doc.altitude : 0,
+      points: (doc.points ?? []).map((point) => ({ x: point.x, y: point.y })),
+    }));
   },
   ["weather:terrain-zones"],
   [TAGS.terrain],
