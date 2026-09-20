@@ -1,16 +1,28 @@
 /**
  * La grille de simulation, posée sur le continent.
  *
- * Une cellule fait 512 px : 81 920 / 512 = 160 et 114 688 / 512 = 224, donc la
+ * Une cellule fait 256 px : 81 920 / 256 = 320 et 114 688 / 256 = 448, donc la
  * grille tombe juste sur les deux dimensions, sans cellule tronquée au bord.
+ * Il n'y a pas de maille intermédiaire à espérer : 81 920 = 2¹⁴ × 5 et
+ * 114 688 = 2¹⁴ × 7, donc seules les puissances de deux divisent les deux
+ * côtés. On double ou on divise par deux, jamais entre les deux.
  *
  * La maille n'est pas choisie pour le continent mais pour la partie habitée. Le
  * rectangle du continent est très majoritairement vide : les six régions du hub
  * tiennent dans environ 22 000 × 21 000 px. À 4 096 px la Kryte entière faisait
  * trois cellules, et un marais ne pouvait pas y différer de la plaine voisine ;
- * à 512 px elle en fait deux cents, et une zone carrée de deux mille pixels de
- * côté — l'ordre de grandeur des marais du hub — en couvre une quinzaine contre
- * quatre à 1 024 px.
+ * à 256 px elle en fait sept cent cinquante, et une zone carrée de deux mille
+ * pixels de côté — l'ordre de grandeur des marais du hub — en couvre soixante.
+ *
+ * **Une zone plus fine que la cellule n'existe pas.** C'est la conséquence
+ * directe de la règle du centre, et c'est elle qui décide de la maille : mesuré
+ * sur une bande traversant la carte, une bande droite plus étroite que la
+ * cellule ne réclame *aucune* cellule quand elle passe entre deux centres, et
+ * une bande en biais ne forme un trait continu qu'à partir d'environ 1,4 fois
+ * la maille. Une rivière doit donc être dessinée au moins aussi large que la
+ * cellule — 256 px, 362 px si elle court en biais — pour que la simulation la
+ * voie sur tout son cours. `/admin/terrains` montre la grille cuite pour que
+ * ça se vérifie à l'œil plutôt que de se deviner.
  *
  * **La finesse de la maille ne change pas le temps qu'il fait.** Les grandeurs
  * spatiales du moteur — rayon et vitesse d'un système, gradient de pression,
@@ -25,10 +37,10 @@
 import { CONTINENT_HEIGHT, CONTINENT_WIDTH } from "@/lib/map";
 import type { Region, Terrain } from "@/lib/domain";
 
-export const CELL_SIZE = 512;
-export const GRID_COLS = CONTINENT_WIDTH / CELL_SIZE; // 160
-export const GRID_ROWS = CONTINENT_HEIGHT / CELL_SIZE; // 224
-export const CELL_COUNT = GRID_COLS * GRID_ROWS; // 35 840
+export const CELL_SIZE = 256;
+export const GRID_COLS = CONTINENT_WIDTH / CELL_SIZE; // 320
+export const GRID_ROWS = CONTINENT_HEIGHT / CELL_SIZE; // 448
+export const CELL_COUNT = GRID_COLS * GRID_ROWS; // 143 360
 
 /** La maille pour laquelle les grandeurs spatiales du moteur sont écrites. */
 export const MAILLE_DE_REFERENCE = 2_048;
@@ -76,11 +88,17 @@ export function cellCenter(index: number): Point {
 }
 
 /** Le rectangle d'une cellule, en pixels de continent — de quoi le convertir en
- *  bornes Leaflet par le `toBounds` de la carte. */
-export function cellRect(index: number): { left: number; top: number; right: number; bottom: number } {
+ *  bornes Leaflet par le `toBounds` de la carte.
+ *
+ *  `length` étend le rectangle vers la droite, sur la même ligne : c'est ce qui
+ *  permet de dessiner une suite de cellules voisines d'un seul trait. */
+export function cellRect(
+  index: number,
+  length = 1,
+): { left: number; top: number; right: number; bottom: number } {
   const left = cellColumn(index) * CELL_SIZE;
   const top = cellRow(index) * CELL_SIZE;
-  return { left, top, right: left + CELL_SIZE, bottom: top + CELL_SIZE };
+  return { left, top, right: left + length * CELL_SIZE, bottom: top + CELL_SIZE };
 }
 
 /** L'index du voisin, ou `null` au bord : la grille ne s'enroule pas. */

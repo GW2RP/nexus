@@ -155,6 +155,25 @@ export const getWeatherAt = cache(
 );
 
 /**
+ * La frise déjà calculée, une entrée par longueur demandée.
+ *
+ * Rejouer douze pas coûte 1,75 s à la maille de 256 px, et `/meteo` est rendue
+ * à la requête : sans ce cache, chaque visiteur les rejouerait.
+ *
+ * Une frise est entièrement déterminée par deux choses, et rien d'autre : le pas
+ * d'où elle part et le nombre de pas demandés — le moteur est déterministe, et
+ * le terrain voyage dans le pas lui-même. La longueur est donc la clé, et
+ * l'entrée porte le pas qu'elle a joué : quand le pas courant change, l'entrée
+ * ne lui correspond plus et se recalcule sur place. Il n'y a par conséquent
+ * aucune horloge à régler, et rien à invalider de l'extérieur.
+ *
+ * Le cache vit dans l'instance, pas dans un magasin partagé : sur une instance
+ * fraîche, le premier visiteur paie encore la frise. C'est le prix d'un cache
+ * qui ne demande ni configuration ni invalidation.
+ */
+const frises = new Map<number, { stepIndex: number; entries: WeatherEntry[] }>();
+
+/**
  * Les pas à venir.
  *
  * Ce n'est pas une promesse : le moteur étant déterministe, rejouer le pas
@@ -164,6 +183,11 @@ export const getWeatherAt = cache(
 export async function getUpcomingWeather(limit = 8): Promise<WeatherEntry[]> {
   const loaded = await loadCurrentStep();
   if (!loaded) return [];
+
+  const connue = frises.get(limit);
+  // On rend une copie : le tableau rangé ici est relu à chaque requête, et un
+  // appelant qui le trierait abîmerait la frise de tous les suivants.
+  if (connue && connue.stepIndex === loaded.state.stepIndex) return [...connue.entries];
 
   const byRegion = indexesByRegion(loaded.terrain);
   const entries: WeatherEntry[] = [];
@@ -179,7 +203,8 @@ export async function getUpcomingWeather(limit = 8): Promise<WeatherEntry[]> {
     }
   }
 
-  return entries;
+  frises.set(limit, { stepIndex: loaded.state.stepIndex, entries });
+  return [...entries];
 }
 
 /**
@@ -192,7 +217,7 @@ export async function getUpcomingWeather(limit = 8): Promise<WeatherEntry[]> {
  *
  * Le contour se calcule ici plutôt qu'au navigateur : c'est de la géométrie
  * pure, et une tache pèse bien moins que les cellules qui la composent —
- * mesuré, les 35 840 cellules de la grille tiennent en quelques dizaines de
+ * mesuré, les 143 360 cellules de la grille tiennent en quelques centaines de
  * sommets une fois recousues.
  */
 export async function getWeatherAreas(): Promise<WeatherArea[]> {
@@ -303,9 +328,9 @@ export const getTerrainZone = cache(async (id: string): Promise<TerrainZoneOutli
  * simulation — et ça se voit à l'écran au lieu de se deviner.
  *
  * La forme compte autant que le contenu. À cette maille, la même grille en liste
- * de `{ index, terrain }` pèse 1 093 Ko ; en rangs, 35 Ko — et l'écran passe de
- * 744 à 141 ms pour répondre à un clic de sonde. Le rang est déjà l'entier écrit
- * dans les pas stockés, donc on ne code rien de nouveau ici.
+ * de `{ index, terrain }` pèse 4 805 Ko ; en rangs, 140 Ko — trente-quatre fois
+ * moins à descendre à chaque ouverture de l'écran. Le rang est déjà l'entier
+ * écrit dans les pas stockés, donc on ne code rien de nouveau ici.
  */
 export async function getBakedTerrainGrid(): Promise<string> {
   await connectToDatabase();

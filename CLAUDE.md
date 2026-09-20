@@ -50,8 +50,8 @@ nombres.
 ## La météo
 
 Elle est **simulée**, pas écrite : personne ne pose un bulletin à la main.
-Un pas toutes les deux heures — douze par jour — sur une grille de 160 × 224
-cellules de 512 px, avancée par `/api/meteo/avancer` que Vercel déclenche
+Un pas toutes les deux heures — douze par jour — sur une grille de 320 × 448
+cellules de 256 px, avancée par `/api/meteo/avancer` que Vercel déclenche
 **toutes les heures**. `src/lib/weather/engine.ts` est une **fonction pure** —
 aucune base, et jamais `Math.random()` : le hasard sort d'une graine rangée dans
 l'état, sinon la frise de prévision mentirait.
@@ -61,6 +61,10 @@ Les taux du moteur sont écrits **pour six heures** et convertis à la cadence
 passe par `relaxe`, qui conserve le point fixe : diviser la source suffirait à
 faire disparaître les orages. Les seuils vivent dans `SEUILS`, jamais nus au
 milieu d'une condition.
+
+La maille se double ou se divise par deux, jamais entre les deux : 81 920 = 2¹⁴ × 5
+et 114 688 = 2¹⁴ × 7, donc seules les puissances de deux tombent juste sur les
+deux côtés du continent.
 
 **La finesse de la maille ne change pas le temps qu'il fait.** Les grandeurs
 spatiales — rayon et vitesse d'un système, gradient de pression, distance
@@ -79,10 +83,22 @@ consomme cellule par cellule, donc deux mailles ne jouent jamais la même mété
 d'une graine à l'autre la pluie passe de 1,4 à 14 % des cellules. On rejoue les
 **mêmes graines** aux deux mailles et on compare graine par graine.
 
-Un pas coûte 701 Ko à cette maille, quatre fois plus qu'à 1 024 px. C'est pourquoi
-l'historique se limite à **sept jours** : rien ne relit un pas ancien — on reprend
-le dernier écrit, la prévision se rejoue en avant, et le rattrapage est plafonné à
-trois jours. Le reste est une archive, et une archive n'a pas à quadrupler.
+Un pas coûte 2,73 Mo à cette maille, quatre fois plus qu'à 512 px — et sous cette
+forme seulement : les mêmes champs en tableaux BSON **ne se sérialisent plus**,
+ils dépassent les 16 Mo d'un document. L'empaquetage n'est plus une économie,
+c'est ce qui rend le pas stockable.
+
+L'historique se limite donc à ce qui peut encore servir, c'est-à-dire au
+**plafond de rattrapage** : `RETENTION_JOURS = RATTRAPAGE_JOURS`, trois jours,
+98 Mo. Rien ne relit un pas ancien — on reprend le dernier écrit, la prévision se
+rejoue en avant, et au-delà du plafond un pas ne peut même plus servir à
+rattraper. Ce n'est plus une archive, c'est du poids mort.
+
+Rejouer la frise coûte 1,75 s à cette maille, et `/meteo` est rendue à la
+requête. Elle est donc **calculée une fois par pas** (`frises`, dans
+`src/server/queries/weather.ts`) : la frise ne dépend que du pas courant, donc le
+numéro de pas est sa clé et il n'y a rien à faire expirer. Le cache vit dans
+l'instance — sur une instance fraîche, le premier visiteur la paie encore.
 
 Un pas porte sa cadence **et sa maille** (`stepsPerDay`, `cellSize`). En changer
 l'une ou l'autre rend les pas illisibles — la numérotation ne veut plus rien
@@ -103,12 +119,27 @@ Deux règles de fuseau, à ne pas défaire :
 Le terrain se cuit depuis les zones à chaque avancement, jamais stocké cuit :
 rien à invalider, donc rien qui puisse être périmé. Une cellule se juge par son
 **centre** — une zone trop petite pour en couvrir un n'existe pas pour la
-simulation. `/admin/terrains` montre la grille cuite pour que ça se voie, et un
-clic sonde un point : la zone qui le couvre, et celle que la simulation retient
-pour sa cellule. Les deux passent par `zoneAt`, celui de la cuisson, sinon le
-relevé pourrait mentir. La grille descend à l'écran en **un caractère par
-cellule** — le rang du terrain — et non en liste d'objets : à 35 840 cellules,
-c'est 35 Ko contre 1 093.
+simulation. Ce n'est pas une approximation, c'est une contrainte de dessin :
+mesuré, une bande droite plus étroite que la cellule ne réclame **aucune**
+cellule quand elle passe entre deux centres, et une bande en biais ne forme un
+trait continu qu'à partir d'environ 1,4 fois la maille. **Une rivière se dessine
+donc au moins aussi large que la cellule** — 256 px, 362 px en biais — sans quoi
+elle apparaît en pointillé, ou pas du tout. Diviser la maille par deux ne fait
+que diviser par deux cette largeur minimale ; élargir le tracé coûte moins cher.
+
+`/admin/terrains` montre la grille cuite pour que ça se voie, et un clic sonde
+un point : la zone qui le couvre, et celle que la simulation retient pour sa
+cellule. Les deux passent par `zoneAt`, celui de la cuisson, sinon le relevé
+pourrait mentir. La grille descend à l'écran en **un caractère par cellule** — le
+rang du terrain — et non en liste d'objets : à 143 360 cellules, c'est 140 Ko
+contre 4 805.
+
+Une fois là, elle se dessine **par suites de cellules**, pas cellule par cellule.
+Ces rectangles n'ont pas de trait, donc deux voisines de même terrain ne se
+distinguent déjà pas et les recoudre ne change pas un pixel — mesuré, l'image est
+identique au bit près. Mais l'écran passe de 139 426 calques et 11,7 s à 1 040 et
+2,2 s, et le clic de sonde de 261 à 26 ms. Un rectangle par cellule ne tient plus
+à cette maille.
 
 **L'ordre d'application des zones se modifie depuis l'administration**, et c'est
 la dernière de la liste qui l'emporte. Un seul tri fait foi partout

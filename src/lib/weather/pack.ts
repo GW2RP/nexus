@@ -1,12 +1,15 @@
 /**
  * L'empaquetage des champs de la grille.
  *
- * Mesuré : les dix champs d'un pas en tableaux BSON pèsent 3,65 Mo, les mêmes
- * empaquetés en entiers signés de 16 bits en pèsent 701 Ko — 5,3 fois moins,
- * douze fois par jour. Toutes nos grandeurs tiennent dans un int16, et il n'y a
- * qu'un encodage à se tromper.
+ * À la maille de 256 px, ce n'est plus une économie mais la condition d'exister :
+ * mesuré, un pas dont les dix champs voyagent en tableaux BSON **ne se sérialise
+ * plus** — il dépasse les 16 Mo d'un document MongoDB. Les mêmes champs en
+ * entiers signés de 16 bits pèsent 2,73 Mo. (À 512 px, c'était 4,49 Mo contre
+ * 701 Ko : une économie, pas encore une obligation.)
  *
- * La température voyage en dixièmes de degré ; tout le reste est déjà entier.
+ * Toutes nos grandeurs tiennent dans un int16, et il n'y a qu'un encodage à se
+ * tromper. La température voyage en dixièmes de degré ; tout le reste est déjà
+ * entier.
  */
 
 export const PACK_SCALE_TEMPERATURE = 10;

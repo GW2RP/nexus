@@ -69,9 +69,18 @@ export type MapArea = {
 /** Le point sondé, s'il y en a un. */
 export type MapProbe = { x: number; y: number };
 
-/** Une cellule de la grille météo, teintée selon ce qu'il y tombe. */
-export type MapCell = {
+/** Une suite de cellules voisines d'une même ligne, d'une seule teinte.
+ *
+ *  Pas une cellule : à 143 360 cellules, un rectangle Leaflet par cellule met
+ *  onze secondes à se poser. Comme ces rectangles n'ont pas de trait
+ *  (`stroke: false`), deux cellules voisines de même teinte ne se distinguent
+ *  déjà pas — les recoudre en une ne change donc rien à l'image, seulement au
+ *  nombre de calques. */
+export type MapCellRun = {
+  /** La première cellule de la suite. */
   index: number;
+  /** Combien de cellules elle couvre, vers la droite, sur la même ligne. */
+  length: number;
   tone: MapTone;
   /** De 0 à 1. */
   fill: number;
@@ -109,7 +118,7 @@ export function TyriaMap({
   areas?: MapArea[];
   /** La grille cuite, cellule par cellule. L'administration en a besoin pour
    *  voir la maille ; le hub, non — il voit des zones. */
-  cells?: MapCell[];
+  cells?: MapCellRun[];
   /** Le point sondé, marqué d'une croix. */
   probe?: MapProbe | null;
   selectedId?: string | null;
@@ -318,12 +327,13 @@ export function TyriaMap({
     probeRef.current = marque;
   }, [probe]);
 
-  // La grille cuite, un rectangle par cellule — celles que l'appelant passe, et
-  // lui seul : l'administration écarte la plaine, donc le compte suit les zones
-  // dessinées et non la taille de la grille. Avec celles du hub, 35 248 sur
-  // 35 840 ; mesuré, le calque se pose en une seconde et un clic répond en
-  // 141 ms. C'est le plafond de ce tracé-là — le hub, lui, voit des zones
-  // recousues, jamais la maille.
+  // La grille cuite, un rectangle par **suite** de cellules de même teinte —
+  // celles que l'appelant passe, et lui seul : l'administration écarte la
+  // plaine, donc le compte suit les zones dessinées et non la taille de la
+  // grille. Mesuré à la maille de 256 px : une cellule par rectangle faisait
+  // 139 426 calques et onze secondes et demie pour poser l'écran ; recousues en
+  // suites, les mêmes cellules tiennent en quelques milliers de rectangles. Le
+  // hub, lui, voit des zones recousues, jamais la maille.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -332,7 +342,7 @@ export function TyriaMap({
     cellsRef.current = [];
 
     for (const cell of cells ?? []) {
-      const rectangle = L.rectangle(toBounds(map, cellRect(cell.index)), {
+      const rectangle = L.rectangle(toBounds(map, cellRect(cell.index, cell.length)), {
         className: `gw2rp-cell gw2rp-cell--${cell.tone}`,
         fillOpacity: cell.fill,
         interactive: false,
