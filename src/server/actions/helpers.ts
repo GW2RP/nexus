@@ -1,6 +1,7 @@
 import "server-only";
 
 import { Types } from "mongoose";
+import { updateTag } from "next/cache";
 import type { ZodType } from "zod";
 
 import { errorState, type ActionState } from "@/lib/action-state";
@@ -8,8 +9,10 @@ import { errorState, type ActionState } from "@/lib/action-state";
 import { canContribute, isAdmin, isStoryteller } from "@/lib/permissions";
 import { getCurrentUser, type SessionUser } from "@/lib/session";
 import { connectToDatabase } from "@/lib/mongoose";
+import type { Tag } from "@/server/queries/cache";
 
 export { errorState, idleState, successState, type ActionState } from "@/lib/action-state";
+export { TAGS } from "@/server/queries/cache";
 
 /** Un identifiant lu dans un champ caché n'est pas forcément un ObjectId.
  *  Sans cette vérification, Mongoose lève une `CastError` dont le message
@@ -79,4 +82,23 @@ export function toActionState(error: unknown): ActionState {
   const message =
     error instanceof Error ? error.message : "L'action n'a pas abouti. Réessayez.";
   return errorState(message);
+}
+
+/** Retire du cache de lecture ce qu'une écriture vient de rendre faux.
+ *
+ *  `revalidatePath` ne suffit pas : il vide le cache de route, pas les lectures
+ *  mémorisées par `remember`. Les deux se posent donc côte à côte — le chemin
+ *  pour la page, l'étiquette pour les données qu'elle lit.
+ *
+ *  `updateTag` et non `revalidateTag` : il périme l'entrée sur-le-champ, là où
+ *  le second sert encore du périmé pendant qu'il se refait. Quelqu'un qui vient
+ *  d'enregistrer sa fiche doit la voir, pas la précédente — c'est tout l'objet
+ *  de la lecture après écriture. Il n'existe que dans une action serveur ; une
+ *  route, elle, appelle `revalidateTag`.
+ *
+ *  Une famille se retire en entier plutôt que fiche par fiche : le hub compte
+ *  ses contenus par dizaines, et une invalidation trop fine finirait par
+ *  oublier une liste. */
+export function invalidate(...tags: Tag[]): void {
+  for (const tag of tags) updateTag(tag);
 }

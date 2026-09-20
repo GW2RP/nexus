@@ -1,9 +1,10 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useRef } from "react";
 
 import { SearchIcon } from "@/components/icons";
+import { useUrlFilters } from "@/components/ui/url-filters";
 import { Label, Select } from "@/components/ui/field";
 
 /** La barre d'outils d'un registre : recherche, tri, options.
@@ -21,29 +22,17 @@ export function SearchToolbar({
   sortOptions?: { value: string; label: string }[];
   toggles?: { name: string; label: string }[];
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { go } = useUrlFilters();
   const currentQuery = searchParams.get("q") ?? "";
   const inputRef = useRef<HTMLInputElement>(null);
-
-  function update(changes: Record<string, string | null>) {
-    const params = new URLSearchParams(searchParams.toString());
-    for (const [key, value] of Object.entries(changes)) {
-      if (value) params.set(key, value);
-      else params.delete(key);
-    }
-    params.delete("page");
-    const next = params.toString();
-    router.push(next ? `${pathname}?${next}` : pathname, { scroll: false });
-  }
 
   return (
     <form
       role="search"
       onSubmit={(event) => {
         event.preventDefault();
-        update({ q: inputRef.current?.value.trim() || null });
+        go({ q: inputRef.current?.value.trim() || null });
       }}
       className="mb-5 flex flex-wrap items-end gap-4"
     >
@@ -73,7 +62,7 @@ export function SearchToolbar({
             id="toolbar-sort"
             name="tri"
             value={searchParams.get("tri") ?? sortOptions[0].value}
-            onChange={(event) => update({ tri: event.target.value })}
+            onChange={(event) => go({ tri: event.target.value })}
             className="w-auto"
           >
             {sortOptions.map((option) => (
@@ -93,7 +82,7 @@ export function SearchToolbar({
           <input
             type="checkbox"
             checked={searchParams.get(toggle.name) === "1"}
-            onChange={(event) => update({ [toggle.name]: event.target.checked ? "1" : null })}
+            onChange={(event) => go({ [toggle.name]: event.target.checked ? "1" : null })}
             className="size-[18px] accent-[var(--crimson)]"
           />
           {toggle.label}

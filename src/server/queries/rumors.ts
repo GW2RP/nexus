@@ -2,6 +2,7 @@ import "server-only";
 
 
 import type { Region } from "@/lib/domain";
+import { TAGS, remember } from "@/server/queries/cache";
 import { Character } from "@/models/character";
 import { Place } from "@/models/place";
 import { Rumor, type RumorDocument } from "@/models/rumor";
@@ -110,15 +111,22 @@ export async function listRumors(options: ListOptions = {}) {
   };
 }
 
-/** Les plus reprises — la colonne latérale du tableau des rumeurs. */
-export async function listTopRumors(limit = 3) {
-  await connectToDatabase();
-  const docs = await Rumor.find({ hidden: { $ne: true }, echoCount: { $gt: 0 } })
-    .sort({ echoCount: -1 })
-    .limit(limit)
-    .lean();
-  return hydrate(docs as (RumorDocument & { _id: unknown })[], null);
-}
+/** Les plus reprises — la colonne latérale du tableau des rumeurs.
+ *
+ *  Sans lecteur : la liste ne dit pas si c'est vous qui les avez reprises, donc
+ *  elle est la même pour tout le monde et se cache telle quelle. */
+export const listTopRumors = remember(
+  async function listTopRumors(limit = 3) {
+    await connectToDatabase();
+    const docs = await Rumor.find({ hidden: { $ne: true }, echoCount: { $gt: 0 } })
+      .sort({ echoCount: -1 })
+      .limit(limit)
+      .lean();
+    return hydrate(docs as (RumorDocument & { _id: unknown })[], null);
+  },
+  ["rumors:top"],
+  [TAGS.rumors],
+);
 
 /** Les rumeurs épinglées, pour la carte. Une rumeur sans point n'y a rien à
  *  faire, et le filtre se pose en base plutôt qu'après coup : le tableau en
@@ -127,18 +135,22 @@ export async function listTopRumors(limit = 3) {
  *  `$type: "number"` et pas `$ne: null` : les deux écartent le champ absent,
  *  mais celui-ci dit ce que la lecture attend vraiment — deux nombres. Un
  *  document venu d'ailleurs qui porterait une chaîne passerait le second. */
-export async function listRumorsForMap(limit = 120): Promise<RumorSummary[]> {
-  await connectToDatabase();
-  // Le chemin pointé et `$type` sortent du filtre typé de Mongoose, comme
-  // ailleurs dans ce fichier : le filtre se construit à part et se passe tel quel.
-  const filter: QueryFilter = {
-    hidden: { $ne: true },
-    "coordinates.x": { $type: "number" },
-    "coordinates.y": { $type: "number" },
-  };
-  const docs = await Rumor.find(filter as never)
-    .sort({ createdAt: -1 })
-    .limit(limit)
-    .lean();
-  return hydrate(docs as (RumorDocument & { _id: unknown })[], null);
-}
+export const listRumorsForMap = remember(
+  async function listRumorsForMap(limit = 120): Promise<RumorSummary[]> {
+    await connectToDatabase();
+    // Le chemin pointé et `$type` sortent du filtre typé de Mongoose, comme
+    // ailleurs dans ce fichier : le filtre se construit à part et se passe tel quel.
+    const filter: QueryFilter = {
+      hidden: { $ne: true },
+      "coordinates.x": { $type: "number" },
+      "coordinates.y": { $type: "number" },
+    };
+    const docs = await Rumor.find(filter as never)
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+    return hydrate(docs as (RumorDocument & { _id: unknown })[], null);
+  },
+  ["rumors:map"],
+  [TAGS.rumors],
+);

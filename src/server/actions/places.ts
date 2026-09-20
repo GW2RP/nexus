@@ -14,6 +14,8 @@ import { Character } from "@/models/character";
 import { Place } from "@/models/place";
 import { User } from "@/models/user";
 import {
+  invalidate,
+  TAGS,
   errorState,
   objectIdOrNull,
   parseForm,
@@ -125,6 +127,7 @@ export async function createPlaceAction(
     return toActionState(error);
   }
 
+  invalidate(TAGS.places);
   revalidatePath("/lieux");
   revalidatePath("/carte");
   redirect(`/lieux/${slug}`);
@@ -181,6 +184,7 @@ export async function updatePlaceAction(
   }
 
   revalidatePath(`/lieux/${slug}`);
+  invalidate(TAGS.places);
   revalidatePath("/lieux");
   revalidatePath("/carte");
   redirect(`/lieux/${slug}`);
@@ -212,6 +216,7 @@ export async function deletePlaceAction(
     return toActionState(error);
   }
 
+  invalidate(TAGS.places);
   revalidatePath("/lieux");
   revalidatePath("/carte");
   redirect("/lieux");

@@ -104,10 +104,14 @@ rejoue en avant, et au-delà du plafond un pas ne peut même plus servir à
 rattraper. Ce n'est plus une archive, c'est du poids mort.
 
 Rejouer la frise coûte 1,75 s à cette maille, et `/meteo` est rendue à la
-requête. Elle est donc **calculée une fois par pas** (`frises`, dans
-`src/server/queries/weather.ts`) : la frise ne dépend que du pas courant, donc le
-numéro de pas est sa clé et il n'y a rien à faire expirer. Le cache vit dans
-l'instance — sur une instance fraîche, le premier visiteur la paie encore.
+requête. Elle est donc **calculée une fois par pas**, et rangée dans le cache de
+Next plutôt que dans l'instance : une instance fraîche ne la recalcule plus, et
+le hub la paie une fois pour tout le monde. La frise ne dépend que du pas d'où
+elle part et du nombre de pas demandés — le moteur est déterministe — donc ces
+deux-là forment la clé et **rien ne l'invalide** : le pas suivant demande
+simplement une autre clé. C'est aussi pourquoi `currentStepIndex` ne lit que le
+numéro du pas : savoir où l'on en est ne demande pas de faire descendre
+les 2,73 Mo du pas entier.
 
 Un pas porte sa cadence **et sa maille** (`stepsPerDay`, `cellSize`). En changer
 l'une ou l'autre rend les pas illisibles — la numérotation ne veut plus rien
@@ -271,6 +275,51 @@ ne garantirait qu'elle réponde encore demain.
 qu'elle manque : une image posée sans elle ne dit plus rien à qui ne la voit pas,
 et il faudrait la retirer pour la reposer — le markdown ne se corrige pas à la
 souris.
+
+## Les lectures et leur cache
+
+**Ce n'est pas la page qui est cachée, ce sont ses données.** Toute page du hub
+lit la session — ne serait-ce que par l'en-tête — donc elle est rendue à la
+requête, et Vercel la sert en `x-vercel-cache: MISS` quoi qu'on fasse. Ce
+qu'elle lit, en revanche, est le même pour tout le monde : le registre des
+personnages ne dépend pas de qui le regarde. Les lectures passent donc par
+`remember` (`src/server/queries/cache.ts`), qui les range dans le cache de Next.
+Sans lui, cliquer un filtre refaisait le trajet complet jusqu'à Atlas pour
+recomposer une liste identique à un champ près.
+
+**Rien n'expire par l'horloge**, sauf ce qui dépend de l'heure plutôt que de ce
+qui est écrit : la fenêtre « cette saison » du registre, le compte des
+évènements à venir, et les lectures de météo dont l'étiquette pourrait être
+oubliée par un avancement. Tout le reste attend une écriture.
+
+**Une écriture retire l'étiquette de sa famille**, à côté du `revalidatePath`
+qui vidait déjà le cache de route : `invalidate(TAGS.…)` dans les actions,
+`revalidateTag` dans les routes — `updateTag` n'existe que dans une action
+serveur. Les deux vont ensemble : le chemin pour la page, l'étiquette pour les
+données. Une liste qui embarque le compte d'une autre famille porte les deux
+étiquettes — `listPlaces` affiche « 2 évènements à venir », donc annoncer une
+scène doit la retirer aussi.
+
+**Une fonction cachée ne lit ni `cookies()` ni `headers()`.** C'est pour cela
+que les listes portant un état de lecteur — inscription à une scène, reprise
+d'une rumeur — n'y passent pas.
+
+## Les pages de registre
+
+**La page ne suspend pas, seule sa liste le fait.** Une page dont le corps
+commence par `await` ne peut rien rendre avant d'avoir sa réponse : elle suspend
+en entier, et le `loading.tsx` du groupe remplaçait alors tout l'écran — en-tête,
+recherche et filtres compris, c'est-à-dire la puce qu'on venait de cliquer. Les
+registres passent donc leur `searchParams` **sans l'attendre** à un composant
+enfermé dans un `Suspense`, et la session de même. Mesuré : la coquille part au
+bout de 100 ms là où la liste en demande encore quinze fois plus.
+
+Pendant qu'une liste arrive, la précédente reste lisible et s'estompe
+(`PendingResults`) : on voit ce qu'on quitte, pas un rectangle gris. Et la puce
+cliquée s'allume avant la réponse du serveur (`useOptimistic`) — un choix se
+voit au moment où on le fait. Les contrôles et la liste partagent une seule
+transition, tenue par `UrlFilters` ; sans elle, chacun aurait la sienne et aucun
+ne saurait ce que font les autres.
 
 ## Frontières
 
