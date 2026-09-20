@@ -43,7 +43,7 @@ export function GroupCard({ group }: { group: GroupSummary }) {
         {group.summary ? <p className="body-compact text-ink-body">{group.summary}</p> : null}
 
         <CardFooter>
-          <span className="text-[16px] text-ink-muted">
+          <span className="meta text-ink-muted">
             {group.memberCount} membre{group.memberCount > 1 ? "s" : ""}
             {group.upcomingEventCount > 0
               ? ` · ${group.upcomingEventCount} scène${group.upcomingEventCount > 1 ? "s" : ""}`
@@ -51,7 +51,7 @@ export function GroupCard({ group }: { group: GroupSummary }) {
           </span>
           <Link
             href={`/groupes/${group.slug}`}
-            className="text-[16px] text-crimson-ink underline-offset-4 hover:underline"
+            className="meta text-crimson-ink underline-offset-4 hover:underline"
           >
             Voir →
           </Link>
