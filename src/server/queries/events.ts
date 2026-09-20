@@ -60,6 +60,33 @@ type EventDoc = EventDocument & { _id: unknown };
 const TENUE: QueryFilter = { hidden: { $ne: true }, cancelledAt: null, seriesPausedAt: null };
 const PUBLIQUE: QueryFilter = { ...TENUE, visibility: { $ne: "privee" } };
 
+/** Sans heure de fin, une scène est réputée durer trois heures.
+ *
+ *  La même durée sert à la lister et à la décrire. Séparées, l'agenda
+ *  retirerait une veillée pendant que sa ligne s'affiche encore « en cours ». */
+export const DUREE_PAR_DEFAUT_MS = 3 * 3_600_000;
+
+/** Ce qui n'est pas encore fini : une scène à venir, ou commencée et encore
+ *  tenue.
+ *
+ *  L'agenda ne retire pas une veillée à 21h01 sous prétexte qu'elle a
+ *  commencé — c'est le moment où l'on cherche le plus où elle se tient. Le
+ *  repère est donc la **fin**, pas le début.
+ *
+ *  `endsAt: null` attrape aussi le champ absent : sans heure de fin annoncée,
+ *  c'est la durée par défaut qui décide. */
+export function pasEncoreFini(maintenant: Date = new Date()): QueryFilter {
+  return {
+    $or: [
+      { endsAt: { $gte: maintenant } },
+      {
+        endsAt: null,
+        startsAt: { $gte: new Date(maintenant.getTime() - DUREE_PAR_DEFAUT_MS) },
+      },
+    ],
+  };
+}
+
 /** Les scènes qu'un lecteur a le droit de voir : les publiques, et les privées
  *  qui lui sont ouvertes.
  *
@@ -106,23 +133,29 @@ export async function listEvents(options: ListOptions = {}): Promise<EventSummar
   if (options.groupId) filter.groupId = toObjectId(options.groupId);
   if (options.authorId) filter.authorId = options.authorId;
 
-  if (options.from || options.to || !options.includePast) {
-    const window: { $gte?: Date; $lte?: Date } = {};
-    if (options.from) window.$gte = options.from;
-    else if (!options.includePast) window.$gte = new Date();
-    if (options.to) window.$lte = options.to;
-    filter.startsAt = window;
+  // Une fenêtre explicite — le mois du calendrier — porte sur le début : c'est
+  // la case où la scène se pose.
+  if (options.from || options.to) {
+    const fenetre: { $gte?: Date; $lte?: Date } = {};
+    if (options.from) fenetre.$gte = options.from;
+    if (options.to) fenetre.$lte = options.to;
+    filter.startsAt = fenetre;
   }
 
-  // Les restrictions par inscription se posent chacune dans sa clause : deux
-  // `_id` dans le même objet s'écraseraient, et la seconde seule vaudrait.
-  const parInscription: QueryFilter[] = [];
+  // Les clauses qui portent leur propre `$or` ou leur propre `_id` se posent
+  // chacune dans la sienne : fondues dans le filtre, elles s'écraseraient, et
+  // la dernière seule vaudrait.
+  const clauses: QueryFilter[] = [];
+
+  // Sans fenêtre explicite, l'agenda montre ce qui n'est pas fini — les scènes
+  // à venir, et celles qui se tiennent en ce moment.
+  if (!options.includePast && !options.from) clauses.push(pasEncoreFini());
 
   if (options.registeredFor) {
     const registrations = await Registration.find({ userId: options.registeredFor })
       .select({ eventId: 1 })
       .lean();
-    parInscription.push({ _id: { $in: registrations.map((registration) => registration.eventId) } });
+    clauses.push({ _id: { $in: registrations.map((registration) => registration.eventId) } });
   }
 
   if (options.participantCharacterId) {
@@ -132,13 +165,12 @@ export async function listEvents(options: ListOptions = {}): Promise<EventSummar
           .select({ eventId: 1 })
           .lean()
       : [];
-    parInscription.push({ _id: { $in: registrations.map((registration) => registration.eventId) } });
+    clauses.push({ _id: { $in: registrations.map((registration) => registration.eventId) } });
   }
 
-  // Le filtre d'accès s'ajoute par `$and` : il porte ses propres `$or`, et
-  // les fondre dans le filtre écraserait l'un ou l'autre.
+  // Le filtre d'accès rejoint les autres clauses : lui aussi porte ses `$or`.
   const query = Event.find({
-    $and: [filter, ...parInscription, await accessFilter(viewer, options.access)],
+    $and: [filter, ...clauses, await accessFilter(viewer, options.access)],
   } as never).sort({ startsAt: 1 });
   if (options.limit) query.limit(options.limit);
   const docs = await query.lean();
@@ -192,8 +224,7 @@ async function hydrateEvents(docs: EventDoc[], viewerId: string | null): Promise
     const group = doc.groupId ? groupById.get(String(doc.groupId)) : undefined;
     const one = doc.seriesId ? seriesById.get(String(doc.seriesId)) : undefined;
     const startsAt = new Date(doc.startsAt).getTime();
-    // Sans heure de fin, une scène est réputée durer trois heures.
-    const endsAt = doc.endsAt ? new Date(doc.endsAt).getTime() : startsAt + 3 * 3_600_000;
+    const endsAt = doc.endsAt ? new Date(doc.endsAt).getTime() : startsAt + DUREE_PAR_DEFAUT_MS;
     const liveStatus =
       now < startsAt ? ("annonce" as const) : now <= endsAt ? ("en-cours" as const) : ("passe" as const);
 
