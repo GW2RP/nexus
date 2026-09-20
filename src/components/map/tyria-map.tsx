@@ -274,7 +274,11 @@ export function TyriaMap({
       shapesRef.current.push(polygon);
 
       if (!shape.showVertices) continue;
-      const saisissable = Boolean(shape.draggableVertices);
+      // Saisissable veut dire que le déplacement arrive quelque part. Sans
+      // `onVertexMove`, le marqueur suivrait la main mais le tracé ne bougerait
+      // pas : le sommet finirait ailleurs que le coin qu'il montre, et rien ne
+      // le dirait. Les deux vont ensemble ou rien n'est saisissable.
+      const saisissable = Boolean(shape.draggableVertices && onVertexMove);
       shape.points.forEach((point, rank) => {
         const marker = L.marker(map.unproject([point.x, point.y], COORDINATE_ZOOM), {
           icon: L.divIcon({
@@ -333,7 +337,7 @@ export function TyriaMap({
         shapesRef.current.push(marker);
       });
     }
-  }, [shapes]);
+  }, [shapes, onVertexMove]);
 
   // Le calque météo : une tache par phénomène, recousue en un seul tracé, avec
   // son symbole au milieu. Une grille dit sa maille ; une zone dit le temps.
