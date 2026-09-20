@@ -12,18 +12,26 @@ import {
   type MarkerState,
 } from "@/components/map/map-marker-html";
 import type { EventType, PlaceType } from "@/lib/domain";
-import { cellRect } from "@/lib/weather/grid";
+import { CELL_SIZE, cellRect } from "@/lib/weather/grid";
 import type { Phenomene } from "@/lib/weather/phenomena";
 import type { MapTone } from "@/lib/weather/tones";
 import {
   CLAMPED_VIEW,
   COORDINATE_ZOOM,
+  clampX,
+  clampY,
   DEFAULT_VIEW,
   MAP_MAX_ZOOM,
   MAP_MIN_ZOOM,
   TILE_ATTRIBUTION,
   TILE_URL,
 } from "@/lib/map";
+
+/** De combien une flèche du clavier déplace un sommet, en pixels de continent.
+ *  Une cellule de simulation, parce que c'est l'unité qui décide si la zone
+ *  couvre un centre de cellule ou non — et `Maj` pour affiner au dixième. */
+const PAS_CLAVIER = CELL_SIZE;
+const PAS_CLAVIER_FIN = CELL_SIZE / 10;
 
 /** Ce qui sépare deux pins posés au même endroit. Un peu moins que leur
  *  diamètre : ils se touchent sans se couvrir, et la rangée reste lisible comme
@@ -49,6 +57,9 @@ export type MapShape = {
   tone: MapTone;
   /** Le tracé en cours montre ses sommets, une zone enregistrée non. */
   showVertices?: boolean;
+  /** Le tracé qu'on modifie laisse saisir ses sommets. Sans ça, ils restent
+   *  inertes : une zone qu'on regarde n'a pas à se laisser déformer. */
+  draggableVertices?: boolean;
 };
 
 /**
@@ -108,6 +119,8 @@ export function TyriaMap({
   selectedId,
   onSelect,
   onPick,
+  onVertexMove,
+  initialFrame,
   interactive = true,
   className,
 }: {
@@ -125,6 +138,15 @@ export function TyriaMap({
   onSelect?: (id: string | null) => void;
   /** Un clic sur la carte renvoie le point, en pixels de continent. */
   onPick?: (point: { x: number; y: number }) => void;
+  /** Un sommet déplacé — au glissé ou aux flèches — renvoie son rang et sa
+   *  nouvelle position, déjà bornée au continent. */
+  onVertexMove?: (rank: number, point: { x: number; y: number }) => void;
+  /** Le cadrage d'ouverture, en pixels de continent, à la place de la vue par
+   *  défaut. L'éditeur d'une zone s'en sert : sans lui, la carte s'ouvre au
+   *  cœur de la Tyrie et le tracé qu'on vient modifier peut se trouver
+   *  entièrement hors du cadre — ses sommets ne sont alors ni visibles ni
+   *  saisissables. */
+  initialFrame?: { left: number; top: number; right: number; bottom: number } | null;
   /** Un aperçu se regarde : pas de zoom à la molette, pas de glissé. */
   interactive?: boolean;
   className?: string;
@@ -138,11 +160,16 @@ export function TyriaMap({
   const probeRef = useRef<L.Layer | null>(null);
   const onSelectRef = useRef(onSelect);
   const onPickRef = useRef(onPick);
+  const onVertexMoveRef = useRef(onVertexMove);
+  // Le cadrage d'ouverture n'est lu qu'au montage : le garder dans une ref
+  // évite de remonter la carte entière si l'appelant en recalcule un.
+  const initialFrameRef = useRef(initialFrame);
 
   useEffect(() => {
     onSelectRef.current = onSelect;
     onPickRef.current = onPick;
-  }, [onSelect, onPick]);
+    onVertexMoveRef.current = onVertexMove;
+  }, [onSelect, onPick, onVertexMove]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -180,7 +207,8 @@ export function TyriaMap({
 
     // Hors de `clamped_view`, les tuiles sont vides : on n'y laisse pas aller.
     map.setMaxBounds(toBounds(map, CLAMPED_VIEW).pad(0.05));
-    map.fitBounds(toBounds(map, DEFAULT_VIEW));
+    const cadre = initialFrameRef.current ?? DEFAULT_VIEW;
+    map.fitBounds(toBounds(map, cadre));
 
     if (interactive) {
       map.on("click", (event) => {
@@ -201,7 +229,7 @@ export function TyriaMap({
       // Le premier redimensionnement est celui de la mise en page qui se pose :
       // on recadre une fois, puis on laisse la vue à qui la manipule.
       if (!fitted && container.clientWidth > 0) {
-        map.fitBounds(toBounds(map, DEFAULT_VIEW), { animate: false });
+        map.fitBounds(toBounds(map, initialFrameRef.current ?? DEFAULT_VIEW), { animate: false });
         fitted = true;
       }
     });
@@ -246,6 +274,7 @@ export function TyriaMap({
       shapesRef.current.push(polygon);
 
       if (!shape.showVertices) continue;
+      const saisissable = Boolean(shape.draggableVertices);
       shape.points.forEach((point, rank) => {
         const marker = L.marker(map.unproject([point.x, point.y], COORDINATE_ZOOM), {
           icon: L.divIcon({
@@ -254,9 +283,52 @@ export function TyriaMap({
             iconSize: [22, 22],
             iconAnchor: [11, 11],
           }),
-          interactive: false,
-          keyboard: false,
+          // Un sommet qu'on peut saisir doit recevoir les clics ; un sommet
+          // qu'on regarde ne doit pas les voler à la carte, sans quoi l'éditeur
+          // cesserait de poser des sommets dès qu'on viserait près d'un autre.
+          interactive: saisissable,
+          keyboard: saisissable,
+          draggable: saisissable,
+          title: saisissable ? `Sommet ${rank + 1}` : undefined,
+          alt: saisissable ? `Sommet ${rank + 1}` : undefined,
+          zIndexOffset: 500,
         });
+
+        if (saisissable) {
+          const deplace = (x: number, y: number) =>
+            onVertexMoveRef.current?.(rank, { x: clampX(Math.round(x)), y: clampY(Math.round(y)) });
+
+          // Le relâché seulement : à chaque `drag`, l'état remonterait au
+          // formulaire, qui re-rendrait la liste des sommets et retirerait de
+          // la carte le marqueur qu'on a sous le doigt.
+          marker.on("dragend", () => {
+            const projete = map.project(marker.getLatLng(), COORDINATE_ZOOM);
+            deplace(projete.x, projete.y);
+          });
+
+          // Le glissé est à la souris ce que les flèches sont au clavier : sans
+          // elles, un sommet posé ne se corrigerait qu'à la souris.
+          marker.on("keydown", (event) => {
+            const touche = (event as unknown as { originalEvent: KeyboardEvent }).originalEvent;
+            const pas = touche.shiftKey ? PAS_CLAVIER_FIN : PAS_CLAVIER;
+            const ecart: Record<string, [number, number]> = {
+              ArrowLeft: [-pas, 0],
+              ArrowRight: [pas, 0],
+              ArrowUp: [0, -pas],
+              ArrowDown: [0, pas],
+            };
+            const delta = ecart[touche.key];
+            if (!delta) return;
+            touche.preventDefault();
+            L.DomEvent.stopPropagation(event);
+            const projete = map.project(marker.getLatLng(), COORDINATE_ZOOM);
+            deplace(projete.x + delta[0], projete.y + delta[1]);
+          });
+
+          // Un clic sur un sommet ne pose pas un sommet de plus par-dessus.
+          marker.on("click", (event) => L.DomEvent.stopPropagation(event));
+        }
+
         marker.addTo(map);
         shapesRef.current.push(marker);
       });

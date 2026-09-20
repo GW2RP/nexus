@@ -10,6 +10,27 @@ import type { MapTone } from "@/lib/weather/tones";
 
 type Vertex = { x: number; y: number };
 
+/** Le rectangle qui contient un tracé, avec un dixième de marge de chaque côté
+ *  pour que les sommets du bord ne collent pas au cadre. */
+function cadreDe(points: Vertex[]) {
+  if (points.length === 0) return null;
+  const xs = points.map((point) => point.x);
+  const ys = points.map((point) => point.y);
+  const left = Math.min(...xs);
+  const right = Math.max(...xs);
+  const top = Math.min(...ys);
+  const bottom = Math.max(...ys);
+  // Une zone d'un seul sommet n'a pas de largeur : la marge se prend alors sur
+  // une valeur plancher, sans quoi `fitBounds` recevrait un rectangle plat.
+  const marge = Math.max((right - left) / 10, (bottom - top) / 10, 1_000);
+  return {
+    left: clampX(left - marge),
+    top: clampY(top - marge),
+    right: clampX(right + marge),
+    bottom: clampY(bottom + marge),
+  };
+}
+
 /** Dessiner une zone en cliquant ses sommets sur la carte. Comme pour le point
  *  d'un lieu, la valeur part dans le formulaire par un champ caché — un seul,
  *  en JSON, parce que le nombre de sommets n'est pas connu à l'avance. */
@@ -24,8 +45,25 @@ export function PolygonPicker({
 }) {
   const [points, setPoints] = useState<Vertex[]>(initial ?? []);
 
+  // La carte s'ouvre sur le tracé qu'on vient modifier, pas sur le cœur de la
+  // Tyrie : une zone posée ailleurs tombait entièrement hors du cadre, et ses
+  // sommets n'étaient ni visibles ni saisissables sans chercher la zone à la
+  // main. Le cadrage se fige au montage — il ne suit pas les sommets qu'on
+  // déplace, sinon la carte sauterait sous la main.
+  const [cadre] = useState(() => cadreDe(initial ?? []));
+
   const shapes: MapShape[] =
-    points.length > 0 ? [{ id: "trace", points, tone, showVertices: true }] : [];
+    points.length > 0
+      ? [{ id: "trace", points, tone, showVertices: true, draggableVertices: true }]
+      : [];
+
+  /** Un sommet déplacé remplace le sien, et lui seul : le tracé garde son ordre,
+   *  donc sa forme ne se retourne pas sous la main de qui le corrige. */
+  function deplacer(rank: number, point: Vertex) {
+    setPoints((previous) =>
+      previous.map((sommet, index) => (index === rank ? point : sommet)),
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -42,6 +80,8 @@ export function PolygonPicker({
                 { x: clampX(point.x), y: clampY(point.y) },
               ])
             }
+            onVertexMove={deplacer}
+            initialFrame={cadre}
             className="size-full bg-map-land"
           />
         </div>
@@ -51,7 +91,7 @@ export function PolygonPicker({
         <p aria-live="polite" className="text-[16px] text-ink-muted">
           {points.length === 0
             ? "Cliquez sur la carte pour poser le premier sommet."
-            : `${points.length} sommet${points.length > 1 ? "s" : ""} posé${points.length > 1 ? "s" : ""}.`}
+            : `${points.length} sommet${points.length > 1 ? "s" : ""} posé${points.length > 1 ? "s" : ""}. Glissez-en un pour le déplacer, ou déplacez-le aux flèches une fois au clavier.`}
         </p>
         {points.length > 0 ? (
           <div className="flex flex-wrap gap-3">

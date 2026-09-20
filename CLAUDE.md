@@ -47,6 +47,15 @@ est portée par le **zoom 7**, pas par le `max_zoom: 8` que l'API annonce :
 `unproject`. Un emplacement se pose en cliquant la carte, jamais en tapant deux
 nombres.
 
+Un tracé se corrige de la même façon : ses sommets se glissent, et se déplacent
+aux flèches une fois au clavier — d'une cellule de simulation, d'un dixième avec
+`Maj`. Deux conséquences à ne pas défaire. Un sommet n'est **interactif que
+lorsqu'il est saisissable** (`draggableVertices`) : inerte, il volerait à la
+carte le clic qui pose le sommet suivant, et le tracé s'arrêterait dès qu'on
+viserait près d'un sommet déjà posé. Et l'éditeur **cadre la carte sur le tracé**
+qu'il ouvre (`initialFrame`) : à la vue par défaut, une zone posée ailleurs tombe
+entièrement hors du cadre, et ses sommets ne sont ni visibles ni saisissables.
+
 ## La météo
 
 Elle est **simulée**, pas écrite : personne ne pose un bulletin à la main.
