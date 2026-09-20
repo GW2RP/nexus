@@ -96,7 +96,7 @@ export function MapPicker({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p aria-live="polite" className="text-[16px] text-ink-muted">
+        <p aria-live="polite" className="meta text-ink-muted">
           {point ? `Point posé en ${point.x} · ${point.y}.` : MOTS[kind].consigne}
         </p>
         {point ? (

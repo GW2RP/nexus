@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { PhenomeneGlyph, PlaceGlyph, WeatherGlyph } from "@/components/type-glyph";
 import { MapCanvas } from "@/components/map/map-canvas";
@@ -77,6 +77,11 @@ export function MapExplorer({
   const [selectedId, setSelectedId] = useState<string | null>(
     () => places.find((place) => place.slug === initialPlaceSlug)?.id ?? null,
   );
+  // Le rang de la dernière demande de relevé. Deux clics rapprochés partent en
+  // deux requêtes, et rien ne garantit qu'elles reviennent dans l'ordre : sans
+  // ce compteur, la réponse du premier point écraserait celle du second et la
+  // croix montrerait un endroit pendant que le cartouche en décrit un autre.
+  const demande = useRef(0);
 
   const visiblePlaces = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -132,6 +137,7 @@ export function MapExplorer({
   /** Relève le temps au point cliqué. La grille entière ne peut pas voyager
    *  jusqu'ici, donc on demande le point au serveur. */
   async function releverLePoint(clique: Point) {
+    const rang = ++demande.current;
     setPoint(clique);
     setReleve(null);
     setSondeEnCours(true);
@@ -139,19 +145,28 @@ export function MapExplorer({
     try {
       const reponse = await fetch(`/api/meteo/point?x=${clique.x}&y=${clique.y}`);
       if (!reponse.ok) throw new Error(String(reponse.status));
-      setReleve((await reponse.json()) as WeatherProbe);
+      const releveDuPoint = (await reponse.json()) as WeatherProbe;
+      // Un clic plus récent, ou un panneau fermé entre-temps : cette réponse
+      // ne décrit plus ce qui est à l'écran, et l'appliquer serait mentir.
+      if (rang !== demande.current) return;
+      setReleve(releveDuPoint);
     } catch {
+      if (rang !== demande.current) return;
       // Le relevé précédent s'efface : mieux vaut rien qu'un temps d'ailleurs.
       setReleve(null);
       setSondeEnPanne(true);
     } finally {
-      setSondeEnCours(false);
+      if (rang === demande.current) setSondeEnCours(false);
     }
   }
 
   function fermerLePoint() {
+    // Le compteur avance aussi en fermant : une réponse en vol ne doit pas
+    // rouvrir le cartouche qu'on vient de refermer.
+    demande.current += 1;
     setPoint(null);
     setReleve(null);
+    setSondeEnCours(false);
     setSondeEnPanne(false);
   }
 
@@ -685,13 +700,13 @@ function RumeurPanel({ rumeur, onClose }: { rumeur: RumorSummary; onClose: () =>
       <p className="max-h-[32dvh] overflow-y-auto text-[18px] italic leading-[1.5] text-ink">
         {rumeur.body}
       </p>
-      <p className="mt-2 flex items-center gap-2 text-[16px] text-ink-muted">
+      <p className="mt-2 flex items-center gap-2 meta text-ink-muted">
         <RumorIcon size={15} className="text-crimson-ink" />
         {[attributionDe(rumeur), rumeur.place?.name ?? rumeur.heardAtLabel]
           .filter(Boolean)
           .join(" · ")}
       </p>
-      <p className="mt-1 text-[16px] text-crimson-ink">
+      <p className="mt-1 meta text-crimson-ink">
         {rumeur.echoCount} reprise{rumeur.echoCount > 1 ? "s" : ""}
       </p>
       <div className="mt-4 flex gap-3">

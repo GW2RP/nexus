@@ -122,14 +122,21 @@ export async function listTopRumors(limit = 3) {
 
 /** Les rumeurs épinglées, pour la carte. Une rumeur sans point n'y a rien à
  *  faire, et le filtre se pose en base plutôt qu'après coup : le tableau en
- *  compte des centaines dont une poignée seulement portent un point. */
+ *  compte des centaines dont une poignée seulement portent un point.
+ *
+ *  `$type: "number"` et pas `$ne: null` : les deux écartent le champ absent,
+ *  mais celui-ci dit ce que la lecture attend vraiment — deux nombres. Un
+ *  document venu d'ailleurs qui porterait une chaîne passerait le second. */
 export async function listRumorsForMap(limit = 120): Promise<RumorSummary[]> {
   await connectToDatabase();
-  const docs = await Rumor.find({
+  // Le chemin pointé et `$type` sortent du filtre typé de Mongoose, comme
+  // ailleurs dans ce fichier : le filtre se construit à part et se passe tel quel.
+  const filter: QueryFilter = {
     hidden: { $ne: true },
-    "coordinates.x": { $ne: null },
-    "coordinates.y": { $ne: null },
-  })
+    "coordinates.x": { $type: "number" },
+    "coordinates.y": { $type: "number" },
+  };
+  const docs = await Rumor.find(filter as never)
     .sort({ createdAt: -1 })
     .limit(limit)
     .lean();
