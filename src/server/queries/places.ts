@@ -4,6 +4,7 @@ import { cache } from "react";
 
 import type { PlaceType, Region } from "@/lib/domain";
 import { TAGS, remember } from "@/server/queries/cache";
+import { pasEncoreFini } from "@/server/queries/events";
 import { Character } from "@/models/character";
 import { Event } from "@/models/event";
 import { Place, type PlaceDocument } from "@/models/place";
@@ -60,7 +61,18 @@ const upcomingEventsByPlace = remember(
   async function upcomingEventsByPlace(): Promise<Record<string, number>> {
     await connectToDatabase();
     const rows = await Event.aggregate<{ _id: unknown; count: number }>([
-      { $match: { placeId: { $ne: null }, hidden: { $ne: true }, startsAt: { $gte: new Date() } } },
+      // La même définition qu'à l'agenda : une scène commencée se tient encore,
+      // donc elle compte. Sans cela, la fiche d'un lieu cesserait de l'annoncer
+      // à l'heure précise où elle y commence.
+      {
+        $match: {
+          placeId: { $ne: null },
+          hidden: { $ne: true },
+          cancelledAt: null,
+          seriesPausedAt: null,
+          ...pasEncoreFini(),
+        },
+      },
       { $group: { _id: "$placeId", count: { $sum: 1 } } },
     ]);
     // Un objet simple, pas une `Map` : le cache sérialise ce qu'il range.

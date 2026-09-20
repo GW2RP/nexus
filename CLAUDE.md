@@ -80,6 +80,15 @@ publiques se heurteraient.
 **Rien ne s'écrit à la simple visite d'un lien.** La liste des invités reste
 celle que l'organisateur a faite, pas celle des curieux qui ont ouvert le lien.
 
+**L'agenda montre ce qui n'est pas fini, pas ce qui n'a pas commencé.** Le
+repère est la **fin** de la scène (`pasEncoreFini`), jamais son début : une
+veillée retirée de l'agenda à 21h01 disparaîtrait à l'heure précise où l'on
+cherche le plus où elle se tient. Sans heure de fin annoncée, la scène est
+réputée durer `DUREE_PAR_DEFAUT_MS`, et c'est la **même** durée qui la liste et
+qui la décrit — séparées, l'agenda la retirerait pendant que sa ligne
+s'afficherait encore « en cours ». Le compte d'un lieu suit la même définition,
+sinon la fiche cesserait d'annoncer une scène à l'heure où elle y commence.
+
 **Une série est une règle, et des séances matérialisées.** La règle vit dans
 `EventSeries` ; chaque séance est une annonce entière — son adresse, ses
 inscriptions, son pin, son lien de partage — sinon il faudrait refaire tout ce
