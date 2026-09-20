@@ -35,10 +35,10 @@ export default async function EditTerrainZonePage({
           <DeleteContent
             id={zone.id}
             action={deleteTerrainZoneAction}
-            title="Retirer cette zone ?"
+            title={zone.name}
             question="Retirer cette zone ?"
             consequence="La simulation reprendra sans elle au prochain pas : le terrain qu'elle portait redevient de la plaine."
-            excerpt={`${zone.name} — ${TERRAIN_LABELS[zone.terrain]}, ${zone.points.length} sommets`}
+            excerpt={`${TERRAIN_LABELS[zone.terrain]}, ${zone.points.length} sommets`}
             verb="RETIRER LA ZONE"
           />
         }
