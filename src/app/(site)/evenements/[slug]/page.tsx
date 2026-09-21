@@ -245,7 +245,7 @@ export default async function EventPage({ params }: Props) {
               }`}
             />
             {event.participants.length > 0 ? (
-              <ul className="flex flex-wrap gap-4">
+              <ul className="mb-4 flex flex-wrap gap-4">
                 {event.participants.map((participant) => (
                   <li key={participant.id} className="flex items-center gap-3">
                     <RoundPortrait size={40} />
@@ -263,11 +263,17 @@ export default async function EventPage({ params }: Props) {
                   </li>
                 ))}
               </ul>
-            ) : (
-              <p className="text-[17px] text-ink-muted">
+            ) : event.unnamedParticipantCount === 0 ? (
+              <p className="body-compact text-ink-muted">
                 Personne n'est encore inscrit. La première place est à prendre.
               </p>
-            )}
+            ) : null}
+            {event.unnamedParticipantCount > 0 ? (
+              <p className="body-compact text-ink-muted">
+                {event.unnamedParticipantCount} inscrit
+                {event.unnamedParticipantCount > 1 ? "s" : ""} sans personnage
+              </p>
+            ) : null}
           </section>
         </div>
 

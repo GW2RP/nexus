@@ -205,3 +205,15 @@ export function startOfGameWeek(date: Date): Date {
 export function isoDate(date: Date): string {
   return date.toISOString();
 }
+
+/**
+ * Le jour civil du serveur de jeu, à midi UTC.
+ *
+ * `toTyrianDate` lit ses composantes en UTC : passé l'instant brut, une soirée
+ * d'octobre à 01 h 00 à Paris serait datée de la veille, puisqu'il est encore
+ * 23 h 00 en UTC. Midi met la date à l'abri du décalage dans les deux sens.
+ */
+export function gameDay(date: Date = new Date()): Date {
+  const civil = gameCivil(date);
+  return new Date(Date.UTC(civil.year, civil.month - 1, civil.day, 12));
+}

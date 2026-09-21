@@ -380,6 +380,9 @@ async function loadEvent(
       race: character.race as Race,
       gender: (character.gender ?? "neutre") as Gender,
     })),
+    // Les inscriptions sans personnage, et celles dont le personnage a depuis
+    // quitté le registre : elles occupent une place, donc elles se comptent.
+    unnamedParticipantCount: registrations.length - characters.length,
     shareCode: manages ? (doc.shareCode ?? null) : null,
     registeredUserIds: manages ? registrations.map((registration) => registration.userId) : [],
     invited: manages

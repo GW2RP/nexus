@@ -6,7 +6,7 @@ import { PlaceCard } from "@/components/content/place-card";
 import { Button } from "@/components/ui/button";
 import { CardGridSkeleton } from "@/components/ui/card-grid-skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
-import { FilterChips } from "@/components/ui/filter-chips";
+import { FilterSelect } from "@/components/ui/filter-select";
 import { LoadMore } from "@/components/ui/load-more";
 import { PageHeader } from "@/components/ui/page-header";
 import { SearchToolbar } from "@/components/ui/search-toolbar";
@@ -74,24 +74,23 @@ export default function PlacesPage({ searchParams }: { searchParams: Promise<Par
           searchPlaceholder="Taverne, guilde, ruine…"
         />
 
-        <div className="mb-8 flex flex-col gap-3">
-          <FilterChips
+        {/* Deux listes déroulantes plutôt que quinze boutons : les filtres
+            tiennent sur une ligne, et la première fiche revient dans l'écran. */}
+        <div className="mb-8 flex flex-wrap items-end gap-4">
+          <FilterSelect
             name="type"
-            legend="Filtrer par type de lieu"
-            allLabel="TOUS LES TYPES"
+            label="Type de lieu"
+            allLabel="Tous les types"
             options={PLACE_TYPES.map((value) => ({
               value,
-              label: PLACE_TYPE_LABELS[value].toLocaleUpperCase("fr-FR"),
+              label: PLACE_TYPE_LABELS[value],
             }))}
           />
-          <FilterChips
+          <FilterSelect
             name="region"
-            legend="Filtrer par région"
-            allLabel="TOUTE LA TYRIE"
-            options={REGIONS.map((value) => ({
-              value,
-              label: REGION_LABELS[value].toLocaleUpperCase("fr-FR"),
-            }))}
+            label="Région"
+            allLabel="Toute la Tyrie"
+            options={REGIONS.map((value) => ({ value, label: REGION_LABELS[value] }))}
           />
         </div>
 

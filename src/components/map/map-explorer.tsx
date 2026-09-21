@@ -8,7 +8,7 @@ import { MapCanvas } from "@/components/map/map-canvas";
 import type { MapArea, MapPin, MapShape } from "@/components/map/tyria-map";
 import { RumorIcon, SearchIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/field";
+import { Label, Select } from "@/components/ui/field";
 import {
   PLACE_TYPES,
   PLACE_TYPE_LABELS,
@@ -379,10 +379,12 @@ export function MapExplorer({
           </TabButton>
         </div>
 
-        {/* La recherche et les filtres tiennent en deux lignes : empilés en
-            grille, les huit types de lieu prenaient trois rangs et repoussaient
-            la liste hors de l'écran. Ils défilent maintenant à l'horizontale,
-            et c'est la liste qui occupe la colonne. */}
+        {/* La recherche et le filtre tiennent en deux lignes. Les huit types de
+            lieu ont d'abord été des boutons : empilés, ils prenaient trois rangs,
+            et mis à défiler à l'horizontale ils cachaient ce qu'ils offraient —
+            rien, sur une colonne de 380 px, ne dit qu'une rangée continue plus
+            loin. Repliés en liste déroulante, ils s'ouvrent en entier sur une
+            ligne, et c'est la liste des lieux qui occupe la colonne. */}
         <div className="flex flex-col gap-2 border-b border-rule py-2">
           <div className="mx-gutter-app flex items-center gap-2 border border-rule bg-surface-inset px-3">
             <SearchIcon size={16} className="text-ink-muted" />
@@ -400,21 +402,23 @@ export function MapExplorer({
           </div>
 
           {tab === "lieux" ? (
-            <fieldset className="flex gap-2 overflow-x-auto border-0 px-gutter-app pb-1">
-              <legend className="sr-only">Filtrer par type de lieu</legend>
-              <FilterButton active={!typeFilter} onClick={() => setTypeFilter(null)}>
-                TOUS
-              </FilterButton>
-              {PLACE_TYPES.map((type) => (
-                <FilterButton
-                  key={type}
-                  active={typeFilter === type}
-                  onClick={() => setTypeFilter(type)}
-                >
-                  {PLACE_TYPE_LABELS[type].toLocaleUpperCase("fr-FR")}
-                </FilterButton>
-              ))}
-            </fieldset>
+            <div className="mx-gutter-app">
+              <Label htmlFor="type-carte" hidden>
+                Filtrer par type de lieu
+              </Label>
+              <Select
+                id="type-carte"
+                value={typeFilter ?? ""}
+                onChange={(event) => setTypeFilter((event.target.value || null) as PlaceType | null)}
+              >
+                <option value="">Tous les types</option>
+                {PLACE_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {PLACE_TYPE_LABELS[type]}
+                  </option>
+                ))}
+              </Select>
+            </div>
           ) : null}
         </div>
 
@@ -620,19 +624,23 @@ function PointReleve({
         )}
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2 border-t border-hairline pt-3">
-        <Button asChild variant="outline" size="sm">
-          <Link href={proposerHref(`/lieux/nouveau?${coordonnees}`, canPropose)}>UN LIEU</Link>
-        </Button>
-        <Button asChild variant="outline" size="sm">
-          <Link href={proposerHref(`/evenements/nouveau?${coordonnees}`, canPropose)}>
-            UNE SCÈNE
-          </Link>
-        </Button>
-        <Button asChild variant="outline" size="sm">
-          <Link href={rumeur}>UNE RUMEUR</Link>
-        </Button>
-        <Button type="button" variant="quiet" size="sm" onClick={onClose}>
+      {/* Trois cadres de même poids que « voir la fiche » se lisaient comme
+          trois destinations, sans dire ce qu'on y ferait. Un mot les annonce, et
+          ce qui suit redevient ce que c'est : trois liens. */}
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-hairline pt-3">
+        <span className="caption text-ink-muted">Ajouter :</span>
+        <Ajout href={proposerHref(`/lieux/nouveau?${coordonnees}`, canPropose)}>un lieu</Ajout>
+        <Ajout href={proposerHref(`/evenements/nouveau?${coordonnees}`, canPropose)}>
+          un évènement
+        </Ajout>
+        <Ajout href={rumeur}>une rumeur</Ajout>
+        <Button
+          type="button"
+          variant="quiet"
+          size="sm"
+          className="ml-auto"
+          onClick={onClose}
+        >
           FERMER
         </Button>
       </div>
@@ -664,29 +672,16 @@ function TabButton({
   );
 }
 
-function FilterButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
+/** Un des trois liens de « Ajouter : ». La zone de contact garde la hauteur
+ *  d'un doigt sans que le lien reprenne le cadre d'un bouton. */
+function Ajout({ href, children }: { href: string; children: React.ReactNode }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        "inline-flex min-h-tap shrink-0 items-center whitespace-nowrap border px-3 py-[11px] font-display text-[11px] font-medium tracking-[1.4px]",
-        active
-          ? "border-gold-ink bg-gold-ink text-on-crimson"
-          : "border-chip-edge text-gold-ink hover:bg-surface-selected",
-      )}
+    <Link
+      href={href}
+      className="inline-flex min-h-tap items-center meta text-gold-ink underline underline-offset-4 hover:text-ink"
     >
       {children}
-    </button>
+    </Link>
   );
 }
 

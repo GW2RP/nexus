@@ -10,9 +10,11 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FramedMedia } from "@/components/ui/framed-media";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { formatLongDate, gameDay, isoDate } from "@/lib/dates";
 import { canContribute, canReportContent } from "@/lib/permissions";
 import { SITE_DESCRIPTION, SITE_TAGLINE, buildMetadata } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
+import { formatTyrianDate } from "@/lib/tyrian-calendar";
 import { listCharacters } from "@/server/queries/characters";
 import { listEvents } from "@/server/queries/events";
 import { listPlacesForMap } from "@/server/queries/places";
@@ -32,6 +34,7 @@ export const metadata: Metadata = buildMetadata({
 });
 
 export default async function HomePage() {
+  const now = new Date();
   const user = await getCurrentUser();
 
   const [events, rumors, characters, places, pinnedRumors, weather] = await Promise.all([
@@ -56,6 +59,14 @@ export default async function HomePage() {
           <p className="mb-7 max-w-[520px] text-[19px] leading-[1.55] text-ink-body sm:text-[20px]">
             Registre des personnages, carte vivante, agenda des évènements et tableau des
             rumeurs — tout ce qui fait vivre vos histoires, au même endroit.
+          </p>
+          {/* La date réelle en premier, la date tyrienne en second — et le jour
+              civil du serveur de jeu des deux côtés, pour qu'une veillée de
+              minuit ne soit pas datée de la veille. */}
+          <p className="mb-7 meta text-ink-muted">
+            <time dateTime={isoDate(now)}>{formatLongDate(now)}</time>
+            {" · "}
+            <span className="text-gold-eyebrow">{formatTyrianDate(gameDay(now))}</span>
           </p>
           <div className="flex flex-wrap gap-3">
             <Button asChild size="lead">

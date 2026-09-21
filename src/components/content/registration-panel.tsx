@@ -131,19 +131,24 @@ export function RegistrationPanel({
         <Field
           label="Avec quel personnage ?"
           htmlFor="registration-character"
-          hint="Le nom affiché dans la liste des participants."
+          hint="Le nom affiché dans la liste des participants. Sans personnage, la place est comptée sans être nommée."
         >
+          {/* Le personnage est facultatif : on s'inscrit d'abord, on décide
+              ensuite qui vient. Exiger un nom ici retiendrait une place à qui
+              hésite encore entre deux de ses personnages. */}
           <Select id="registration-character" name="characterId" defaultValue={characters[0].id}>
             {characters.map((character) => (
               <option key={character.id} value={character.id}>
                 {character.name}
               </option>
             ))}
+            <option value="">Sans personnage</option>
           </Select>
         </Field>
       ) : (
         <p className="body-compact text-ink-body">
-          Vous n'avez pas encore de personnage au registre.{" "}
+          Vous n'avez pas encore de personnage au registre : votre place sera comptée sans
+          être nommée.{" "}
           <Link
             href="/personnages/nouveau"
             className="text-crimson-ink underline underline-offset-4"
