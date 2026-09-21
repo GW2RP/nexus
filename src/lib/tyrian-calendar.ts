@@ -13,12 +13,19 @@
  *  tyrienne est une autre façon d'écrire la date réelle, pas un compte à part
  *  qui partirait d'un jour choisi.
  *
+ *  Le jour se lit à **l'heure du serveur de jeu**, comme partout ailleurs dans
+ *  le hub. Lu en UTC, une veillée annoncée à 00h30 à Paris serait datée de la
+ *  veille : la ligne afficherait « mardi 22 septembre · 84 Scion », ses deux
+ *  moitiés en désaccord, puisque la date réelle, elle, est déjà parisienne.
+ *
  *  Le hub affiche toujours la date réelle en premier et la date tyrienne en
  *  second : c'est un choix de lisibilité, pris avec le design system, à ne pas
  *  inverser sans en reparler.
  *
  *  @see https://wiki.guildwars2.com/wiki/Mouvelian_calendar
  */
+
+import { gameCivil } from "@/lib/game-time";
 
 export const TYRIAN_SEASONS = ["Zéphyr", "Phénix", "Scion", "Colosse"] as const;
 export type TyrianSeason = (typeof TYRIAN_SEASONS)[number];
@@ -43,9 +50,10 @@ function estBissextile(annee: number): boolean {
 }
 
 export function toTyrianDate(date: Date): TyrianDate {
-  const annee = date.getUTCFullYear();
+  const civil = gameCivil(date);
+  const annee = civil.year;
   const debutDAnnee = Date.UTC(annee, 0, 1);
-  const jour = Date.UTC(annee, date.getUTCMonth(), date.getUTCDate());
+  const jour = Date.UTC(annee, civil.month - 1, civil.day);
   let rang = Math.floor((jour - debutDAnnee) / MS_PAR_JOUR);
 
   // Le 29 février prend le rang du 28 : l'année tyrienne n'a pas de jour

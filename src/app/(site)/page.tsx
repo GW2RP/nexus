@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FramedMedia } from "@/components/ui/framed-media";
 import { SectionHeading } from "@/components/ui/section-heading";
-import { formatLongDate, gameDay, isoDate } from "@/lib/dates";
+import { formatLongDate, isoDate } from "@/lib/dates";
 import { canContribute, canReportContent } from "@/lib/permissions";
 import { SITE_DESCRIPTION, SITE_TAGLINE, buildMetadata } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
@@ -60,13 +60,12 @@ export default async function HomePage() {
             Registre des personnages, carte vivante, agenda des évènements et tableau des
             rumeurs — tout ce qui fait vivre vos histoires, au même endroit.
           </p>
-          {/* La date réelle en premier, la date tyrienne en second — et le jour
-              civil du serveur de jeu des deux côtés, pour qu'une veillée de
-              minuit ne soit pas datée de la veille. */}
+          {/* La date réelle en premier, la date tyrienne en second. Les deux
+              lisent l'heure du serveur de jeu — `toTyrianDate` s'en charge. */}
           <p className="mb-7 meta text-ink-muted">
             <time dateTime={isoDate(now)}>{formatLongDate(now)}</time>
             {" · "}
-            <span className="text-gold-eyebrow">{formatTyrianDate(gameDay(now))}</span>
+            <span className="text-gold-eyebrow">{formatTyrianDate(now)}</span>
           </p>
           <div className="flex flex-wrap gap-3">
             <Button asChild size="lead">
