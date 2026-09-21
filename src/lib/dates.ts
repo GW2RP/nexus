@@ -158,7 +158,7 @@ export function formatWeekdayTime(date: Date): string {
   return `${formatWeekday(date)} ${formatGameTime(date)}`;
 }
 
-/** « samedi 26 septembre · 21 Zéphyr 1332 · 20h30 → 23h30 » */
+/** « samedi 26 septembre · 89 Scion 1339 · 20h30 → 23h30 » */
 export function formatEventWhen(startsAt: Date, endsAt?: Date | null): string {
   const parts = [formatLongDate(startsAt), formatTyrianDate(startsAt)];
   const time = endsAt
