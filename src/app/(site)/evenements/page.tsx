@@ -4,9 +4,10 @@ import Link from "next/link";
 import { EventCalendar } from "@/components/content/event-calendar";
 import { EventRow } from "@/components/content/event-row";
 import { InvitationCodeForm } from "@/components/content/invitation-code-form";
+import { CheckIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { FilterChips } from "@/components/ui/filter-chips";
+import { FilterSelect } from "@/components/ui/filter-select";
 import { PageHeader } from "@/components/ui/page-header";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import {
@@ -68,14 +69,29 @@ export default async function EventsPage({
     limit: 120,
   });
 
-  // La bascule de vue conserve les filtres : ils vivent dans l'URL.
-  const query = new URLSearchParams();
+  // Tous les liens de l'agenda se dérivent des paramètres courants : chacun
+  // change ce qu'il change, et laisse le reste. Sans cette base commune, le lien
+  // qui décoche « mes inscriptions » repartait du `mes=1` qu'il devait retirer,
+  // et la case ne se décochait pas.
+  const courant = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
-    if (typeof value === "string" && key !== "vue") query.set(key, value);
+    if (typeof value === "string" && value) courant.set(key, value);
   }
-  const agendaHref = query.toString() ? `/evenements?${query}` : "/evenements";
-  const calendarQuery = new URLSearchParams(query);
-  calendarQuery.set("vue", "calendrier");
+
+  function lien(changes: Record<string, string | null>): string {
+    const suivant = new URLSearchParams(courant);
+    for (const [key, value] of Object.entries(changes)) {
+      if (value) suivant.set(key, value);
+      else suivant.delete(key);
+    }
+    const query = suivant.toString();
+    return query ? `/evenements?${query}` : "/evenements";
+  }
+
+  // La bascule de vue conserve les filtres : ils vivent dans l'URL.
+  const agendaHref = lien({ vue: null });
+  const calendrierHref = lien({ vue: "calendrier" });
+  const mesInscriptionsHref = lien({ mes: onlyMine ? null : "1" });
 
   const weeks = groupByWeek(events);
 
@@ -123,28 +139,31 @@ export default async function EventsPage({
           label="Vue de l'agenda"
           segments={[
             { href: agendaHref, label: "AGENDA", active: view === "agenda" },
-            {
-              href: `/evenements?${calendarQuery}`,
-              label: "CALENDRIER",
-              active: view === "calendrier",
-            },
+            { href: calendrierHref, label: "CALENDRIER", active: view === "calendrier" },
           ]}
         />
         {user ? (
+          // Une case à cocher qui se décoche : le lien porte l'état inverse de
+          // celui affiché, et l'annonce plutôt que de le laisser à la couleur.
           <Link
-            href={
+            href={mesInscriptionsHref}
+            aria-label={
               onlyMine
-                ? agendaHref
-                : `/evenements?${new URLSearchParams({ ...Object.fromEntries(query), mes: "1" })}`
+                ? "Uniquement mes inscriptions : activé. Afficher toutes les scènes."
+                : "N'afficher que mes inscriptions."
             }
             className="flex min-h-tap items-center gap-3 text-[17px] text-ink-body"
           >
             <span
               aria-hidden="true"
-              className={`inline-block size-[18px] border ${
-                onlyMine ? "border-crimson bg-crimson" : "border-rule bg-surface-inset"
+              className={`inline-flex size-[18px] shrink-0 items-center justify-center border ${
+                onlyMine
+                  ? "border-crimson bg-crimson text-on-crimson"
+                  : "border-rule bg-surface-inset"
               }`}
-            />
+            >
+              {onlyMine ? <CheckIcon size={12} /> : null}
+            </span>
             Uniquement mes inscriptions
           </Link>
         ) : null}
@@ -152,34 +171,30 @@ export default async function EventsPage({
         <InvitationCodeForm labelHidden className="sm:ml-auto" />
       </div>
 
-      <div className="mb-8 flex flex-col gap-3">
-        <FilterChips
+      {/* Trois listes déroulantes sur une ligne : alignés en boutons, les mêmes
+          filtres poussaient la première semaine hors de l'écran. */}
+      <div className="mb-8 flex flex-wrap items-end gap-4">
+        <FilterSelect
           name="type"
-          legend="Filtrer par type d'évènement"
-          allLabel="TOUS LES TYPES"
-          options={EVENT_TYPES.map((value) => ({
-            value,
-            label: EVENT_TYPE_LABELS[value].toLocaleUpperCase("fr-FR"),
-          }))}
+          label="Type de scène"
+          allLabel="Tous les types"
+          options={EVENT_TYPES.map((value) => ({ value, label: EVENT_TYPE_LABELS[value] }))}
         />
-        <FilterChips
+        <FilterSelect
           name="region"
-          legend="Filtrer par région"
-          allLabel="TOUTE LA TYRIE"
-          options={REGIONS.map((value) => ({
-            value,
-            label: REGION_LABELS[value].toLocaleUpperCase("fr-FR"),
-          }))}
+          label="Région"
+          allLabel="Toute la Tyrie"
+          options={REGIONS.map((value) => ({ value, label: REGION_LABELS[value] }))}
         />
         {user ? (
-          <FilterChips
+          <FilterSelect
             name="acces"
-            legend="Filtrer par accès"
-            allLabel="TOUTES LES SCÈNES"
+            label="Accès"
+            allLabel="Toutes les scènes"
             options={[
-              { value: "publiques", label: "PUBLIQUES" },
-              { value: "invitation", label: "SUR INVITATION" },
-              { value: "groupes", label: "MES GROUPES" },
+              { value: "publiques", label: "Publiques" },
+              { value: "invitation", label: "Sur invitation" },
+              { value: "groupes", label: "Mes groupes" },
             ]}
           />
         ) : null}

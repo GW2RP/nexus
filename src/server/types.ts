@@ -154,6 +154,10 @@ export type EventDetail = EventSummary & {
   author: AuthorSummary | null;
   placeDetail: { id: string; slug: string; name: string; district: string | null; summary: string | null; region: Region } | null;
   participants: { id: string; name: string; slug: string; race: Race; gender: Gender }[];
+  /** Les inscrits qui n'ont pas nommé de personnage. Ils comptent dans
+   *  `registeredCount` sans figurer dans `participants` : sans ce nombre, la
+   *  fiche annoncerait « 3 sur 10 places » au-dessus d'une liste de deux. */
+  unnamedParticipantCount: number;
   /** Le code du lien de partage. Rendu à qui peut modifier la scène — son
    *  auteur, et l'administration, comme partout ailleurs dans le hub. Pas à un
    *  invité : le lui donner reviendrait à le laisser inviter à son tour. */
