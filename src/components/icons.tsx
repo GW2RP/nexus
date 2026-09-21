@@ -80,6 +80,40 @@ export function RuinIcon(props: IconProps) {
   );
 }
 
+/** Un domaine : un mur crénelé et son porche.
+ *
+ *  Les créneaux ne sont pas un ornement, ils sont ce qui le rend reconnaissable.
+ *  Essayé d'abord en deux tours encadrant une arche : rendu à quinze pixels dans
+ *  un pin, cela ne se distinguait plus des trois colonnes brisées de la ruine.
+ *  La dentelure du haut, elle, se lit du premier coup d'œil. */
+export function EstateIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M2.5 13 v-5.5 h11 v5.5 M2.5 7.5 v-1.5 h2 v1.5 M6.5 7.5 v-1.5 h2 v1.5 M10.5 7.5 v-1.5 h2 v1.5 M6.8 13 v-3 h2.4 v3" />
+    </Icon>
+  );
+}
+
+/** Une maison : un toit, quatre murs, une porte. */
+export function HouseIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3 8 L8 3.5 L13 8 M4.5 8 v5 h7 v-5 M7 13 v-3 h2 v3" />
+    </Icon>
+  );
+}
+
+/** Un campement : une tente plantée, son ouverture, et le sol qui déborde de
+ *  part et d'autre. Ce débord fait la tente : refermée en triangle plein, la
+ *  forme tirait vers le panneau d'avertissement. */
+export function TentIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M2.5 13 h11 M8 3.5 L4 13 M8 3.5 L12 13 M6.3 13 l1.7 -4.3 l1.7 4.3" />
+    </Icon>
+  );
+}
+
 /* --- Glyphes d'interface ----------------------------------------------------- */
 
 /** Ce qui se dit : une bulle, et le fil de ce qu'on y raconte. */

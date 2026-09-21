@@ -80,7 +80,19 @@ export const GROUP_VISIBILITY_LABELS: Record<GroupVisibility, string> = {
   prive: "Privé",
 };
 
-export const PLACE_TYPES = ["taverne", "guilde", "ruine", "commerce"] as const;
+/** Les nouveaux types s'ajoutent **à la fin** : c'est l'ordre des puces de
+ *  filtre et de la liste déroulante du formulaire, et le déplacer ferait bouger
+ *  sous les doigts des repères déjà pris. Rien d'autre n'en dépend — un lieu
+ *  range son type par son nom, pas par son rang, contrairement aux terrains. */
+export const PLACE_TYPES = [
+  "taverne",
+  "guilde",
+  "ruine",
+  "commerce",
+  "domaine",
+  "maison",
+  "campement",
+] as const;
 export type PlaceType = (typeof PLACE_TYPES)[number];
 
 export const PLACE_TYPE_LABELS: Record<PlaceType, string> = {
@@ -88,6 +100,9 @@ export const PLACE_TYPE_LABELS: Record<PlaceType, string> = {
   guilde: "Siège de guilde",
   ruine: "Ruine",
   commerce: "Commerce",
+  domaine: "Domaine",
+  maison: "Maison",
+  campement: "Campement",
 };
 
 export const REGIONS = ["kryte", "ascalon", "maguuma", "shiverpeaks", "orr", "desert"] as const;
