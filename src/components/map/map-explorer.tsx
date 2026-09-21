@@ -678,7 +678,7 @@ function Ajout({ href, children }: { href: string; children: React.ReactNode }) 
   return (
     <Link
       href={href}
-      className="inline-flex min-h-tap items-center text-[16px] text-gold-ink underline underline-offset-4 hover:text-ink"
+      className="inline-flex min-h-tap items-center meta text-gold-ink underline underline-offset-4 hover:text-ink"
     >
       {children}
     </Link>

@@ -4,10 +4,10 @@ import Link from "next/link";
 import { EventCalendar } from "@/components/content/event-calendar";
 import { EventRow } from "@/components/content/event-row";
 import { InvitationCodeForm } from "@/components/content/invitation-code-form";
-import { CheckIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FilterSelect } from "@/components/ui/filter-select";
+import { FilterToggle } from "@/components/ui/filter-toggle";
 import { PageHeader } from "@/components/ui/page-header";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import {
@@ -69,10 +69,10 @@ export default async function EventsPage({
     limit: 120,
   });
 
-  // Tous les liens de l'agenda se dérivent des paramètres courants : chacun
-  // change ce qu'il change, et laisse le reste. Sans cette base commune, le lien
-  // qui décoche « mes inscriptions » repartait du `mes=1` qu'il devait retirer,
-  // et la case ne se décochait pas.
+  // Les liens de l'agenda se dérivent des paramètres courants : chacun change
+  // ce qu'il change, et laisse le reste. Sans cette base commune, la bascule de
+  // vue repartait d'une base amputée et emportait « mes inscriptions » au
+  // passage — c'est le même défaut qui empêchait la case de se décocher.
   const courant = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (typeof value === "string" && value) courant.set(key, value);
@@ -91,7 +91,6 @@ export default async function EventsPage({
   // La bascule de vue conserve les filtres : ils vivent dans l'URL.
   const agendaHref = lien({ vue: null });
   const calendrierHref = lien({ vue: "calendrier" });
-  const mesInscriptionsHref = lien({ mes: onlyMine ? null : "1" });
 
   const weeks = groupByWeek(events);
 
@@ -142,31 +141,7 @@ export default async function EventsPage({
             { href: calendrierHref, label: "CALENDRIER", active: view === "calendrier" },
           ]}
         />
-        {user ? (
-          // Une case à cocher qui se décoche : le lien porte l'état inverse de
-          // celui affiché, et l'annonce plutôt que de le laisser à la couleur.
-          <Link
-            href={mesInscriptionsHref}
-            aria-label={
-              onlyMine
-                ? "Uniquement mes inscriptions : activé. Afficher toutes les scènes."
-                : "N'afficher que mes inscriptions."
-            }
-            className="flex min-h-tap items-center gap-3 text-[17px] text-ink-body"
-          >
-            <span
-              aria-hidden="true"
-              className={`inline-flex size-[18px] shrink-0 items-center justify-center border ${
-                onlyMine
-                  ? "border-crimson bg-crimson text-on-crimson"
-                  : "border-rule bg-surface-inset"
-              }`}
-            >
-              {onlyMine ? <CheckIcon size={12} /> : null}
-            </span>
-            Uniquement mes inscriptions
-          </Link>
-        ) : null}
+        {user ? <FilterToggle name="mes" label="Uniquement mes inscriptions" /> : null}
 
         <InvitationCodeForm labelHidden className="sm:ml-auto" />
       </div>

@@ -264,12 +264,12 @@ export default async function EventPage({ params }: Props) {
                 ))}
               </ul>
             ) : event.unnamedParticipantCount === 0 ? (
-              <p className="text-[17px] text-ink-muted">
+              <p className="body-compact text-ink-muted">
                 Personne n'est encore inscrit. La première place est à prendre.
               </p>
             ) : null}
             {event.unnamedParticipantCount > 0 ? (
-              <p className="text-[17px] text-ink-muted">
+              <p className="body-compact text-ink-muted">
                 {event.unnamedParticipantCount} inscrit
                 {event.unnamedParticipantCount > 1 ? "s" : ""} sans personnage
               </p>
