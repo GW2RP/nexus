@@ -5,7 +5,15 @@ import type { Phenomene } from "@/lib/weather/phenomena";
  *  bascule avec le thème sans code supplémentaire. Le glyphe d'un pin est le même
  *  que celui de la puce de type correspondante. */
 
-const GLYPHS: Record<string, string> = {
+/** Ce qu'un pin peut désigner. Une rumeur n'a pas de type à elle — elle est son
+ *  propre type, et c'est son glyphe qui le dit. */
+export type PinType = PlaceType | EventType | "rumeur";
+
+/** `satisfies` et non `Record<string, string>` : un type de lieu nouveau doit
+ *  faire échouer la compilation tant qu'il n'a pas son tracé ici. Avec une clé
+ *  libre, l'oubli passait sans bruit et le lieu se retrouvait sur la carte avec
+ *  la chope de la taverne — un défaut qui ne se voit qu'en regardant la carte. */
+const GLYPHS = {
   taverne: '<path d="M4 3 h7 l-1 9 h-5 z M11 5 h3 v4 h-3"/>',
   aventure: '<path d="M3 13 L11 5 M9 3 L13 7 M2.5 12.5 L3.5 13.5"/>',
   commerce:
@@ -14,17 +22,17 @@ const GLYPHS: Record<string, string> = {
   guilde: '<path d="M4.5 2.5 h7 v7 l-3.5 -2 -3.5 2 z M8 9.5 v4"/>',
   intrigue: '<path d="M8 2.5 v11 M4 5 h8 M3 5 l-1.5 3.5 h3 z M13 5 l1.5 3.5 h-3 z"/>',
   ruine: '<path d="M3 13 h10 M4.5 13 v-6 M7.5 13 v-8 M10.5 13 v-5"/>',
+  domaine:
+    '<path d="M2.5 13 v-5.5 h11 v5.5 M2.5 7.5 v-1.5 h2 v1.5 M6.5 7.5 v-1.5 h2 v1.5 M10.5 7.5 v-1.5 h2 v1.5 M6.8 13 v-3 h2.4 v3"/>',
+  maison: '<path d="M3 8 L8 3.5 L13 8 M4.5 8 v5 h7 v-5 M7 13 v-3 h2 v3"/>',
+  campement: '<path d="M2.5 13 h11 M8 3.5 L4 13 M8 3.5 L12 13 M6.3 13 l1.7 -4.3 l1.7 4.3"/>',
   rumeur: '<path d="M2.5 3.5 h11 v7 h-6.7 l-2.8 2.8 v-2.8 h-1.5 z M5.5 7 h5"/>',
-};
-
-/** Ce qu'un pin peut désigner. Une rumeur n'a pas de type à elle — elle est son
- *  propre type, et c'est son glyphe qui le dit. */
-export type PinType = PlaceType | EventType | "rumeur";
+} satisfies Record<PinType, string>;
 
 export type MarkerState = "lieu" | "en-cours" | "annonce" | "rumeur" | "selectionne";
 
 export function markerHtml(type: PinType, state: MarkerState): string {
-  const glyph = GLYPHS[type] ?? GLYPHS.taverne;
+  const glyph = GLYPHS[type];
   const size = state === "selectionne" ? 44 : 34;
 
   const styles: Record<MarkerState, string> = {

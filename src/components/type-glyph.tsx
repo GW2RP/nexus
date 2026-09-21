@@ -2,6 +2,8 @@ import {
   AdventureIcon,
   BannerIcon,
   CloudIcon,
+  EstateIcon,
+  HouseIcon,
   MistIcon,
   RainIcon,
   RuinIcon,
@@ -10,6 +12,7 @@ import {
   StormIcon,
   SunIcon,
   TavernIcon,
+  TentIcon,
   TradeIcon,
   WindIcon,
 } from "@/components/icons";
@@ -35,6 +38,9 @@ const PLACE_GLYPHS: Record<PlaceType, Glyph> = {
   guilde: BannerIcon,
   ruine: RuinIcon,
   commerce: TradeIcon,
+  domaine: EstateIcon,
+  maison: HouseIcon,
+  campement: TentIcon,
 };
 
 const WEATHER_GLYPHS: Record<WeatherCondition, Glyph> = {
