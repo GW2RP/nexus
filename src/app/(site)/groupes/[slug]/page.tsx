@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { BoardCard } from "@/components/board/board-card";
+import { NewBoardDialog } from "@/components/board/board-dialogs";
 import { DeleteContent } from "@/components/content/delete-content";
 import { EventRow } from "@/components/content/event-row";
 import { GroupMembers } from "@/components/content/group-members";
@@ -20,6 +22,7 @@ import { canManageGroup, isGroupMember } from "@/lib/permissions";
 import { breadcrumbJsonLd, buildMetadata, jsonLdScript } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
 import { deleteGroupAction } from "@/server/actions/groups";
+import { listGroupBoards } from "@/server/queries/boards";
 import { listEvents } from "@/server/queries/events";
 import { getGroupBySlug } from "@/server/queries/groups";
 
@@ -69,7 +72,21 @@ export default async function GroupPage({ params }: Props) {
 
   // Les scènes du cercle : celles que le lecteur a le droit de voir. Un
   // visiteur d'un groupe public y verra donc les scènes publiques seulement.
-  const events = await listEvents({ groupId: group.id, viewer: user, limit: 10 });
+  // Et ses panneaux : ceux que le lecteur peut lire. Un visiteur n'y voit que
+  // les panneaux publics.
+  const [events, boards] = await Promise.all([
+    listEvents({ groupId: group.id, viewer: user, limit: 10 }),
+    listGroupBoards(
+      {
+        id: group.id,
+        slug: group.slug,
+        visibility: group.visibility,
+        authorId: group.authorId,
+        memberIds: group.members.map((one) => one.id),
+      },
+      user,
+    ),
+  ]);
 
   return (
     <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 lg:px-gutter-desktop">
@@ -111,6 +128,31 @@ export default async function GroupPage({ params }: Props) {
           </p>
 
           {group.description ? <RichText text={group.description} className="mt-7" /> : null}
+
+          {boards.length > 0 || manages ? (
+            <section className="mt-10" aria-labelledby="panneaux">
+              <SectionHeading
+                id="panneaux"
+                title={`Panneaux d'affichage · ${boards.length}`}
+              />
+              {boards.length > 0 ? (
+                <ul className="grid gap-6 sm:grid-cols-2">
+                  {boards.map((board) => (
+                    <li key={board.id}>
+                      <BoardCard board={board} />
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <EmptyState title="Aucun panneau" />
+              )}
+              {manages ? (
+                <div className="mt-5">
+                  <NewBoardDialog groupId={group.id} groupName={group.name} />
+                </div>
+              ) : null}
+            </section>
+          ) : null}
 
           <section className="mt-10" aria-labelledby="membres">
             <SectionHeading id="membres" title={`Membres · ${group.memberCount}`} />
@@ -156,6 +198,7 @@ export default async function GroupPage({ params }: Props) {
                 label="Scènes à venir"
                 value={String(group.upcomingEventCount)}
               />
+              <Fact label="Panneaux" value={boards.length > 0 ? String(boards.length) : null} />
               <Fact label="Meneur" value={group.author?.name ?? null} />
             </dl>
           </Card>

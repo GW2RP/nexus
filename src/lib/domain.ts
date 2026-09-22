@@ -191,7 +191,13 @@ export const REPORT_REASON_LABELS: Record<ReportReason, string> = {
   "image-inadaptee": "Image inadaptée",
 };
 
-export const REPORT_TARGETS = ["rumeur", "personnage", "lieu", "evenement"] as const;
+export const REPORT_TARGETS = [
+  "rumeur",
+  "personnage",
+  "lieu",
+  "evenement",
+  "element-panneau",
+] as const;
 export type ReportTarget = (typeof REPORT_TARGETS)[number];
 
 export const REPORT_TARGET_LABELS: Record<ReportTarget, string> = {
@@ -199,6 +205,7 @@ export const REPORT_TARGET_LABELS: Record<ReportTarget, string> = {
   personnage: "Personnage",
   lieu: "Lieu",
   evenement: "Évènement",
+  "element-panneau": "Élément de panneau",
 };
 
 /** Où mène le contenu signalé, une fois qu'on connaît son type et son identifiant public. */
@@ -207,6 +214,9 @@ export const REPORT_TARGET_PATHS: Record<ReportTarget, (slug: string) => string>
   personnage: (slug) => `/personnages/${slug}`,
   lieu: (slug) => `/lieux/${slug}`,
   evenement: (slug) => `/evenements/${slug}`,
+  // L'élément n'a pas d'adresse à lui : on range le chemin de son panneau, qui
+  // l'ouvre sélectionné.
+  "element-panneau": (chemin) => chemin,
 };
 
 export const REPORT_STATUSES = ["en-attente", "traite", "rejete"] as const;

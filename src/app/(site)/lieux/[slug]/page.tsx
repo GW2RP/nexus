@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { OpenPlaceBoardButton } from "@/components/board/board-dialogs";
+import { BoardPreview } from "@/components/board/board-preview";
 import { EventRow } from "@/components/content/event-row";
 import { PlaceTabs } from "@/components/content/place-tabs";
 import { WeatherBadge } from "@/components/content/weather-badge";
@@ -16,9 +18,11 @@ import { RichText } from "@/components/ui/rich-text";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { PLACE_TYPE_LABELS, REGION_LABELS } from "@/lib/domain";
 import { canEditContent, canEditPlace, canReportContent } from "@/lib/permissions";
+import { formatLongDate } from "@/lib/dates";
 import { SITE_URL, breadcrumbJsonLd, buildMetadata, jsonLdScript } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
 import { deletePlaceAction } from "@/server/actions/places";
+import { getPlaceBoard } from "@/server/queries/boards";
 import { listEvents } from "@/server/queries/events";
 import { getPlaceBySlug } from "@/server/queries/places";
 import { getWeatherAt, getWeatherForRegion } from "@/server/queries/weather";
@@ -66,13 +70,14 @@ export default async function PlacePage({ params }: Props) {
   const [place, user] = await Promise.all([getPlaceBySlug(slug), getCurrentUser()]);
   if (!place) notFound();
 
-  const [events, weather] = await Promise.all([
+  const [events, weather, board] = await Promise.all([
     listEvents({ placeId: place.id, limit: 6, viewer: user }),
     // Le lieu a des coordonnées : on prend le temps de sa cellule, pas la
     // moyenne de sa région. La brume d'un marais n'est pas celle de la Kryte.
     place.coordinates
       ? getWeatherAt(place.coordinates, place.region)
       : getWeatherForRegion(place.region),
+    getPlaceBoard(place),
   ]);
 
   const managerIds = place.managers.map((manager) => manager.id);
@@ -193,6 +198,35 @@ export default async function PlacePage({ params }: Props) {
             <SectionHeading id="les-lieux" title="Les lieux" />
             <PlaceTabs place={place} />
           </section>
+
+          {board ? (
+            <section className="mb-10" aria-labelledby="panneau">
+              <SectionHeading
+                id="panneau"
+                title="Panneau d'affichage"
+                href={board.path}
+                linkLabel="Ouvrir le panneau"
+              />
+              <Link
+                href={board.path}
+                aria-label={`Ouvrir le panneau d'affichage de ${place.name}`}
+                className="framed block"
+              >
+                <BoardPreview content={{ elements: board.elements, arrows: board.arrows }} height={380} />
+              </Link>
+              {board.elementCount > 0 ? (
+                <p className="mt-3 meta text-ink-muted">
+                  {board.elementCount} élément{board.elementCount > 1 ? "s" : ""} · modifié le{" "}
+                  {formatLongDate(new Date(board.updatedAt))}
+                </p>
+              ) : null}
+            </section>
+          ) : canEdit ? (
+            <section className="mb-10" aria-labelledby="panneau">
+              <SectionHeading id="panneau" title="Panneau d'affichage" />
+              <EmptyState title="Aucun panneau" action={<OpenPlaceBoardButton placeId={place.id} />} />
+            </section>
+          ) : null}
 
           <section aria-labelledby="evenements-ici">
             <SectionHeading

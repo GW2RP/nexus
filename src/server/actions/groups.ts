@@ -10,6 +10,7 @@ import {
 } from "@/lib/blob";
 import { canManageGroup } from "@/lib/permissions";
 import { uniqueSlug } from "@/lib/slug";
+import { Board } from "@/models/board";
 import { Event } from "@/models/event";
 import { Group } from "@/models/group";
 import {
@@ -123,6 +124,8 @@ export async function deleteGroupAction(
     // privées, et leurs invités nommés continuent de les voir. Les laisser
     // pointer un groupe dissous les rendrait invisibles pour tout le monde.
     await Event.updateMany({ groupId: existing._id } as never, { $unset: { groupId: "" } });
+    // Ses panneaux, eux, n'existent que par lui : ils partent avec.
+    await Board.deleteMany({ groupId: existing._id } as never);
     await existing.deleteOne();
     await deleteUploadedImages(images, existing.authorId);
   } catch (error) {
