@@ -17,7 +17,7 @@ export function SiteFooter() {
             </li>
             <li>
               <Link href="/regles" className="text-crimson-ink underline-offset-4 hover:underline">
-                Règles du hub
+                Règlement d'usage
               </Link>
             </li>
             <li>

@@ -24,43 +24,11 @@ export default function AboutPage() {
       />
 
       <section className="mb-8">
-        <SectionHeading title="Ce que fait le hub" as="h2" />
-        <p className="max-w-[70ch] body text-ink-body">
-          Quatre choses, et rien d'autre : un{" "}
-          <Link href="/personnages" className="text-crimson-ink underline underline-offset-4">
-            registre des personnages
-          </Link>
-          , une{" "}
-          <Link href="/carte" className="text-crimson-ink underline underline-offset-4">
-            carte
-          </Link>{" "}
-          où les lieux et les scènes sont épinglés, un{" "}
-          <Link href="/evenements" className="text-crimson-ink underline underline-offset-4">
-            agenda
-          </Link>{" "}
-          avec ses inscriptions, et un{" "}
-          <Link href="/rumeurs" className="text-crimson-ink underline underline-offset-4">
-            tableau des rumeurs
-          </Link>
-          . Le hub ne remplace ni le jeu ni vos salons vocaux : il garde la trace.
-        </p>
-      </section>
-
-      <section className="mb-8">
         <SectionHeading title="Affiliation" as="h2" />
         <p className="max-w-[70ch] body text-ink-body">
           GW2RP Nexus n'est affilié ni à ArenaNet, LLC ni à NCSOFT. Guild Wars 2 et l'ensemble
           de l'univers de Tyrie leur appartiennent. {TILE_ATTRIBUTION} Les textes et les
           images déposés ici restent à leurs auteurs.
-        </p>
-      </section>
-
-      <section className="mb-8">
-        <SectionHeading title="Les dates" as="h2" />
-        <p className="max-w-[70ch] body text-ink-body">
-          L'agenda affiche la date réelle en premier et la date tyrienne en second. Les heures
-          sont celles du serveur de jeu, en Europe/Paris : elles sont indiquées comme telles,
-          jamais converties en silence.
         </p>
       </section>
 
