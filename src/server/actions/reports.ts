@@ -45,6 +45,7 @@ function imagesOf(document: any): (string | null | undefined)[] {
     document?.bannerUrl,
     document?.logoUrl,
     document?.floorPlan?.imageUrl,
+    ...(document?.floorPlans ?? []).map((plan: { imageUrl?: string }) => plan?.imageUrl),
     ...collectMarkdownImages(document?.description, document?.story, document?.appearance),
   ];
 }

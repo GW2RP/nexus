@@ -2,7 +2,11 @@ import { Schema, model, models, type InferSchemaType, type Model } from "mongoos
 
 import { PLACE_TYPES, REGIONS } from "@/lib/domain";
 
-/** Un point numéroté du plan intérieur, en coordonnées pixel de l'image téléversée. */
+/** Un point numéroté posé sur un plan, en pourcentage de l'image téléversée.
+ *  En pourcentage et non en pixels : l'image se rend à la largeur de la colonne,
+ *  jamais à sa taille d'origine, donc un pixel du fichier ne désigne rien à
+ *  l'écran. Le numéro est celui de sa place dans la liste — il s'écrit au
+ *  serveur, sinon deux points pourraient porter le même. */
 const floorPointSchema = new Schema(
   {
     number: { type: Number, required: true, min: 1 },
@@ -14,7 +18,28 @@ const floorPointSchema = new Schema(
   { _id: false },
 );
 
-/** Une fiche de lieu : son emplacement en Tyrie et, si l'auteur en pose un, son plan. */
+/** Un plan du lieu : son image, son nom, et les points qu'on y a posés.
+ *  Un lieu en porte plusieurs — le rez-de-chaussée, l'étage, la cave —, et
+ *  chacun nomme son onglet sur la fiche : sans nom, une pile d'onglets ne dit
+ *  pas lequel montre quoi. */
+const floorPlanSchema = new Schema(
+  {
+    title: { type: String, required: true, trim: true, maxlength: 80 },
+    // L'image est facultative : un plan peut n'être encore que sa liste de
+    // points — c'est ce que portaient les fiches d'avant la liste, et la fiche
+    // les montre alors sur un placeholder plutôt que d'oublier leurs légendes.
+    imageUrl: { type: String },
+    imageAlt: { type: String, maxlength: 240 },
+    /** Les dimensions du fichier : le cadre les prend pour rapport avant que
+     *  l'image arrive, sinon les points sautent à son chargement. */
+    width: { type: Number },
+    height: { type: Number },
+    points: [floorPointSchema],
+  },
+  { _id: false },
+);
+
+/** Une fiche de lieu : son emplacement en Tyrie et, si l'auteur en pose, ses plans. */
 const placeSchema = new Schema(
   {
     slug: { type: String, required: true, unique: true, index: true },
@@ -33,6 +58,10 @@ const placeSchema = new Schema(
       x: { type: Number },
       y: { type: Number },
     },
+    // La liste des plans. `floorPlan` est l'ancien champ, au singulier : il est
+    // encore lu pour les fiches écrites avant, jamais écrit — un lieu qui
+    // s'enregistre le range dans la liste et l'efface.
+    floorPlans: { type: [floorPlanSchema], default: [] },
     floorPlan: {
       imageUrl: { type: String },
       imageAlt: { type: String, maxlength: 240 },

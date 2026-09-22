@@ -27,7 +27,7 @@ import { listPlaces } from "@/server/queries/places";
 export const metadata: Metadata = buildMetadata({
   title: "Registre des lieux",
   description:
-    "Tavernes, sièges de guilde, domaines, maisons, campements, ruines et comptoirs tenus par la communauté : les lieux où se jouent les scènes, avec leur emplacement en Tyrie et leur plan intérieur.",
+    "Tavernes, sièges de guilde, domaines, maisons, campements, ruines et comptoirs tenus par la communauté : les lieux où se jouent les scènes, avec leur emplacement en Tyrie et leurs plans.",
   path: "/lieux",
   keywords: ["lieux RP Guild Wars 2", "taverne RP Tyrie", "siège de guilde GW2"],
 });

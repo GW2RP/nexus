@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 import { fromGameInput } from "@/lib/dates";
+import { PLANS_MAX, POINTS_PAR_PLAN_MAX, clampPourcentage } from "@/lib/floor-plans";
+import { isBlobUrl } from "@/lib/images";
 import { CONTINENT_HEIGHT, CONTINENT_WIDTH } from "@/lib/map";
 import {
   EVENT_TYPES,
@@ -116,6 +118,66 @@ export const characterSchema = characterFields.refine(
   characterAlt.options,
 );
 
+/** Un point posé sur un plan : sa légende, et sa place sur l'image en
+ *  pourcentage. Le numéro ne vient pas du formulaire — l'action le tire de
+ *  l'ordre de la liste, donc deux points ne portent jamais le même. */
+const floorPointInput = z.object({
+  label: trimmed(80).min(1, "Un point de plan porte sa légende."),
+  description: optionalText(400),
+  x: z.number({ message: "Un point de plan se pose sur l'image." }).transform(clampPourcentage),
+  y: z.number({ message: "Un point de plan se pose sur l'image." }).transform(clampPourcentage),
+});
+
+/** Un plan : son nom, son image, et les points qu'on y a posés.
+ *
+ *  L'image est celle du magasin, et rien d'autre : une adresse quelconque
+ *  glissée ici ferait de la fiche une requête vers le serveur d'un autre, et
+ *  rien ne garantirait qu'elle réponde encore demain. */
+const floorPlanInput = z
+  .object({
+    title: trimmed(80).min(1, "Un plan porte son nom."),
+    // Facultative : un plan peut n'être encore que ses points. Mais si elle est
+    // là, elle vient du magasin, et elle porte son alternative.
+    imageUrl: z.preprocess(
+      emptyToNull,
+      z
+        .string()
+        .refine(isBlobUrl, "Un plan s'ajoute en téléversant son image.")
+        .nullable()
+        .optional(),
+    ),
+    imageAlt: optionalText(240),
+    width: optionalInteger(1, 20000),
+    height: optionalInteger(1, 20000),
+    points: z
+      .array(floorPointInput)
+      .max(POINTS_PAR_PLAN_MAX, `Un plan ne porte pas plus de ${POINTS_PAR_PLAN_MAX} points.`)
+      .default([]),
+  })
+  .refine((plan) => !plan.imageUrl || Boolean(plan.imageAlt?.trim()), {
+    message: ALT_REQUIRED,
+    path: ["imageAlt"],
+  });
+
+/** Les plans arrivent en une seule chaîne JSON, comme le tracé d'une zone : leur
+ *  nombre est variable, et ni leurs points ni leurs légendes ne se nomment en
+ *  champs de formulaire. Un JSON illisible le dit en français plutôt que de
+ *  remonter une erreur de moteur. */
+const floorPlansField = z.preprocess(
+  (value) => {
+    if (value === undefined || value === null || value === "") return [];
+    if (typeof value !== "string") return value;
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  },
+  z
+    .array(floorPlanInput, { message: "Les plans du lieu sont illisibles." })
+    .max(PLANS_MAX, `Un lieu ne porte pas plus de ${PLANS_MAX} plans.`),
+);
+
 const placeFields = z.object({
   name: trimmed(120).min(2, "Le nom fait au moins deux caractères."),
   type: z.enum(PLACE_TYPES),
@@ -128,6 +190,7 @@ const placeFields = z.object({
   bannerAlt: optionalText(240),
   coordinateX: optionalInteger(0, CONTINENT_WIDTH),
   coordinateY: optionalInteger(0, CONTINENT_HEIGHT),
+  floorPlans: floorPlansField,
   keeperCharacterIds: idList(8, "Un lieu ne se tient pas à plus de huit."),
   managerIds: idList(8, "Un lieu ne se gère pas à plus de huit."),
 });

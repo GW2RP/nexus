@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import type { PlaceType, Region } from "@/lib/domain";
+import { isBlobUrl } from "@/lib/images";
 import { TAGS, remember } from "@/server/queries/cache";
 import { pasEncoreFini } from "@/server/queries/events";
 import { Character } from "@/models/character";
@@ -16,7 +17,7 @@ import {
   searchRegex,
   toIso,
 } from "@/server/queries/shared";
-import type { PlaceDetail, PlaceSummary } from "@/server/types";
+import type { FloorPlan, PlaceDetail, PlaceSummary } from "@/server/types";
 
 type ListOptions = {
   query?: string;
@@ -26,6 +27,56 @@ type ListOptions = {
   page?: number;
   pageSize?: number;
 };
+
+/** Le nom que portait l'onglet du temps où un lieu n'avait qu'un plan : une
+ *  fiche écrite avant la liste n'en a pas, et son onglet doit bien s'appeler. */
+const PLAN_SANS_NOM = "Plan intérieur";
+
+/** Les plans d'une fiche, l'ancien champ au singulier compris.
+ *
+ *  Une adresse d'image n'est rendue que si elle vient du magasin : un plan porte
+ *  ce que son auteur a téléversé, pas une adresse quelconque qui ferait de la
+ *  fiche une requête vers le serveur d'un autre. Le plan reste, sans son image —
+ *  ses points disent encore ce qu'ils nomment. */
+function readFloorPlans(doc: PlaceDocument): FloorPlan[] {
+  // L'ancien champ n'a pas de nom de plan : les deux formes se lisent donc sous
+  // la même, la plus large des deux.
+  const stored: {
+    title?: string | null;
+    imageUrl?: string | null;
+    imageAlt?: string | null;
+    width?: number | null;
+    height?: number | null;
+    points?: {
+      number: number;
+      label: string;
+      description?: string | null;
+      x: number;
+      y: number;
+    }[];
+  }[] = doc.floorPlans?.length ? doc.floorPlans : doc.floorPlan ? [doc.floorPlan] : [];
+
+  return stored
+    .map((plan) => {
+      const points = (plan.points ?? []).map((point) => ({
+        number: point.number,
+        label: point.label,
+        description: point.description ?? null,
+        x: point.x,
+        y: point.y,
+      }));
+
+      return {
+        title: plan.title?.trim() || PLAN_SANS_NOM,
+        imageUrl: isBlobUrl(plan.imageUrl) ? plan.imageUrl : null,
+        imageAlt: plan.imageAlt ?? null,
+        width: plan.width ?? null,
+        height: plan.height ?? null,
+        points,
+      };
+    })
+    .filter((plan) => plan.imageUrl !== null || plan.points.length > 0);
+}
 
 function baseSummary(doc: PlaceDocument & { _id: unknown }): Omit<PlaceSummary, "upcomingEventCount"> {
   return {
@@ -180,13 +231,7 @@ export const getPlaceBySlug = cache(async (slug: string): Promise<PlaceDetail | 
     ]),
   );
 
-  const points = (doc.floorPlan?.points ?? []).map((point) => ({
-    number: point.number,
-    label: point.label,
-    description: point.description ?? null,
-    x: point.x,
-    y: point.y,
-  }));
+  const floorPlans = readFloorPlans(doc);
 
   return {
     ...baseSummary(doc as PlaceDocument & { _id: unknown }),
@@ -194,17 +239,7 @@ export const getPlaceBySlug = cache(async (slug: string): Promise<PlaceDetail | 
     description: doc.description ?? null,
     access: doc.access ?? null,
     logoUrl: doc.logoUrl ?? null,
-    floorPlan: doc.floorPlan?.imageUrl
-      ? {
-          imageUrl: doc.floorPlan.imageUrl,
-          imageAlt: doc.floorPlan.imageAlt ?? null,
-          width: doc.floorPlan.width ?? null,
-          height: doc.floorPlan.height ?? null,
-          points,
-        }
-      : points.length > 0
-        ? { imageUrl: null, imageAlt: null, width: null, height: null, points }
-        : null,
+    floorPlans,
     keepers: keeperIds
       .map((id) => keepersById.get(String(id)))
       .filter((keeper) => keeper !== undefined),
