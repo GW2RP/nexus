@@ -1,3 +1,4 @@
+import type { BoardVisibility } from "@/lib/boards";
 import type { EventVisibility, GroupVisibility, Role } from "@/lib/domain";
 import type { SessionUser } from "@/lib/session";
 
@@ -148,4 +149,49 @@ export function canSeeGroup(user: SessionUser | null, group: GroupAccess): boole
  *  n'en adjoint pas d'autres. */
 export function canManageGroup(user: SessionUser | null, group: { authorId: string }): boolean {
   return canEditContent(user, group.authorId);
+}
+
+/** Ce qu'il faut savoir d'un panneau pour décider qui le lit et qui y écrit. */
+export type BoardAccess =
+  | { ownerType: "groupe"; visibility: BoardVisibility; group: GroupAccess }
+  | { ownerType: "lieu"; place: { authorId: string; managerIds: string[] } };
+
+/** Qui lit un panneau. Celui d'un lieu est public. Celui d'un groupe l'est
+ *  aussi quand il le dit — mais jamais plus que son groupe : le panneau public
+ *  d'un groupe privé reste introuvable pour qui n'en est pas. */
+export function canSeeBoard(user: SessionUser | null, board: BoardAccess): boolean {
+  if (board.ownerType === "lieu") return true;
+  if (!canSeeGroup(user, board.group)) return false;
+  if (board.visibility === "public") return true;
+  return isAdmin(user) || isGroupMember(user, board.group);
+}
+
+/** Qui pose sur un panneau. Sur celui d'un groupe, ses membres — « public » dit
+ *  qui le lit, pas qui y écrit. Sur celui d'un lieu, tout compte : c'est le
+ *  panneau de la taverne, on y épingle sa note. */
+export function canWriteBoard(user: SessionUser | null, board: BoardAccess): boolean {
+  if (!canContribute(user)) return false;
+  if (board.ownerType === "lieu") return true;
+  return isGroupMember(user, board.group) || isAdmin(user);
+}
+
+/** Qui déplace, modifie ou retire un élément déjà posé. Entre membres d'un
+ *  groupe, le panneau est commun : chacun range celui des autres. Sur le panneau
+ *  d'un lieu, où écrit qui veut, on ne touche qu'à ce qu'on a posé — l'équipe du
+ *  lieu, elle, fait le ménage. */
+export function canModifyBoardItem(
+  user: SessionUser | null,
+  board: BoardAccess,
+  authorId: string,
+): boolean {
+  if (!user || !canWriteBoard(user, board)) return false;
+  if (board.ownerType === "groupe") return true;
+  return user.id === authorId || canEditPlace(user, board.place);
+}
+
+/** Qui renomme un panneau, change sa visibilité ou le ferme : le meneur du
+ *  groupe, ou l'équipe du lieu. */
+export function canManageBoard(user: SessionUser | null, board: BoardAccess): boolean {
+  if (board.ownerType === "lieu") return canEditPlace(user, board.place);
+  return canManageGroup(user, board.group);
 }

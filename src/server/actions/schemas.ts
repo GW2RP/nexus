@@ -1,5 +1,16 @@
 import { z } from "zod";
 
+import {
+  ARROW_DASHES,
+  ARROW_HEADS,
+  ARROW_LABEL_MAX,
+  ARROW_WIDTHS,
+  BOARD_NAME_MAX,
+  BOARD_VISIBILITIES,
+  ELEMENT_KINDS,
+  TEXT_MAX,
+  TEXT_SIZES,
+} from "@/lib/boards";
 import { fromGameInput } from "@/lib/dates";
 import { PLANS_MAX, POINTS_PAR_PLAN_MAX, clampPourcentage } from "@/lib/floor-plans";
 import { isBlobUrl } from "@/lib/images";
@@ -330,3 +341,74 @@ export const resolveReportSchema = z.object({
     .preprocess(emptyToNull, z.literal("on").nullable().optional())
     .transform((value) => value === "on"),
 });
+
+export const boardSchema = z.object({
+  name: trimmed(BOARD_NAME_MAX).min(2, "Le nom fait au moins deux caractères."),
+  visibility: z.enum(BOARD_VISIBILITIES),
+});
+
+/* --- Les opérations d'un panneau -------------------------------------------
+ * Elles n'arrivent pas d'un formulaire mais de l'éditeur, qui les envoie une à
+ * une. Le schéma borne ce qu'elles portent ; ce qu'elles ont le droit de toucher,
+ * l'action le vérifie contre le panneau. */
+
+const itemId = z.string().regex(/^[0-9a-f]{24}$/i, "Cet élément est introuvable.");
+const coordinate = z.number().finite();
+const color = z.string().trim().max(20);
+const textSize = z
+  .number()
+  .refine((value) => (TEXT_SIZES as readonly number[]).includes(value), "Cette taille n'existe pas.");
+
+const elementPatchSchema = z
+  .object({
+    x: coordinate.optional(),
+    y: coordinate.optional(),
+    w: coordinate.optional(),
+    h: coordinate.optional(),
+    text: z.string().max(TEXT_MAX, "Ce texte est trop long pour le panneau.").optional(),
+    size: textSize.optional(),
+    stroke: color.optional(),
+    fill: color.optional(),
+    ink: color.optional(),
+  })
+  .strict();
+
+const arrowPatchSchema = z
+  .object({
+    color: color.optional(),
+    heads: z.enum(ARROW_HEADS).optional(),
+    dash: z.enum(ARROW_DASHES).optional(),
+    width: z.enum(ARROW_WIDTHS).optional(),
+    label: z.string().trim().max(ARROW_LABEL_MAX, "La légende d'une flèche tient en une ligne.").optional(),
+  })
+  .strict();
+
+export const boardOperationSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("poser"),
+    element: z.object({
+      id: itemId,
+      kind: z.enum(ELEMENT_KINDS),
+      x: coordinate,
+      y: coordinate,
+      w: coordinate,
+      h: coordinate,
+      text: z.string().max(TEXT_MAX, "Ce texte est trop long pour le panneau."),
+      size: textSize,
+      stroke: color,
+      fill: color,
+      ink: color,
+    }),
+  }),
+  z.object({ type: z.literal("modifier"), id: itemId, patch: elementPatchSchema }),
+  z.object({ type: z.literal("plan"), id: itemId, sens: z.enum(["avant", "arriere"]) }),
+  z.object({ type: z.literal("retirer"), id: itemId }),
+  z.object({ type: z.literal("retablir"), id: itemId }),
+  z.object({
+    type: z.literal("relier"),
+    arrow: arrowPatchSchema.extend({ id: itemId, from: itemId, to: itemId }),
+  }),
+  z.object({ type: z.literal("modifier-fleche"), id: itemId, patch: arrowPatchSchema }),
+  z.object({ type: z.literal("retirer-fleche"), id: itemId }),
+  z.object({ type: z.literal("retablir-fleche"), id: itemId }),
+]);

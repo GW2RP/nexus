@@ -10,6 +10,7 @@ import {
 } from "@/lib/blob";
 import { canEditContent, canEditPlace, canManagePlaceTeam } from "@/lib/permissions";
 import { uniqueSlug } from "@/lib/slug";
+import { Board } from "@/models/board";
 import { Character } from "@/models/character";
 import { Place } from "@/models/place";
 import { User } from "@/models/user";
@@ -249,6 +250,8 @@ export async function deletePlaceAction(
       ...planImages(existing),
       ...collectMarkdownImages(existing.description),
     ];
+    // Le panneau d'affichage n'existe que par le lieu : il part avec.
+    await Board.deleteMany({ placeId: existing._id } as never);
     await existing.deleteOne();
     await deleteUploadedImages(images, existing.authorId);
   } catch (error) {

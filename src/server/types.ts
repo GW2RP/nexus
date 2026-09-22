@@ -14,6 +14,7 @@ import type {
   Terrain,
   WeatherCondition,
 } from "@/lib/domain";
+import type { BoardContent, BoardOwner, BoardVisibility } from "@/lib/boards";
 import type { Phenomene } from "@/lib/weather/phenomena";
 
 /** Les formes sérialisées que les composants reçoivent : des objets simples,
@@ -308,4 +309,19 @@ export type ReportRow = {
   resolvedAt: string | null;
   resolutionNote: string | null;
   resolvedBy: AuthorSummary | null;
+};
+
+/** Un panneau d'affichage, tel que le liste la fiche de son groupe ou de son
+ *  lieu. Il porte son contenu : la liste le montre en aperçu. */
+export type BoardSummary = BoardContent & {
+  id: string;
+  name: string;
+  ownerType: BoardOwner;
+  visibility: BoardVisibility;
+  /** L'adresse du panneau : `/groupes/…/panneaux/…` ou `/lieux/…/panneau`. */
+  path: string;
+  elementCount: number;
+  authorId: string;
+  createdAt: string;
+  updatedAt: string;
 };

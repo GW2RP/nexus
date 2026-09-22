@@ -347,6 +347,62 @@ vent fort impossibles sur les terres du hub. Pour la même raison, le gradient d
 température s'étale sur la **bande habitée** (`BANDE_NORD` / `BANDE_SUD`) et se
 borne au-delà.
 
+## Les panneaux d'affichage
+
+Un **groupe** en porte plusieurs, chacun public ou réservé à ses membres ; un
+**lieu** en porte un seul, public, que son équipe ouvre et ferme. Pour un
+panneau de groupe comme pour le groupe lui-même, « public » dit qui le **lit**,
+pas qui y écrit : ce sont toujours les membres. Et jamais plus que son groupe —
+le panneau public d'un groupe privé reste introuvable pour qui n'en est pas.
+`canSeeBoard`, `canWriteBoard` et `canModifyBoardItem` portent la règle. Sur un
+panneau de groupe, le plan est commun : chacun range ce que les autres ont posé.
+Sur celui d'un lieu, où écrit tout compte, on ne touche qu'à ce qu'on a posé, et
+l'équipe du lieu fait le ménage.
+
+**L'éditeur n'enregistre pas le panneau, il envoie des gestes.** Chaque
+opération (`BoardOperation`) s'applique d'abord à l'écran, puis part seule au
+serveur, qui ne touche que l'élément qu'elle nomme : deux membres qui déplacent
+chacun leur note ne s'écrasent pas. Enregistrer le panneau entier ferait
+disparaître la note posée par l'autre entre-temps. L'identifiant d'un élément
+naît donc dans l'éditeur (`newItemId`) — il existe à l'écran avant d'exister en
+base, et garde le même nom ensuite. En cas de refus, le serveur renvoie le
+panneau tel qu'il est, et l'éditeur s'y range.
+
+Ce qui change en continu — une frappe, le glissé d'un nuancier, un déplacement à
+la souris — s'applique tout de suite et ne part **qu'à l'arrêt**, en un seul
+geste d'historique. Sans cela, une note écrite ferait un aller-retour par lettre.
+
+**Retirer n'est pas effacer.** Ce qu'on supprime part à une corbeille bornée
+(`removed`), et « annuler » l'en **rétablit** avec son auteur. Le reposer
+l'attribuerait à celui qui annule — et sur le panneau d'un lieu, lui en
+donnerait les droits.
+
+Les lectures d'un panneau ne passent **pas** par `remember` : chaque déplacement
+d'une note est une écriture, et une étiquette retirée à chaque geste ne servirait
+jamais son entrée. Pour la même raison, un geste ne revalide aucun chemin — la
+page est déjà à jour chez celui qui l'a fait.
+
+Le texte d'une note est du **markdown**, écrit dans l'éditeur des fiches réduit à
+ce qu'un panneau porte : titre, gras, italique, barré, lien, listes, citation.
+Pas de souligné — il n'existe pas en markdown — ni d'image. Sa **taille** se
+choisit sur l'échelle de `tokens.css` (`TEXT_SIZES`), jamais librement.
+
+Une couleur se donne par **teinte du système** (encre, or, carmin ; vélin, ocre)
+ou **librement**. Une teinte suit le thème ; une couleur libre, non. Un élément
+au fond libre porte donc le thème de son fond (`themeForFill`) : clair sur un
+fond clair, sombre sur un fond sombre. Sans cela, un fond vert pâle garderait son
+vert au thème sombre, et l'encre, passée au clair, y disparaîtrait. L'inspecteur
+signale un contraste sous 4,5:1.
+
+Un élément se corrige comme un sommet de tracé : il se glisse, et se déplace aux
+flèches une fois au clavier — d'un pas de grille (`GRID`), d'un dixième avec
+`Maj`. `Alt` redimensionne. Une flèche relie deux éléments et suit leur contour ;
+elle n'a pas de coordonnées à elle.
+
+Un élément se signale depuis son panneau (`element-panneau`). Il n'a pas
+d'adresse à lui : le signalement range celle de son panneau, qui l'ouvre
+sélectionné (`?element=`).
+
 ## Les images
 
 Une image téléversée vit dans Vercel Blob, pas en base. Elle est rangée sous son
