@@ -195,14 +195,22 @@ export async function deleteBoardAction(
 const round = (value: number) => Math.round(value);
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
+type Geometry = { x: number; y: number; w: number; h: number };
+
 /** Ramène une géométrie dans le panneau : un élément ne sort pas du cadre et
- *  garde une taille qu'on peut encore saisir. */
-function boundGeometry(patch: { x?: number; y?: number; w?: number; h?: number }) {
-  const bounded: Record<string, number> = {};
-  if (patch.w !== undefined) bounded.w = round(clamp(patch.w, ELEMENT_MIN, ELEMENT_MAX));
-  if (patch.h !== undefined) bounded.h = round(clamp(patch.h, ELEMENT_MIN, ELEMENT_MAX));
-  if (patch.x !== undefined) bounded.x = round(clamp(patch.x, 0, BOARD_WIDTH));
-  if (patch.y !== undefined) bounded.y = round(clamp(patch.y, 0, BOARD_HEIGHT));
+ *  garde une taille qu'on peut encore saisir. La position se borne sur la
+ *  taille qu'aura l'élément — celle du geste si elle change, la sienne sinon —
+ *  et un élément qui grandit contre le bord y est repoussé. */
+function boundGeometry(patch: Partial<Geometry>, current: Geometry) {
+  const w = round(clamp(patch.w ?? current.w, ELEMENT_MIN, ELEMENT_MAX));
+  const h = round(clamp(patch.h ?? current.h, ELEMENT_MIN, ELEMENT_MAX));
+  const x = round(clamp(patch.x ?? current.x, 0, BOARD_WIDTH - w));
+  const y = round(clamp(patch.y ?? current.y, 0, BOARD_HEIGHT - h));
+  const bounded: Partial<Geometry> = {};
+  if (patch.w !== undefined) bounded.w = w;
+  if (patch.h !== undefined) bounded.h = h;
+  if (patch.x !== undefined || x !== current.x) bounded.x = x;
+  if (patch.y !== undefined || y !== current.y) bounded.y = y;
   return bounded;
 }
 
@@ -289,7 +297,7 @@ export async function boardOperationAction(
             elements: {
               _id: oid(id),
               kind,
-              ...boundGeometry(geometry),
+              ...boundGeometry(geometry, geometry),
               z: (zs.length ? Math.max(...zs) : 0) + 1,
               text,
               size,
@@ -311,7 +319,13 @@ export async function boardOperationAction(
         checkColor("fill", fill);
         checkColor("ink", ink);
         checkText(element.kind as ElementKind, rest.text);
-        const patch = { ...boundGeometry({ x, y, w, h }), ...rest, stroke, fill, ink };
+        const patch = {
+          ...boundGeometry({ x, y, w, h }, element as Geometry),
+          ...rest,
+          stroke,
+          fill,
+          ink,
+        };
         const set: Record<string, unknown> = {};
         for (const [key, value] of Object.entries(patch)) {
           if (value !== undefined) set[`elements.$[e].${key}`] = value;

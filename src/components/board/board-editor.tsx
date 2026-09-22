@@ -656,7 +656,7 @@ export function BoardEditor({
 
   function onCanvasPointerMove(event: React.PointerEvent<HTMLDivElement>) {
     const current = gesture.current;
-    if (!current || !me) return;
+    if (!current) return;
     const dx = event.clientX - current.startX;
     const dy = event.clientY - current.startY;
     if (!current.moved && Math.abs(dx) + Math.abs(dy) < 4) return;
@@ -667,6 +667,8 @@ export function BoardEditor({
       return;
     }
 
+    // Se déplacer sur le panneau ne demande pas de compte ; le modifier, si.
+    if (!me) return;
     const bx = dx / viewRef.current.zoom;
     const by = dy / viewRef.current.zoom;
     const { origin } = current;
