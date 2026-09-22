@@ -72,14 +72,23 @@ function planImages(place: {
   return [place.floorPlan?.imageUrl, ...(place.floorPlans ?? []).map((plan) => plan.imageUrl)];
 }
 
-/** Les points d'un plan sont numérotés par leur rang dans la liste, au serveur :
- *  le formulaire ne poste que leur ordre, et deux points ne peuvent donc pas
- *  porter le même numéro — ni un trou s'ouvrir quand on en retire un. */
-function numberedPlans(plans: ReturnType<typeof placeSchema.parse>["floorPlans"]) {
-  return plans.map((plan) => ({
-    ...plan,
-    points: plan.points.map((point, index) => ({ ...point, number: index + 1 })),
-  }));
+/** Les plans à écrire.
+ *
+ *  Les points sont numérotés par leur rang dans la liste, au serveur : le
+ *  formulaire ne poste que leur ordre, et deux points ne peuvent donc pas porter
+ *  le même numéro — ni un trou s'ouvrir quand on en retire un.
+ *
+ *  Un plan qui ne porte ni image ni point n'est pas écrit : la lecture l'ignore
+ *  déjà — il n'a rien à montrer —, et l'écrire quand même laisserait en base un
+ *  plan que ni la fiche ni le formulaire ne rendent, donc que personne ne peut
+ *  plus retirer. L'écriture et la lecture s'accordent plutôt que de diverger. */
+function toFloorPlans(plans: ReturnType<typeof placeSchema.parse>["floorPlans"]) {
+  return plans
+    .filter((plan) => Boolean(plan.imageUrl) || plan.points.length > 0)
+    .map((plan) => ({
+      ...plan,
+      points: plan.points.map((point, index) => ({ ...point, number: index + 1 })),
+    }));
 }
 
 /** Les coordonnées se saisissent en deux champs ; le modèle les range ensemble. */
@@ -90,7 +99,7 @@ function toDocument(
   const { coordinateX, coordinateY, floorPlans, ...rest } = data;
   return {
     ...rest,
-    floorPlans: numberedPlans(floorPlans),
+    floorPlans: toFloorPlans(floorPlans),
     // Les deux listes du formulaire sont remplacées par celles que le serveur a
     // vérifiées : un identifiant posté à la main n'entre pas dans le document.
     managerIds: team.managerIds,

@@ -313,7 +313,7 @@ function PlanEditor({
           <button
             type="button"
             onClick={onRemove}
-            className="inline-flex min-h-tap items-center gap-2 px-2 text-[16px] text-ink-muted hover:text-ink"
+            className="meta inline-flex min-h-tap items-center gap-2 px-2 text-ink-muted hover:text-ink"
           >
             <CloseIcon size={14} />
             Retirer le plan
@@ -398,9 +398,13 @@ function PlanEditor({
                   const position = positionDans(surface.current, event.clientX, event.clientY);
                   if (position) changerPoint(index, position);
                 }}
-                onPointerUp={(event) => {
-                  event.currentTarget.releasePointerCapture(event.pointerId);
-                  glissement.current = null;
+                // `lostpointercapture` et non `pointerup` : la capture se rend
+                // d'elle-même au relâchement, mais aussi quand elle se perd —
+                // geste annulé par le système, onglet quitté. Sur `pointerup`
+                // seul, le point serait resté saisi, et le survol suivant
+                // l'aurait traîné sans qu'aucun bouton soit enfoncé.
+                onLostPointerCapture={() => {
+                  if (glissement.current === index) glissement.current = null;
                 }}
                 onKeyDown={(event) => {
                   const pas = event.shiftKey ? PAS_CLAVIER_FIN : PAS_CLAVIER;
