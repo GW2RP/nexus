@@ -164,7 +164,7 @@ export default async function PlacePage({ params }: Props) {
               action={deletePlaceAction}
               title={place.name}
               question="Supprimer ce lieu ?"
-              consequence="Le lieu quitte le registre et la carte, avec sa bannière et son plan. Les évènements qui s'y tenaient restent à l'agenda, sans lieu. C'est irréversible."
+              consequence="Le lieu quitte le registre et la carte, avec sa bannière et ses plans. Les évènements qui s'y tenaient restent à l'agenda, sans lieu. C'est irréversible."
               excerpt={place.summary}
               verb="SUPPRIMER LE LIEU"
             />

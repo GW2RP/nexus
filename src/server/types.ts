@@ -75,17 +75,21 @@ export type FloorPoint = {
   y: number;
 };
 
+export type FloorPlan = {
+  title: string;
+  imageUrl: string | null;
+  imageAlt: string | null;
+  width: number | null;
+  height: number | null;
+  points: FloorPoint[];
+};
+
 export type PlaceDetail = PlaceSummary & {
   description: string | null;
   access: string | null;
   logoUrl: string | null;
-  floorPlan: {
-    imageUrl: string | null;
-    imageAlt: string | null;
-    width: number | null;
-    height: number | null;
-    points: FloorPoint[];
-  } | null;
+  /** Les plans du lieu, dans l'ordre où l'auteur les a rangés. */
+  floorPlans: FloorPlan[];
   /** Les personnages qui le tiennent, dans l'ordre où l'auteur les a rangés. */
   keepers: { id: string; slug: string; name: string }[];
   /** Les comptes qui le modifient avec son auteur. */

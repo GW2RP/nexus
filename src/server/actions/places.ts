@@ -62,14 +62,35 @@ async function keepManagedCharacters(ids: string[], ownerIds: string[]): Promise
   return wanted.filter((id) => known.has(id));
 }
 
+/** Les images que les plans d'une fiche portent, l'ancien champ au singulier
+ *  compris : elles vivent dans le magasin, et le ménage les suit comme la
+ *  bannière. */
+function planImages(place: {
+  floorPlan?: { imageUrl?: string | null } | null;
+  floorPlans?: { imageUrl?: string | null }[] | null;
+}): (string | null | undefined)[] {
+  return [place.floorPlan?.imageUrl, ...(place.floorPlans ?? []).map((plan) => plan.imageUrl)];
+}
+
+/** Les points d'un plan sont numérotés par leur rang dans la liste, au serveur :
+ *  le formulaire ne poste que leur ordre, et deux points ne peuvent donc pas
+ *  porter le même numéro — ni un trou s'ouvrir quand on en retire un. */
+function numberedPlans(plans: ReturnType<typeof placeSchema.parse>["floorPlans"]) {
+  return plans.map((plan) => ({
+    ...plan,
+    points: plan.points.map((point, index) => ({ ...point, number: index + 1 })),
+  }));
+}
+
 /** Les coordonnées se saisissent en deux champs ; le modèle les range ensemble. */
 function toDocument(
   data: ReturnType<typeof placeSchema.parse>,
   team: { managerIds: string[]; keeperCharacterIds: string[] },
 ): Record<string, unknown> {
-  const { coordinateX, coordinateY, ...rest } = data;
+  const { coordinateX, coordinateY, floorPlans, ...rest } = data;
   return {
     ...rest,
+    floorPlans: numberedPlans(floorPlans),
     // Les deux listes du formulaire sont remplacées par celles que le serveur a
     // vérifiées : un identifiant posté à la main n'entre pas dans le document.
     managerIds: team.managerIds,
@@ -163,6 +184,7 @@ export async function updatePlaceAction(
     // aussi des images : celles qu'on vient d'en retirer s'en vont avec.
     const previousImages = [
       existing.bannerUrl,
+      ...planImages(existing),
       ...collectMarkdownImages(existing.description),
     ];
 
@@ -171,12 +193,20 @@ export async function updatePlaceAction(
     // ferait revenir un tenancier qu'on vient de retirer, puisque la lecture s'y
     // rabat quand la liste est vide.
     existing.set("keeperCharacterId", undefined);
+    // Même chose pour le plan d'avant la liste : il vient d'y entrer, et le
+    // laisser en place le ferait revenir en double — la lecture s'y rabat quand
+    // la liste est vide.
+    existing.set("floorPlan", undefined);
     await existing.save();
     slug = existing.slug;
 
     await deleteOrphanedImages(
       previousImages,
-      [existing.bannerUrl, ...collectMarkdownImages(existing.description)],
+      [
+        existing.bannerUrl,
+        ...planImages(existing),
+        ...collectMarkdownImages(existing.description),
+      ],
       existing.authorId,
     );
   } catch (error) {
@@ -207,7 +237,7 @@ export async function deletePlaceAction(
     const images = [
       existing.bannerUrl,
       existing.logoUrl,
-      existing.floorPlan?.imageUrl,
+      ...planImages(existing),
       ...collectMarkdownImages(existing.description),
     ];
     await existing.deleteOne();

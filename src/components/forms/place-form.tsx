@@ -5,6 +5,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { useKeptFormValues } from "@/components/forms/keep-values";
 import { AccountPicker } from "@/components/forms/account-picker";
 import { Button } from "@/components/ui/button";
+import { FloorPlansField } from "@/components/forms/floor-plans-field";
 import { ImageField } from "@/components/forms/image-field";
 import { RichTextField } from "@/components/forms/rich-text-field";
 import { Field, Input, Label, Select, Textarea } from "@/components/ui/field";
@@ -52,6 +53,12 @@ export function PlaceForm({
     idleState,
   );
   const errors = state.fieldErrors ?? {};
+  // Les plans partent en un seul champ : leurs erreurs, elles, portent le chemin
+  // du point fautif — « floorPlans.1.points.3.label ». La première remonte au
+  // champ plutôt que de rester en bas de page sans rien désigner.
+  const planError = Object.entries(errors).find(
+    ([path]) => path === "floorPlans" || path.startsWith("floorPlans."),
+  )?.[1];
 
   // React vide un formulaire soumis : cette garde lui laisse ses valeurs.
   const formulaire = useKeptFormValues();
@@ -251,6 +258,11 @@ export function PlaceForm({
           initial={place?.coordinates ?? initialCoordinates ?? null}
           error={errors.coordinateX ?? errors.coordinateY}
         />
+      </section>
+
+      <section>
+        <SectionHeading title="Plans du lieu" compact />
+        <FloorPlansField ownerId={ownerId} plans={place?.floorPlans} error={planError} />
       </section>
 
       <section>

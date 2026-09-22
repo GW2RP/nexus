@@ -56,6 +56,34 @@ viserait près d'un sommet déjà posé. Et l'éditeur **cadre la carte sur le t
 qu'il ouvre (`initialFrame`) : à la vue par défaut, une zone posée ailleurs tombe
 entièrement hors du cadre, et ses sommets ne sont ni visibles ni saisissables.
 
+## Les plans d'un lieu
+
+Un lieu porte **plusieurs plans** — le rez-de-chaussée, l'étage, la cave —, et
+chacun nomme son onglet sur la fiche : un onglet sans nom ne dirait pas ce qu'il
+montre. `floorPlan`, au singulier, est l'ancien champ : encore lu, jamais écrit,
+la première modification le range dans la liste et l'efface — comme
+`keeperCharacterId` avant lui.
+
+**Un point se range en pourcentage de l'image**, jamais en pixels du fichier : le
+plan se rend à la largeur de la colonne, donc un pixel du fichier ne désigne rien
+à l'écran. Pour la même raison, l'image garde **sa proportion d'origine** au lieu
+d'un rapport imposé : un recadrage en `cover` déplacerait tous les points.
+`width` et `height` ne servent qu'à tenir le cadre avant qu'elle arrive.
+
+**Le numéro d'un point est son rang dans la liste**, et il s'écrit au serveur :
+le formulaire ne poste que l'ordre, donc deux points ne portent jamais le même
+numéro, et en retirer un ne laisse pas de trou.
+
+**L'image d'un plan est facultative** — les fiches d'avant la liste n'avaient que
+des points, et la fiche les montre alors sur un placeholder plutôt que d'oublier
+leurs légendes. Quand elle est là, elle vient du magasin (`isBlobUrl`) et porte
+son alternative.
+
+Un point se corrige comme un sommet de tracé : il se glisse, et se déplace aux
+flèches une fois au clavier — d'un pourcent, d'un dixième avec `Maj`. Posé au
+clavier, il tombe au milieu : un clic sans curseur (`detail` à zéro) n'a pas
+d'endroit à lui.
+
 ## L'agenda : scènes privées, séries et groupes
 
 **Une scène est publique ou privée, pas trois choses.** Une scène privée porte
