@@ -83,7 +83,7 @@ export default async function HomePage() {
         />
         <div className="mx-auto flex max-w-[1280px] items-center px-gutter-mobile pb-64 pt-12 md:px-gutter-app md:pb-80 lg:min-h-[600px] lg:py-14 xl:px-gutter-desktop">
           <div className="max-w-[560px]">
-            <p className="mb-4 font-display text-[12px] font-medium tracking-[3.5px] text-gold-eyebrow">
+            <p className="mb-4 eyebrow text-gold-eyebrow">
               UNIVERS GUILD WARS 2 · JEU DE RÔLE
             </p>
             <h1
