@@ -30,6 +30,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <nav aria-label="Navigation de l'administration" className="flex flex-wrap gap-6">
             <NavLink href="/admin/signalements">Signalements</NavLink>
             <NavLink href="/admin/terrains">Terrains</NavLink>
+            <NavLink href="/admin/utilisateurs">Utilisateurs</NavLink>
             <NavLink href="/admin/journal">Journal</NavLink>
           </nav>
 
