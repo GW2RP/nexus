@@ -26,7 +26,7 @@ export default async function InvitationPage({
   if (normalise) redirect(`/invitation/${normalise}`);
 
   return (
-    <div className="mx-auto max-w-[760px] px-gutter-mobile py-10 lg:px-gutter-desktop">
+    <div className="mx-auto max-w-[760px] px-gutter-mobile py-10 md:px-gutter-app xl:px-gutter-desktop">
       <PageHeader
         eyebrow="INVITATION"
         title={code ? "Ce code n'existe pas" : "Ouvrir une invitation"}

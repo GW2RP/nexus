@@ -29,7 +29,7 @@ export default async function NewPlacePage({
   const keeperOptions = await listCharactersOfMany([user.id]);
 
   return (
-    <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 lg:px-gutter-desktop">
+    <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 md:px-gutter-app xl:px-gutter-desktop">
       <PageHeader
         eyebrow="REGISTRE DES LIEUX"
         title="Proposer un lieu"

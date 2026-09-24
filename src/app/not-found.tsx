@@ -9,7 +9,7 @@ export default function NotFound() {
     <div className="flex min-h-dvh flex-col bg-ground">
       <SiteHeader />
       <main id="contenu" className="flex-1">
-        <div className="mx-auto max-w-[840px] px-gutter-mobile py-16 lg:px-gutter-desktop">
+        <div className="mx-auto max-w-[840px] px-gutter-mobile py-16 md:px-gutter-app xl:px-gutter-desktop">
           <p className="mb-4 font-display text-[12px] font-medium tracking-[3.5px] text-gold-eyebrow">
             PAGE INTROUVABLE
           </p>

@@ -16,7 +16,11 @@ export type FilterOption = { value: string; label: string };
  *  un choix se voit au moment où on le fait. `useOptimistic` la rend à sa
  *  valeur réelle dès que la navigation aboutit — ou revient en arrière si elle
  *  échoue, plutôt que de laisser une puce allumée sur une liste qui n'a pas
- *  changé. */
+ *  changé.
+ *
+ *  Sous `lg`, la rangée tient sur une ligne qui défile, comme les filtres de la
+ *  carte : repliées, sept régions prenaient deux rangs et poussaient la liste
+ *  d'autant. */
 export function FilterChips({
   name,
   options,
@@ -39,8 +43,9 @@ export function FilterChips({
   }
 
   return (
-    <fieldset className={cn("flex flex-wrap gap-2 border-0 p-0", className)}>
+    <fieldset className={cn("min-w-0 border-0 p-0", className)}>
       <legend className="sr-only">{legend}</legend>
+      <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] lg:flex-wrap lg:overflow-visible">
       <Chip active={!current} onSelect={() => select(null)}>
         {allLabel}
       </Chip>
@@ -53,6 +58,7 @@ export function FilterChips({
           {option.label}
         </Chip>
       ))}
+      </div>
     </fieldset>
   );
 }
@@ -72,7 +78,7 @@ function Chip({
       aria-pressed={active}
       onClick={onSelect}
       className={cn(
-        "inline-flex min-h-tap items-center rounded-none border px-4 py-[11px] font-display text-[11px] font-medium tracking-[1.4px]",
+        "inline-flex min-h-tap shrink-0 items-center whitespace-nowrap rounded-none border px-4 py-[11px] font-display text-[11px] font-medium tracking-[1.4px]",
         active
           ? "border-gold-ink bg-gold-ink text-on-crimson"
           : "border-chip-edge bg-transparent text-gold-ink hover:bg-surface-selected",

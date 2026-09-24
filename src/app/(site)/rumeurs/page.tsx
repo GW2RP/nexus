@@ -65,7 +65,7 @@ export default async function RumorsPage({
   }
 
   return (
-    <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 lg:px-gutter-desktop">
+    <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 md:px-gutter-app xl:px-gutter-desktop">
       <PageHeader title="Tableau des rumeurs" />
 
       <div className="mb-8 flex flex-wrap items-center gap-6">

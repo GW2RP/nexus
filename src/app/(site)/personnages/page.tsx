@@ -46,7 +46,7 @@ type Params = Record<string, string | string[] | undefined>;
  *  liste, et pendant ce temps la précédente reste lisible, estompée. */
 export default function CharactersPage({ searchParams }: { searchParams: Promise<Params> }) {
   return (
-    <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 lg:px-gutter-desktop">
+    <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 md:px-gutter-app xl:px-gutter-desktop">
       <PageHeader
         title="Registre des personnages"
         subtitle={
@@ -82,7 +82,7 @@ export default function CharactersPage({ searchParams }: { searchParams: Promise
 
         <PendingResults>
           <Suspense
-            fallback={<CardGridSkeleton count={8} columns="sm:grid-cols-2 lg:grid-cols-4" />}
+            fallback={<CardGridSkeleton count={8} columns="sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" />}
           >
             <Resultats searchParams={searchParams} />
           </Suspense>
@@ -161,7 +161,7 @@ async function Resultats({ searchParams }: { searchParams: Promise<Params> }) {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdScript(listJsonLd)} />
-      <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
+      <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 lg:gap-6">
         {items.map((character) => (
           <li key={character.id} className="flex">
             <CharacterCard character={character} />

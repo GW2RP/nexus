@@ -79,7 +79,7 @@ export default async function WeatherPage() {
   const courant = current[0] ?? null;
 
   return (
-    <div className="mx-auto max-w-[1080px] px-gutter-mobile py-10 lg:px-gutter-desktop">
+    <div className="mx-auto max-w-[1080px] px-gutter-mobile py-10 md:px-gutter-app xl:px-gutter-desktop">
       <PageHeader
         eyebrow={
           courant

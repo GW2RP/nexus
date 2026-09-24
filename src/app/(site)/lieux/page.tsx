@@ -53,7 +53,7 @@ function lireOptions(params: Params) {
  *  ne suspend pas, seule la liste le fait. */
 export default function PlacesPage({ searchParams }: { searchParams: Promise<Params> }) {
   return (
-    <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 lg:px-gutter-desktop">
+    <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 md:px-gutter-app xl:px-gutter-desktop">
       <PageHeader
         title="Registre des lieux"
         subtitle={
