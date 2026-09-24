@@ -31,7 +31,9 @@ export function LoadMore({
 
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(searchParams)) {
-    if (typeof value === "string" && key !== param) params.set(key, value);
+    if (key === param || value === undefined) continue;
+    // Un paramètre répété (`?type=a&type=b`) arrive en tableau : il repart tel quel.
+    for (const one of Array.isArray(value) ? value : [value]) params.append(key, one);
   }
   params.set(param, String(page + 1));
 

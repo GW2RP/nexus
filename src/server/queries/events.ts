@@ -174,7 +174,12 @@ export async function listEvents(options: ListOptions = {}): Promise<EventSummar
   // Le filtre d'accès rejoint les autres clauses : lui aussi porte ses `$or`.
   const query = Event.find({
     $and: [filter, ...clauses, await accessFilter(viewer, options.access)],
-  } as never).sort({ startsAt: options.order === "desc" ? -1 : 1 });
+  } as never).sort(
+    // `_id` départage deux scènes de même heure : sans lui, leur ordre change
+    // d'une lecture à l'autre, et « charger la suite » en doublerait une ou en
+    // perdrait une à la jointure de deux tranches.
+    options.order === "desc" ? { startsAt: -1, _id: -1 } : { startsAt: 1, _id: 1 },
+  );
   if (options.limit) query.limit(options.limit);
   const docs = await query.lean();
 
