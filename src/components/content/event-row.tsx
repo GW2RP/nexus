@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { EventAccessChips } from "@/components/content/event-access-chips";
 import { EventTypeChip, StatusBadge } from "@/components/ui/chip";
-import { formatGameTime, formatWeekday } from "@/lib/dates";
+import { formatDayDate, formatGameTime } from "@/lib/dates";
 import { toTyrianDate } from "@/lib/tyrian-calendar";
 import type { EventSummary } from "@/server/types";
 
@@ -41,7 +41,10 @@ export function EventRow({ event }: { event: EventSummary }) {
           <EventAccessChips event={event} />
         </div>
         <p className="mt-1 meta text-ink-muted">
-          {formatWeekday(startsAt)} · {facts.join(" · ")}
+          {/* La date réelle, entière : la colonne de gauche donne la date
+              tyrienne, et une ligne lue hors de l'agenda — une fiche de lieu,
+              « Mes annonces » — n'a pas de semaine pour la situer. */}
+          {formatDayDate(startsAt)} · {facts.join(" · ")}
         </p>
       </div>
 

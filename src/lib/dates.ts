@@ -34,6 +34,13 @@ const weekdayFormatter = new Intl.DateTimeFormat("fr-FR", {
   timeZone: GAME_TIME_ZONE,
 });
 
+const dayDateFormatter = new Intl.DateTimeFormat("fr-FR", {
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+  timeZone: GAME_TIME_ZONE,
+});
+
 const timeFormatter = new Intl.DateTimeFormat("fr-FR", {
   hour: "2-digit",
   minute: "2-digit",
@@ -86,6 +93,13 @@ export function formatShortDate(date: Date): string {
 /** « sam. » — l'abréviation et son point viennent du format français. */
 export function formatWeekday(date: Date): string {
   return weekdayFormatter.format(date);
+}
+
+/** « dim. 5 sept. » — le jour de la semaine seul ne situe une scène que dans
+ *  sa semaine : hors de l'agenda, qui la range sous sa semaine, il faut le
+ *  quantième et le mois. */
+export function formatDayDate(date: Date): string {
+  return dayDateFormatter.format(date);
 }
 
 /** « 20h30 » — la forme que le design system utilise partout. */
