@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 /** Le pied de page. Mention et liens se côtoient sur un grand écran ; en
- *  dessous de `lg`, côte à côte, la mention se coupait en deux lignes et les
+ *  dessous de `xl`, côte à côte, la mention se coupait en deux lignes et les
  *  liens en deux rangs. Ils s'empilent donc, et chaque lien tient sur sa ligne. */
 export function SiteFooter() {
   return (
