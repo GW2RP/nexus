@@ -37,6 +37,9 @@ type ListOptions = {
   to?: Date;
   includePast?: boolean;
   limit?: number;
+  /** Le sens du tri par date de début. Croissant par défaut : l'agenda lit ce
+   *  qui vient. Décroissant pour un historique, où le plus récent passe devant. */
+  order?: "asc" | "desc";
   /** Le lecteur : il décide des scènes privées qui lui sont visibles. */
   viewer?: SessionUser | null;
   authorId?: string;
@@ -171,7 +174,12 @@ export async function listEvents(options: ListOptions = {}): Promise<EventSummar
   // Le filtre d'accès rejoint les autres clauses : lui aussi porte ses `$or`.
   const query = Event.find({
     $and: [filter, ...clauses, await accessFilter(viewer, options.access)],
-  } as never).sort({ startsAt: 1 });
+  } as never).sort(
+    // `_id` départage deux scènes de même heure : sans lui, leur ordre change
+    // d'une lecture à l'autre, et « charger la suite » en doublerait une ou en
+    // perdrait une à la jointure de deux tranches.
+    options.order === "desc" ? { startsAt: -1, _id: -1 } : { startsAt: 1, _id: 1 },
+  );
   if (options.limit) query.limit(options.limit);
   const docs = await query.lean();
 

@@ -8,6 +8,7 @@ import { SignOutButton } from "@/components/layout/sign-out-button";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { LoadMore } from "@/components/ui/load-more";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { ROLE_LABELS } from "@/lib/domain";
@@ -26,16 +27,39 @@ export const metadata: Metadata = buildMetadata({
   noIndex: true,
 });
 
-export default async function AccountPage() {
-  const user = await getCurrentUser();
+/** Les annonces se lisent par tranches : un meneur de séries en accumule
+ *  vite des dizaines, passées comprises. */
+const ANNONCES_PAR_PAGE = 10;
+
+export default async function AccountPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const [user, params] = await Promise.all([getCurrentUser(), searchParams]);
   if (!user) redirect("/connexion?suite=/mon-compte");
 
-  const [characters, places, registrations, authored] = await Promise.all([
+  // « Charger la suite » allonge la liste plutôt que de la remplacer : on
+  // relit les N premières pages, plus une annonce pour savoir s'il en reste.
+  const annoncesPage = Math.max(1, Number(params.annonces ?? 1) || 1);
+  const annoncesLimite = ANNONCES_PAR_PAGE * annoncesPage;
+
+  const [characters, places, registrations, authoredPlusOne] = await Promise.all([
     listCharactersOf(user.id),
     listPlaces({ authorId: user.id, pageSize: 24 }),
     listEvents({ registeredFor: user.id, viewer: user, limit: 20 }),
-    listEvents({ authorId: user.id, viewer: user, includePast: true, limit: 20 }),
+    // Les plus récentes d'abord : passées comprises, la liste s'ouvrirait sinon
+    // sur la plus ancienne annonce du compte.
+    listEvents({
+      authorId: user.id,
+      viewer: user,
+      includePast: true,
+      order: "desc",
+      limit: annoncesLimite + 1,
+    }),
   ]);
+  const authored = authoredPlusOne.slice(0, annoncesLimite);
+  const moreAuthored = authoredPlusOne.length > annoncesLimite;
 
   return (
     <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 md:px-gutter-app xl:px-gutter-desktop">
@@ -116,11 +140,20 @@ export default async function AccountPage() {
               linkLabel="Proposer un évènement"
             />
             {authored.length > 0 ? (
-              <ul>
-                {authored.map((event) => (
-                  <EventRow key={event.id} event={event} />
-                ))}
-              </ul>
+              <>
+                <ul>
+                  {authored.map((event) => (
+                    <EventRow key={event.id} event={event} />
+                  ))}
+                </ul>
+                <LoadMore
+                  page={annoncesPage}
+                  hasMore={moreAuthored}
+                  searchParams={params}
+                  param="annonces"
+                  anchor="mes-annonces"
+                />
+              </>
             ) : (
               <EmptyState title="Vous n'avez rien annoncé" />
             )}
