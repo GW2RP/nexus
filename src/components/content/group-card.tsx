@@ -8,30 +8,39 @@ import { GROUP_VISIBILITY_LABELS } from "@/lib/domain";
 import type { GroupSummary } from "@/server/types";
 
 /** La carte d'un cercle. Comme celle d'un lieu : le bandeau en tête, à son
- *  format, puis le bloc de texte. Le titre est le lien — la carte entière ne
- *  l'est pas, elle porte déjà son pied. */
+ *  format, puis le bloc de texte. Le titre est le lien, et la bannière aussi —
+ *  comme le portrait d'un personnage, c'est ce qu'on vise d'abord. La carte
+ *  entière ne l'est pas : elle porte déjà son pied. */
 export function GroupCard({ group }: { group: GroupSummary }) {
   return (
     <Card className="w-full overflow-hidden">
-      <FramedMedia
-        src={group.bannerUrl}
-        alt={group.bannerAlt ?? `Bannière de ${group.name}`}
-        placeholder="BANNIÈRE DU GROUPE"
-        dimensions={group.bannerUrl ? undefined : "1600 × 500"}
-        aspect="3 / 1"
-        className="shrink-0 border-0 border-b border-rule p-0"
-        innerClassName="border-0"
+      <Link
+        href={`/groupes/${group.slug}`}
+        // Le nom, juste en dessous, mène à la même page : ce second lien sort de
+        // la tabulation pour ne pas doubler chaque carte d'un arrêt de plus.
+        tabIndex={-1}
+        className="block shrink-0"
       >
-        <Badge variant="onImage" className="absolute left-4 top-4">
-          {group.visibility === "prive" ? <LockIcon size={12} /> : <GroupIcon size={12} />}
-          {GROUP_VISIBILITY_LABELS[group.visibility].toLocaleUpperCase("fr-FR")}
-        </Badge>
-        {group.viewerIsMember ? (
-          <Badge variant="onImage" className="absolute right-4 top-4">
-            MEMBRE
+        <FramedMedia
+          src={group.bannerUrl}
+          alt={group.bannerAlt ?? `Bannière de ${group.name}`}
+          placeholder="BANNIÈRE DU GROUPE"
+          dimensions={group.bannerUrl ? undefined : "1600 × 500"}
+          aspect="3 / 1"
+          className="shrink-0 border-0 border-b border-rule p-0"
+          innerClassName="border-0"
+        >
+          <Badge variant="onImage" className="absolute left-4 top-4">
+            {group.visibility === "prive" ? <LockIcon size={12} /> : <GroupIcon size={12} />}
+            {GROUP_VISIBILITY_LABELS[group.visibility].toLocaleUpperCase("fr-FR")}
           </Badge>
-        ) : null}
-      </FramedMedia>
+          {group.viewerIsMember ? (
+            <Badge variant="onImage" className="absolute right-4 top-4">
+              MEMBRE
+            </Badge>
+          ) : null}
+        </FramedMedia>
+      </Link>
 
       <div className="flex flex-1 flex-col gap-3 p-5">
         <h3 className="card-title">

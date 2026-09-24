@@ -8,21 +8,30 @@ import { REGION_LABELS } from "@/lib/domain";
 import type { PlaceSummary } from "@/server/types";
 
 /** La carte du registre des lieux. Comme celle des personnages, elle prend toute
- *  la largeur de sa case et tient son bandeau à son format. */
+ *  la largeur de sa case et tient son bandeau à son format ; et comme le
+ *  portrait d'un personnage, le bandeau mène à la fiche. */
 export function PlaceCard({ place }: { place: PlaceSummary }) {
   return (
     <Card className="w-full overflow-hidden">
-      <FramedMedia
-        src={place.bannerUrl}
-        alt={place.bannerAlt ?? `Bandeau de ${place.name}`}
-        placeholder="BANDEAU DU LIEU"
-        dimensions={place.bannerUrl ? undefined : "1600 × 500"}
-        aspect="3 / 1"
-        className="shrink-0 border-0 border-b border-rule p-0"
-        innerClassName="border-0"
+      <Link
+        href={`/lieux/${place.slug}`}
+        // Le nom, juste en dessous, mène à la même page : ce second lien sort de
+        // la tabulation pour ne pas doubler chaque carte d'un arrêt de plus.
+        tabIndex={-1}
+        className="block shrink-0"
       >
-        <PlaceTypeChip type={place.type} onImage className="absolute left-4 top-4" />
-      </FramedMedia>
+        <FramedMedia
+          src={place.bannerUrl}
+          alt={place.bannerAlt ?? `Bandeau de ${place.name}`}
+          placeholder="BANDEAU DU LIEU"
+          dimensions={place.bannerUrl ? undefined : "1600 × 500"}
+          aspect="3 / 1"
+          className="shrink-0 border-0 border-b border-rule p-0"
+          innerClassName="border-0"
+        >
+          <PlaceTypeChip type={place.type} onImage className="absolute left-4 top-4" />
+        </FramedMedia>
+      </Link>
 
       <div className="flex flex-1 flex-col gap-3 p-5">
         <h3 className="card-title">

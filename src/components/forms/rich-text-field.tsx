@@ -24,6 +24,13 @@ import { cn } from "@/lib/utils";
  *  avant que l'éditeur ait pris la main renvoie le texte d'origine plutôt que
  *  de l'effacer.
  *
+ *  Ce champ caché est **contrôlé**, jamais posé par `defaultValue` et écrit à la
+ *  main. Un `<input type="hidden">` n'a pas de valeur distincte de son attribut :
+ *  React, qui réécrit `defaultValue` à chaque rendu, y remettait donc le texte
+ *  d'origine dès que le formulaire se rendait à nouveau — un membre ajouté, une
+ *  bannière choisie, le curseur passé dans un gras. La fiche partait alors avec
+ *  sa description d'avant, sans rien dire.
+ *
  *  Les classes des blocs sont celles de `tokens.css`, posées sur les nœuds de
  *  l'éditeur comme `RichText` les pose à la lecture : ce qui est écrit ici a
  *  l'allure qu'il aura sur la fiche. */
@@ -68,7 +75,7 @@ export function RichTextField({
   /** La hauteur de la zone, en lignes, comme pour un `Textarea`. */
   rows?: number;
 }) {
-  const hiddenRef = useRef<HTMLInputElement>(null);
+  const [markdown, setMarkdown] = useState(defaultValue ?? "");
   const fichierRef = useRef<HTMLInputElement>(null);
   const [volet, setVolet] = useState<Volet>(null);
   const [linkValue, setLinkValue] = useState("");
@@ -130,13 +137,9 @@ export function RichTextField({
         style: `min-height: ${rows * 1.65}em`,
       },
     },
-    onUpdate: ({ editor: current }) => {
-      // Le champ caché est mis à jour sans passer par l'état React : le
-      // formulaire n'a pas à se rendre à nouveau à chaque frappe.
-      if (hiddenRef.current) {
-        hiddenRef.current.value = current.storage.markdown.getMarkdown();
-      }
-    },
+    // Seul ce champ se rend à nouveau à la frappe : le formulaire qui l'entoure
+    // n'en sait rien.
+    onUpdate: ({ editor: current }) => setMarkdown(current.storage.markdown.getMarkdown()),
   });
 
   // L'état des boutons suit le curseur : sans cet abonnement, « INTERTITRE »
@@ -159,9 +162,7 @@ export function RichTextField({
    *  insertion : `onUpdate` s'en charge à la frappe, mais une image posée par
    *  la barre d'outils n'en est pas une. */
   function reporterLeTexte() {
-    if (hiddenRef.current && editor) {
-      hiddenRef.current.value = editor.storage.markdown.getMarkdown();
-    }
+    if (editor) setMarkdown(editor.storage.markdown.getMarkdown());
   }
 
   function poserLien() {
@@ -198,7 +199,7 @@ export function RichTextField({
   return (
     <div className="flex flex-col gap-2">
       <Label>{label}</Label>
-      <input type="hidden" name={name} ref={hiddenRef} defaultValue={defaultValue ?? ""} />
+      <input type="hidden" name={name} value={markdown} />
 
       <div className="border border-rule bg-surface-inset">
         <div
