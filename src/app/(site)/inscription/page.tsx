@@ -23,7 +23,7 @@ export default async function SignUpPage({
   if (user) redirect(suite ?? "/");
 
   return (
-    <div className="mx-auto max-w-[560px] px-gutter-mobile py-12 lg:px-gutter-desktop">
+    <div className="mx-auto max-w-[560px] px-gutter-mobile py-12 md:px-gutter-app xl:px-gutter-desktop">
       <PageHeader
         eyebrow="GW2RP NEXUS"
         title="Créer un compte"

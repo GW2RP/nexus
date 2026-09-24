@@ -38,7 +38,7 @@ export default async function AccountPage() {
   ]);
 
   return (
-    <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 lg:px-gutter-desktop">
+    <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 md:px-gutter-app xl:px-gutter-desktop">
       <PageHeader
         eyebrow={ROLE_LABELS[user.role].toLocaleUpperCase("fr-FR")}
         title={user.name}

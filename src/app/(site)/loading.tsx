@@ -1,7 +1,7 @@
 /** Les listes ont un squelette, jamais un spinner centré. */
 export default function Loading() {
   return (
-    <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 lg:px-gutter-desktop">
+    <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 md:px-gutter-app xl:px-gutter-desktop">
       <span className="sr-only" role="status">
         Chargement en cours
       </span>

@@ -15,6 +15,7 @@ import { canContribute, canReportContent } from "@/lib/permissions";
 import { SITE_DESCRIPTION, SITE_TAGLINE, buildMetadata } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
 import { formatTyrianDate } from "@/lib/tyrian-calendar";
+import { cn } from "@/lib/utils";
 import { listCharacters } from "@/server/queries/characters";
 import { listEvents } from "@/server/queries/events";
 import { listPlacesForMap } from "@/server/queries/places";
@@ -47,8 +48,8 @@ export default async function HomePage() {
   ]);
 
   return (
-    <div className="mx-auto max-w-[1280px] px-gutter-mobile lg:px-gutter-desktop">
-      <section className="flex flex-col items-start gap-10 py-10 lg:flex-row lg:items-center lg:gap-14 lg:py-[52px]">
+    <div className="mx-auto max-w-[1280px] px-gutter-mobile md:px-gutter-app xl:px-gutter-desktop">
+      <section className="flex flex-col items-start gap-10 py-10 lg:flex-row lg:items-center xl:gap-14 lg:py-[52px]">
         <div className="flex-1">
           <p className="mb-4 font-display text-[12px] font-medium tracking-[3.5px] text-gold-eyebrow">
             UNIVERS GUILD WARS 2 · JEU DE RÔLE
@@ -83,7 +84,9 @@ export default async function HomePage() {
           placeholder="ILLUSTRATION D'EN-TÊTE"
           dimensions="1356 × 960"
           aspect="452 / 320"
-          className="w-full lg:w-[452px] lg:shrink-0"
+          // L'illustration cède de la largeur au texte entre `lg` et `xl` : à
+          // 452 px, les deux boutons de l'accroche passaient l'un sous l'autre.
+          className="w-full lg:w-[400px] lg:shrink-0 xl:w-[452px]"
         />
       </section>
 
@@ -96,8 +99,12 @@ export default async function HomePage() {
         />
         {events.length > 0 ? (
           <div className="grid items-stretch gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-[22px]">
-            {events.map((event) => (
-              <EventCard key={event.id} event={event} />
+            {events.map((event, index) => (
+              // Sur deux colonnes, la troisième scène resterait seule sur sa
+              // ligne : l'extrait en montre deux, l'agenda a le reste.
+              <div key={event.id} className={cn("grid", index === 2 && "sm:max-lg:hidden")}>
+                <EventCard event={event} />
+              </div>
             ))}
           </div>
         ) : (

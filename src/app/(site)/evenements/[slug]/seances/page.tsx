@@ -59,7 +59,7 @@ export default async function SeriesPage({ params }: Props) {
   const retirees = aVenir.length - tenues;
 
   return (
-    <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 lg:px-gutter-desktop">
+    <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 md:px-gutter-app xl:px-gutter-desktop">
       <Breadcrumb
         items={[
           { label: "Évènements", href: "/evenements" },

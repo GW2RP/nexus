@@ -20,7 +20,7 @@ export default async function NewCharacterPage() {
   if (!canContribute(user)) redirect("/personnages");
 
   return (
-    <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 lg:px-gutter-desktop">
+    <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 md:px-gutter-app xl:px-gutter-desktop">
       <PageHeader
         eyebrow="REGISTRE DES PERSONNAGES"
         title="Créer un personnage"

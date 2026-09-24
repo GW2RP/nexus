@@ -48,20 +48,20 @@ export function EventCard({ event }: { event: EventSummary }) {
       </p>
 
       <CardFooter>
-        <span className="text-[16px] text-ink-muted">
+        <span className="whitespace-nowrap text-[16px] text-ink-muted">
           {event.registeredCount} inscrit{event.registeredCount > 1 ? "s" : ""}
           {event.capacity ? ` / ${event.capacity}` : ""}
         </span>
         {full ? (
-          <span className="font-display text-[11px] font-medium tracking-[1.5px] text-ink-muted">
-            Complet
+          <span className="whitespace-nowrap font-display text-[11px] font-medium tracking-[1.5px] text-ink-muted">
+            COMPLET
           </span>
         ) : (
           <Link
             href={`/evenements/${event.slug}`}
-            className="inline-flex min-h-tap items-center border border-gold px-4 py-3 font-display text-[11px] font-semibold tracking-[1.5px] text-gold-ink hover:bg-surface-selected"
+            className="inline-flex min-h-tap items-center whitespace-nowrap border border-gold px-4 py-3 font-display text-[11px] font-semibold tracking-[1.5px] text-gold-ink hover:bg-surface-selected"
           >
-            {event.viewerStatus === "inscrit" ? "VOIR MON INSCRIPTION" : "S'INSCRIRE"}
+            {event.viewerStatus === "inscrit" ? "MON INSCRIPTION" : "S'INSCRIRE"}
           </Link>
         )}
       </CardFooter>

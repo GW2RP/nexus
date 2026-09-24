@@ -48,8 +48,11 @@ export function RumorItem({
         {rumor.body}
       </p>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 text-[15px] text-ink-muted">
-        <span>
+      {/* L'attribution prend la place qui reste et se replie en elle-même ; la
+          reprise garde la sienne, à droite. Sans cela, selon la longueur de
+          l'attribution, le bouton passait tantôt à droite, tantôt dessous. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-[15px] text-ink-muted">
+        <span className="min-w-0 grow basis-60">
           {rumor.character ? (
             <>
               Rapportée par{" "}
@@ -67,7 +70,7 @@ export function RumorItem({
           {attribution.join(" · ")}
         </span>
 
-        <span className="flex items-center gap-1">
+        <span className="ml-auto flex shrink-0 items-center gap-1 whitespace-nowrap">
           {canEcho ? (
             <form action={echoAction}>
               <input type="hidden" name="rumorId" value={rumor.id} />

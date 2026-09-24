@@ -33,7 +33,7 @@ export default async function EditPlacePage({ params }: Props) {
   const keeperOptions = await listCharactersOfMany([place.authorId, ...managerIds]);
 
   return (
-    <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 lg:px-gutter-desktop">
+    <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 md:px-gutter-app xl:px-gutter-desktop">
       <PageHeader eyebrow="REGISTRE DES LIEUX" title={`Modifier ${place.name}`} />
       <PlaceForm
         ownerId={place.authorId}

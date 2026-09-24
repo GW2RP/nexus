@@ -57,7 +57,7 @@ export default async function InvitationPage({ params }: Props) {
   const endsAt = event.endsAt ? new Date(event.endsAt) : null;
 
   return (
-    <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 lg:px-gutter-desktop">
+    <div className="mx-auto max-w-[1280px] px-gutter-mobile py-10 md:px-gutter-app xl:px-gutter-desktop">
       <div className="mx-auto max-w-[880px]">
         <PageHeader
           eyebrow="INVITATION"
@@ -138,7 +138,7 @@ export default async function InvitationPage({ params }: Props) {
  *  à un autre code plutôt que de renvoyer une page introuvable. */
 function LienPerime({ code }: { code: string }) {
   return (
-    <div className="mx-auto max-w-[760px] px-gutter-mobile py-10 lg:px-gutter-desktop">
+    <div className="mx-auto max-w-[760px] px-gutter-mobile py-10 md:px-gutter-app xl:px-gutter-desktop">
       <PageHeader eyebrow="INVITATION" title="Ce lien n'ouvre plus rien" />
       <p className="mb-8 body text-ink-body">
         Le code <span className="font-display font-semibold tracking-[1px]">{code}</span> a été
