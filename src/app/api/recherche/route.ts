@@ -52,15 +52,18 @@ export async function GET(request: Request): Promise<NextResponse> {
     listEvents({ viewer: null, access: "publiques" }),
   ]);
 
-  const evenements = scenes
-    .filter((scene) => regex.test(scene.title) || (scene.summary ? regex.test(scene.summary) : false))
-    .slice(0, limite);
+  // `total` compte tout ce qui correspond, `items` n'en donne que `limite` :
+  // la même règle pour les quatre familles, sinon le client ne saurait pas
+  // qu'il y a plus de scènes qu'il n'en voit.
+  const evenements = scenes.filter(
+    (scene) => regex.test(scene.title) || (scene.summary ? regex.test(scene.summary) : false),
+  );
 
   return NextResponse.json({
     q,
     lieux: { total: lieux.total, items: lieux.items.map(formeLieuResume) },
     personnages: { total: personnages.total, items: personnages.items.map(formePersonnage) },
     groupes: { total: groupes.length, items: groupes.slice(0, limite).map(formeGroupe) },
-    evenements: { total: evenements.length, items: evenements.map(formeEvenement) },
+    evenements: { total: evenements.length, items: evenements.slice(0, limite).map(formeEvenement) },
   });
 }

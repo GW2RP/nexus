@@ -22,20 +22,20 @@ const LIMITE_MAXIMALE = 25;
  * région n'a pas de rumeurs à lui, et la réponse le dit (`region: null`)
  * plutôt que de montrer la Tyrie entière.
  *
- * Une région inconnue vaut une erreur, pas « toutes » : une faute de frappe
- * qui ferait taire le filtre en silence montrerait tout à qui croyait lire la
- * Kryte.
+ * Une région inconnue — ou nommée vide, `?region=` — vaut une erreur, pas
+ * « toutes » : une faute de frappe qui ferait taire le filtre en silence
+ * montrerait tout à qui croyait lire la Kryte.
  */
 export async function GET(request: Request): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
   const limite = lireLimite(searchParams, LIMITE_PAR_DEFAUT, LIMITE_MAXIMALE);
 
   let region: Region | null | undefined;
-  const nommee = searchParams.get("region");
+  const nommee = searchParams.get("region")?.trim();
   const x = lireNombre(searchParams, "x");
   const y = lireNombre(searchParams, "y");
 
-  if (nommee) {
+  if (nommee !== undefined) {
     region = REGIONS.find((candidate) => candidate === nommee) ?? null;
     if (region === null) {
       return NextResponse.json({ erreur: "Région inconnue." }, { status: 400 });
