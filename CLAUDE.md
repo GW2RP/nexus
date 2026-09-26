@@ -215,6 +215,15 @@ simplement une autre clé. C'est aussi pourquoi `currentStepIndex` ne lit que le
 numéro du pas : savoir où l'on en est ne demande pas de faire descendre
 les 2,73 Mo du pas entier.
 
+**Le pas dépaqueté vit dans l'instance** (`pasEnMemoire`), pas dans le cache
+de Next : une entrée y est bornée à 2 Mo, le pas en fait 2,73 empaqueté et dix
+fois plus ouvert. Une instance sert des requêtes concurrentes et survit d'un
+appel à l'autre, donc la mémoire du module suffit, et le numéro en cache dit
+si le pas en mémoire est encore le bon : on ne le redescend que s'il a changé.
+Sans cela, chaque relevé de l'application bureau descendait le pas entier
+d'Atlas. Le pas partagé ne se mute jamais : `advanceStep` rend un état neuf,
+`readCell` ne fait que lire.
+
 Un pas porte sa cadence **et sa maille** (`stepsPerDay`, `cellSize`). En changer
 l'une ou l'autre rend les pas illisibles — la numérotation ne veut plus rien
 dire, les champs sont empaquetés pour un autre nombre de cellules. Ils sont
@@ -360,12 +369,29 @@ figure pas. Le rayon et la limite sont bornés ; au-delà, ce n'est plus la
 proximité, c'est le registre.
 
 Les autres routes que l'overlay lit — fiche d'un lieu, ses scènes, scènes et
-rumeurs autour d'un point, recherche — suivent la même règle et vivent dans
-`src/server/api-overlay.ts` : **publiques**, donc lues sans lecteur (`viewer:
-null`) et rien de privé n'en sort ; **écrites champ par champ**, jamais en
-recopiant une forme interne. La région d'un point se déduit par `zoneAt` sur
-les zones de terrain, la règle de la météo, et un point hors région rend
-`region: null` plutôt que toute la Tyrie.
+rumeurs autour d'un point, recherche — suivent la même règle : **publiques**,
+donc lues sans lecteur (`viewer: null`) et rien de privé n'en sort ;
+**écrites champ par champ** (`src/server/api-overlay.ts`), jamais en recopiant
+une forme interne. La région d'un point se déduit par `zoneAt` sur les zones
+de terrain, la règle de la météo, et un point hors région rend `region: null`
+plutôt que toute la Tyrie.
+
+**`/api/alentours` rend les lieux, les scènes et les rumeurs d'un point en une
+lecture** : l'overlay les montre ensemble, et les demandait en trois appels.
+Les quatre calculs vivent dans `src/server/alentours.ts`, partagés avec les
+trois routes séparées, qui restent pour les versions installées — une seule
+définition de « à proximité », sinon les deux chemins finiraient par dire deux
+choses.
+
+**Le relevé de météo et les alentours portent `Cache-Control: public,
+s-maxage`** (`reponsePublique`). C'est le seul cache du hub que l'horloge
+gouverne et qu'aucune étiquette ne retire : le CDN ne connaît pas les
+étiquettes, donc le délai est court — deux minutes pour les alentours, la fin
+du pas servi et au plus cinq minutes pour la météo. Il ne vaut que parce que
+l'overlay **arrondit les points qu'il demande** au centre d'une cellule ou
+d'une case de grille : deux joueurs au même endroit demandent la même adresse,
+et le CDN la ressert sans rappeler la fonction. Une erreur ne porte jamais cet
+en-tête.
 
 ## Les panneaux d'affichage
 

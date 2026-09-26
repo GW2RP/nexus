@@ -514,17 +514,23 @@ personnage joué. Le hub lui expose deux choses, et rien d'autre :
   lieu sans coordonnées n'y figure pas — il n'est pas proche, il n'est nulle
   part sur la carte.
 
-L'élément « À proximité » et la fiche d'un lieu de l'application lisent cinq
+L'élément « À proximité » et la fiche d'un lieu de l'application lisent six
 routes de plus, publiques au même titre, dont les réponses sont écrites champ
-par champ dans `src/server/api-overlay.ts` :
+par champ dans `src/server/api-overlay.ts` et dont les calculs de proximité
+vivent dans `src/server/alentours.ts` :
 
 | Route | Ce qu'elle rend |
 | --- | --- |
+| `GET /api/alentours?x=&y=&rayon=&limite=&rumeurs=` | Les lieux, les scènes publiques non finies, la région et ses dernières rumeurs autour d'un point, en une lecture. |
 | `GET /api/lieux/[slug]` | La fiche d'un lieu : résumé, description, accès, plans, tenanciers. |
 | `GET /api/lieux/[slug]/evenements` | Les scènes publiques non finies qui s'y tiennent. |
 | `GET /api/evenements/proximite?x=&y=&rayon=&limite=` | Les scènes publiques non finies autour d'un point, avec leur distance. |
 | `GET /api/rumeurs?region=` ou `?x=&y=` | Les dernières rumeurs d'une région — nommée, ou déduite du point par la règle de la météo. |
 | `GET /api/recherche?q=&limite=` | Lieux, personnages, groupes et scènes publiques, par les mêmes champs que les registres. |
+
+Le relevé de météo et les alentours portent un `Cache-Control: public,
+s-maxage` : l'application demande des points arrondis, et le CDN de Vercel
+ressert une adresse déjà vue sans rappeler le hub.
 
 Le reste — le lien Mumble du jeu, la projection de la position dans les pixels
 de continent — vit dans l'application, pas ici.

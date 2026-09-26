@@ -48,8 +48,18 @@ type Loaded = { state: WorldState; terrain: BakedTerrain };
  *  jamais on n'en manque un. */
 const FILET_METEO = 30 * 60;
 
+declare global {
+  /** Le dernier pas dépaqueté par cette instance, et son numéro. Sur
+   *  `globalThis` comme la connexion Mongoose : le rechargement à chaud de
+   *  `next dev` ne doit pas en garder deux. */
+  var __pasMeteo: { stepIndex: number; loaded: Loaded } | undefined;
+  /** La descente en cours, pour que deux requêtes concurrentes sur un pas neuf
+   *  ne le descendent qu'une fois. */
+  var __pasMeteoEnCours: Promise<Loaded | null> | undefined;
+}
+
 /**
- * Le dernier pas écrit, dépaqueté une seule fois par rendu de page.
+ * Le dernier pas écrit, descendu et dépaqueté.
  *
  * La lecture filtre sur la maille et la cadence courantes. L'avancement purge
  * bien les pas d'une autre grille, mais il ne passe qu'une fois par heure : entre
@@ -57,7 +67,7 @@ const FILET_METEO = 30 * 60;
  * est illisible, et `unpackInt16` lèverait sur chaque page du hub. Mieux vaut
  * n'afficher aucune météo qu'en afficher une fausse — ou planter.
  */
-const loadCurrentStep = cache(async (): Promise<Loaded | null> => {
+async function lireDernierPas(): Promise<Loaded | null> {
   await connectToDatabase();
   const doc = await WeatherStep.findOne({ cellSize: CELL_SIZE, stepsPerDay: STEPS_PER_DAY })
     .sort({ stepIndex: -1 })
@@ -65,7 +75,48 @@ const loadCurrentStep = cache(async (): Promise<Loaded | null> => {
   if (!doc) return null;
   const stored = doc as StoredStep;
   return { state: stateFromDocument(stored), terrain: terrainFromDocument(stored) };
-});
+}
+
+/**
+ * Le dernier pas, dépaqueté **une fois par instance** et non plus une fois par
+ * rendu.
+ *
+ * Le cache de Next ne peut pas le tenir — une entrée est bornée à 2 Mo, le pas
+ * en fait 2,73 empaqueté et dix fois plus ouvert — mais une instance sert des
+ * requêtes concurrentes et survit d'un appel à l'autre, donc la mémoire du
+ * module suffit. Le numéro du pas courant, lui, est bon marché et déjà en
+ * cache (`currentStepIndex`, retiré par `/api/meteo/avancer`) : on le compare
+ * à celui du pas en mémoire, et on ne redescend le pas entier que s'il a
+ * changé. Sans cela, chaque relevé de l'application bureau descendait 2,73 Mo
+ * d'Atlas et les dépaquetait.
+ *
+ * `>=` et non `===` : si le numéro en cache est en retard sur la base, le pas
+ * en mémoire est déjà plus récent que lui et n'a pas à être relu à chaque
+ * requête. Le pas partagé ne se mute jamais : `advanceStep` rend un état neuf,
+ * `readCell` ne fait que lire.
+ */
+async function pasEnMemoire(): Promise<Loaded | null> {
+  const stepIndex = await currentStepIndex();
+  if (stepIndex === null) return null;
+  const memo = globalThis.__pasMeteo;
+  if (memo && memo.stepIndex >= stepIndex) return memo.loaded;
+
+  if (!globalThis.__pasMeteoEnCours) {
+    globalThis.__pasMeteoEnCours = lireDernierPas()
+      .then((loaded) => {
+        if (loaded) globalThis.__pasMeteo = { stepIndex: loaded.state.stepIndex, loaded };
+        return loaded;
+      })
+      .finally(() => {
+        globalThis.__pasMeteoEnCours = undefined;
+      });
+  }
+  return globalThis.__pasMeteoEnCours;
+}
+
+/** Gardé sous `cache()` : les appels d'un même rendu ne repassent pas par la
+ *  comparaison de numéro. */
+const loadCurrentStep = cache(pasEnMemoire);
 
 /** La moyenne des cellules d'une région, et la condition qui y domine. */
 function aggregate(

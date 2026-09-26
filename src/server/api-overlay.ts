@@ -1,5 +1,8 @@
 import "server-only";
 
+import { NextResponse } from "next/server";
+
+import { clampX, clampY } from "@/lib/map";
 import type {
   CharacterSummary,
   EventSummary,
@@ -30,13 +33,59 @@ export function lireNombre(searchParams: URLSearchParams, nom: string): number |
   return Number.isFinite(valeur) ? valeur : null;
 }
 
-/** Une limite de liste, bornée : au-delà, ce n'est plus un extrait. */
+/** Une limite de liste, bornée : au-delà, ce n'est plus un extrait. Le
+ *  paramètre s'appelle `limite`, sauf quand une route en porte deux. */
 export function lireLimite(
   searchParams: URLSearchParams,
   parDefaut: number,
   maximale: number,
+  nom = "limite",
 ): number {
-  return Math.min(Math.max(Math.round(lireNombre(searchParams, "limite") ?? parDefaut), 1), maximale);
+  return Math.min(Math.max(Math.round(lireNombre(searchParams, nom) ?? parDefaut), 1), maximale);
+}
+
+/** Le rayon de recherche par défaut, en pixels de continent. Une carte du jeu
+ *  fait trois à quatre mille pixels de large : ce rayon couvre la carte où l'on
+ *  se tient et déborde un peu sur les voisines. */
+export const RAYON_PAR_DEFAUT = 2_500;
+/** Au-delà, la liste dirait « tout le continent » — ce n'est plus la proximité. */
+export const RAYON_MAXIMAL = 10_000;
+export const LIMITE_PAR_DEFAUT = 8;
+export const LIMITE_MAXIMALE = 25;
+
+export type Point = { x: number; y: number };
+
+/** Le point d'une adresse, arrondi et borné au continent plutôt que refusé :
+ *  un personnage au bord d'une carte tombe parfois d'un pixel dehors, et ce
+ *  n'est pas une erreur. `null` quand une coordonnée manque ou ne se lit pas. */
+export function lirePoint(searchParams: URLSearchParams): Point | null {
+  const x = lireNombre(searchParams, "x");
+  const y = lireNombre(searchParams, "y");
+  if (x === null || y === null) return null;
+  return { x: clampX(Math.round(x)), y: clampY(Math.round(y)) };
+}
+
+export function lireRayon(searchParams: URLSearchParams): number {
+  return Math.min(Math.max(lireNombre(searchParams, "rayon") ?? RAYON_PAR_DEFAUT, 1), RAYON_MAXIMAL);
+}
+
+/** Combien de temps le CDN peut resservir les alentours d'un point. Ils
+ *  changent à chaque scène annoncée ou rumeur postée, et aucune étiquette ne
+ *  purge le CDN — seul le temps le fait : deux minutes de retard, au plus, pour
+ *  qui les lit depuis le jeu. */
+export const DUREE_ALENTOURS = 120;
+
+/** Une réponse publique que le CDN de Vercel peut resservir sans rappeler la
+ *  fonction. `s-maxage` ne s'adresse qu'aux caches partagés ; le navigateur et
+ *  l'application relisent normalement. Passé le délai, l'ancienne réponse est
+ *  encore servie une minute pendant que la suivante se calcule. Une erreur n'y
+ *  passe jamais : elle ne mérite pas d'être resservie. L'application bureau
+ *  arrondit les points qu'elle demande pour que les adresses se répètent d'un
+ *  joueur à l'autre ; sans cela, l'en-tête ne servirait à rien. */
+export function reponsePublique(corps: unknown, secondes: number): NextResponse {
+  return NextResponse.json(corps, {
+    headers: { "Cache-Control": `public, s-maxage=${secondes}, stale-while-revalidate=60` },
+  });
 }
 
 /** Un lieu tel que le registre le résume : de quoi le nommer, le situer et
