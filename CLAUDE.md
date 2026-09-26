@@ -347,6 +347,18 @@ vent fort impossibles sur les terres du hub. Pour la même raison, le gradient d
 température s'étale sur la **bande habitée** (`BANDE_NORD` / `BANDE_SUD`) et se
 borne au-delà.
 
+## L'application bureau
+
+Le dépôt `overlay` (Tauri + React) pose la météo et les lieux à proximité
+par-dessus le jeu. Le hub lui doit deux choses. **Le greffon `bearer`** de
+Better Auth, avant `nextCookies` : sa vue web n'a pas le cookie du hub, donc la
+connexion lui rend le jeton dans `set-auth-token` et il le représente en
+`Authorization: Bearer` — sans cet en-tête, rien ne change pour le navigateur.
+Et **`/api/lieux/proximite`**, publique comme le relevé de météo : elle ne
+montre du registre que l'ordre des distances, et un lieu sans coordonnées n'y
+figure pas. Le rayon et la limite sont bornés ; au-delà, ce n'est plus la
+proximité, c'est le registre.
+
 ## Les panneaux d'affichage
 
 Un **groupe** en porte plusieurs, chacun public ou réservé à ses membres ; un

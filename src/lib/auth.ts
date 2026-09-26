@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { nextCookies } from "better-auth/next-js";
+import { bearer } from "better-auth/plugins";
 
 import { env } from "@/lib/env";
 import { mongoClient, mongoDb } from "@/lib/mongo";
@@ -42,7 +43,18 @@ export const auth = betterAuth({
   advanced: {
     cookiePrefix: "gw2rp",
   },
+  // L'application bureau (l'overlay de jeu) tourne dans une vue web Tauri, dont
+  // l'origine n'est pas celle du hub. Ses appels passent par le client HTTP de
+  // Tauri — sans cookie ni `Origin` —, mais on nomme ses origines pour qu'une
+  // requête partie de la vue web elle-même ne soit pas prise pour une attaque.
+  trustedOrigins: ["tauri://localhost", "http://tauri.localhost"],
+  // Le greffon `bearer` sert l'application bureau : une vue web sans le cookie
+  // du hub. À la connexion, il renvoie le jeton de session dans l'en-tête
+  // `set-auth-token` ; l'application le range et le représente en
+  // `Authorization: Bearer`, que le greffon retraduit en cookie de session.
+  // Le navigateur, lui, ne voit rien changer : sans cet en-tête, rien ne bouge.
+  //
   // `nextCookies` doit rester le dernier plugin : il pose les cookies de session
   // renvoyés par les actions serveur.
-  plugins: [nextCookies()],
+  plugins: [bearer(), nextCookies()],
 });
