@@ -495,6 +495,28 @@ Aucun de ces trois défauts n'était visible tant que la météo ne se lisait qu
 région par région : il a fallu dessiner les cellules une à une pour que les
 zéros se voient.
 
+## L'application bureau
+
+Le dépôt `overlay` porte l'application bureau (Tauri + React) qui pose la
+météo et les lieux à proximité par-dessus le jeu, à l'emplacement du
+personnage joué. Le hub lui expose deux choses, et rien d'autre :
+
+- **Une session par jeton.** L'application n'a pas le cookie du hub — sa vue
+  web n'est pas sur le même domaine, et ses requêtes partent de Rust. Better
+  Auth porte donc le greffon `bearer` : à la connexion par courriel et mot de
+  passe, le jeton de session est rendu dans l'en-tête `set-auth-token`, et
+  l'application le représente en `Authorization: Bearer`. Le navigateur, lui,
+  ne voit rien changer : sans cet en-tête, la session reste le cookie.
+- **`GET /api/lieux/proximite?x=&y=&rayon=&limite=`** — les lieux du registre
+  autour d'un point de la carte, du plus proche au plus éloigné, chacun avec sa
+  distance en pixels de continent. Publique, comme `/api/meteo/point` : le
+  registre l'est déjà, et la route n'en montre que l'ordre des distances. Un
+  lieu sans coordonnées n'y figure pas — il n'est pas proche, il n'est nulle
+  part sur la carte.
+
+Le reste — le lien Mumble du jeu, la projection de la position dans les pixels
+de continent — vit dans l'application, pas ici.
+
 ## Scripts
 
 ```bash
