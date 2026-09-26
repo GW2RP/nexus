@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { CONTINENT_HEIGHT, CONTINENT_WIDTH } from "@/lib/map";
+import { clampX, clampY } from "@/lib/map";
 import { listPlacesForMap } from "@/server/queries/places";
 
 export const dynamic = "force-dynamic";
@@ -49,8 +49,8 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   const point = {
-    x: Math.min(Math.max(Math.round(x), 0), CONTINENT_WIDTH - 1),
-    y: Math.min(Math.max(Math.round(y), 0), CONTINENT_HEIGHT - 1),
+    x: clampX(Math.round(x)),
+    y: clampY(Math.round(y)),
   };
   const rayon = Math.min(Math.max(lire("rayon") ?? RAYON_PAR_DEFAUT, 1), RAYON_MAXIMAL);
   const limite = Math.min(

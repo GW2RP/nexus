@@ -359,6 +359,14 @@ montre du registre que l'ordre des distances, et un lieu sans coordonnées n'y
 figure pas. Le rayon et la limite sont bornés ; au-delà, ce n'est plus la
 proximité, c'est le registre.
 
+Les autres routes que l'overlay lit — fiche d'un lieu, ses scènes, scènes et
+rumeurs autour d'un point, recherche — suivent la même règle et vivent dans
+`src/server/api-overlay.ts` : **publiques**, donc lues sans lecteur (`viewer:
+null`) et rien de privé n'en sort ; **écrites champ par champ**, jamais en
+recopiant une forme interne. La région d'un point se déduit par `zoneAt` sur
+les zones de terrain, la règle de la météo, et un point hors région rend
+`region: null` plutôt que toute la Tyrie.
+
 ## Les panneaux d'affichage
 
 Un **groupe** en porte plusieurs, chacun public ou réservé à ses membres ; un

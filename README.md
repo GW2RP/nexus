@@ -514,6 +514,18 @@ personnage joué. Le hub lui expose deux choses, et rien d'autre :
   lieu sans coordonnées n'y figure pas — il n'est pas proche, il n'est nulle
   part sur la carte.
 
+L'élément « À proximité » et la fiche d'un lieu de l'application lisent cinq
+routes de plus, publiques au même titre, dont les réponses sont écrites champ
+par champ dans `src/server/api-overlay.ts` :
+
+| Route | Ce qu'elle rend |
+| --- | --- |
+| `GET /api/lieux/[slug]` | La fiche d'un lieu : résumé, description, accès, plans, tenanciers. |
+| `GET /api/lieux/[slug]/evenements` | Les scènes publiques non finies qui s'y tiennent. |
+| `GET /api/evenements/proximite?x=&y=&rayon=&limite=` | Les scènes publiques non finies autour d'un point, avec leur distance. |
+| `GET /api/rumeurs?region=` ou `?x=&y=` | Les dernières rumeurs d'une région — nommée, ou déduite du point par la règle de la météo. |
+| `GET /api/recherche?q=&limite=` | Lieux, personnages, groupes et scènes publiques, par les mêmes champs que les registres. |
+
 Le reste — le lien Mumble du jeu, la projection de la position dans les pixels
 de continent — vit dans l'application, pas ici.
 
