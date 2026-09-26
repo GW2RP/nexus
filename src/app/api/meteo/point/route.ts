@@ -28,9 +28,10 @@ const DUREE_MAXIMALE = 300;
  * bord de la carte tombe parfois d'un pixel dehors, et ce n'est pas une erreur.
  *
  * La réponse porte un `Cache-Control` que le CDN honore, borné à la fin du pas
- * servi : l'application bureau demande le centre de la cellule, donc deux
- * personnages sous le même ciel reçoivent le même relevé sans que le hub le
- * recalcule.
+ * servi — plus la minute pendant laquelle l'ancienne réponse est encore servie
+ * le temps que la suivante se calcule : l'application bureau demande le centre
+ * de la cellule, donc deux personnages sous le même ciel reçoivent le même
+ * relevé sans que le hub le recalcule.
  */
 export async function GET(request: Request): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);

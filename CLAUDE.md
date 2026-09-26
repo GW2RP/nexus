@@ -387,7 +387,8 @@ choses.
 s-maxage`** (`reponsePublique`). C'est le seul cache du hub que l'horloge
 gouverne et qu'aucune étiquette ne retire : le CDN ne connaît pas les
 étiquettes, donc le délai est court — deux minutes pour les alentours, la fin
-du pas servi et au plus cinq minutes pour la météo. Il ne vaut que parce que
+du pas servi et au plus cinq minutes pour la météo, plus une minute de réponse
+périmée le temps que la suivante se calcule. Il ne vaut que parce que
 l'overlay **arrondit les points qu'il demande** au centre d'une cellule ou
 d'une case de grille : deux joueurs au même endroit demandent la même adresse,
 et le CDN la ressert sans rappeler la fonction. Une erreur ne porte jamais cet

@@ -22,7 +22,9 @@ const LIMITE_MAXIMALE = 25;
  *
  * Une région inconnue — ou nommée vide, `?region=` — vaut une erreur, pas
  * « toutes » : une faute de frappe qui ferait taire le filtre en silence
- * montrerait tout à qui croyait lire la Kryte.
+ * montrerait tout à qui croyait lire la Kryte. Sans région ni point, erreur
+ * aussi : « toute la Tyrie » sous `region: null` se lirait comme « hors
+ * région », et une réponse que le CDN ressert ne doit pas être ambiguë.
  *
  * Depuis `/api/alentours`, l'application bureau lit les rumeurs avec les lieux
  * et les scènes en un appel ; cette route reste pour les versions installées.
@@ -31,7 +33,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
   const limite = lireLimite(searchParams, LIMITE_PAR_DEFAUT, LIMITE_MAXIMALE);
 
-  let region: Region | null | undefined;
+  let region: Region | null;
   const nommee = searchParams.get("region")?.trim();
   const point = lirePoint(searchParams);
 
@@ -42,8 +44,10 @@ export async function GET(request: Request): Promise<NextResponse> {
     }
   } else if (point) {
     region = await regionDe(point);
+  } else {
+    return NextResponse.json({ erreur: "Région ou coordonnées requises." }, { status: 400 });
   }
 
   const rumeurs = await rumeursDe(region, limite);
-  return reponsePublique({ region: region ?? null, rumeurs }, DUREE_ALENTOURS);
+  return reponsePublique({ region, rumeurs }, DUREE_ALENTOURS);
 }
