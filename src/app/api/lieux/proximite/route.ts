@@ -58,11 +58,29 @@ export async function GET(request: Request): Promise<NextResponse> {
     LIMITE_MAXIMALE,
   );
 
+  // La forme est écrite champ par champ, pas recopiée de `PlaceSummary` : la
+  // réponse ne porte que ce qu'il faut pour nommer un lieu, le situer et dire
+  // s'il s'y passe quelque chose. La bannière, le résumé et l'auteur restent
+  // sur la fiche, et un champ ajouté au registre demain ne sortira pas ici
+  // sans qu'on l'ait décidé.
   const lieux = (await listPlacesForMap())
     .flatMap((lieu) => {
       if (!lieu.coordinates) return [];
       const distance = Math.hypot(lieu.coordinates.x - point.x, lieu.coordinates.y - point.y);
-      return distance <= rayon ? [{ ...lieu, distance: Math.round(distance) }] : [];
+      if (distance > rayon) return [];
+      return [
+        {
+          id: lieu.id,
+          slug: lieu.slug,
+          name: lieu.name,
+          type: lieu.type,
+          region: lieu.region,
+          district: lieu.district,
+          coordinates: lieu.coordinates,
+          upcomingEventCount: lieu.upcomingEventCount,
+          distance: Math.round(distance),
+        },
+      ];
     })
     .sort((a, b) => a.distance - b.distance || a.name.localeCompare(b.name, "fr"))
     .slice(0, limite);
