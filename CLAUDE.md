@@ -383,6 +383,13 @@ trois routes séparées, qui restent pour les versions installées — une seule
 définition de « à proximité », sinon les deux chemins finiraient par dire deux
 choses.
 
+**`/api/evenements/aujourdhui` rend les scènes publiques du jour**, sans
+point : celles en cours, puis celles qui commencent avant minuit à l'heure du
+serveur de jeu, dans l'ordre de l'agenda, avec le `total` du jour. « En cours »
+est la règle de l'agenda (`pasEncoreFini`), pas le jour civil du début : une
+veillée commencée la veille et pas finie en fait partie. Son délai de cache
+s'arrête à minuit — la réponse de 23 h 59 ne doit pas annoncer la veille.
+
 **Le relevé de météo et les alentours portent `Cache-Control: public,
 s-maxage`** (`reponsePublique`). C'est le seul cache du hub que l'horloge
 gouverne et qu'aucune étiquette ne retire : le CDN ne connaît pas les
