@@ -39,7 +39,10 @@ export async function GET(request: Request): Promise<NextResponse> {
   // `Date.UTC` reporte le trente-deuxième jour sur le mois suivant.
   const minuit = fromGameCivil(civil.year, civil.month, civil.day + 1, 0);
 
-  const scenes = (await listEvents({ viewer: null, access: "publiques" })).filter(
+  // `to` borne le début côté base sans retirer `pasEncoreFini`, qui ne cède
+  // qu'à `from` ; il est inclusif, donc le filtre strict écarte une scène
+  // posée à minuit pile, qui est du lendemain.
+  const scenes = (await listEvents({ viewer: null, access: "publiques", to: minuit })).filter(
     (evenement) => new Date(evenement.startsAt) < minuit,
   );
 
