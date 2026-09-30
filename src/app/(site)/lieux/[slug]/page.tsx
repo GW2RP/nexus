@@ -5,6 +5,8 @@ import { notFound } from "next/navigation";
 import { OpenPlaceBoardButton } from "@/components/board/board-dialogs";
 import { BoardPreview } from "@/components/board/board-preview";
 import { EventRow } from "@/components/content/event-row";
+import { PlaceActivityStatus } from "@/components/content/place-activity";
+import { PlaceActivityPanel } from "@/components/content/place-activity-panel";
 import { PlaceTabs } from "@/components/content/place-tabs";
 import { WeatherBadge } from "@/components/content/weather-badge";
 import { ReportDialog } from "@/components/report-dialog";
@@ -155,6 +157,7 @@ export default async function PlacePage({ params }: Props) {
             ) : null}
             {place.access ? ` · ${place.access.toLowerCase()}` : null}
           </p>
+          <PlaceActivityStatus activity={place.activity} withSince className="mt-3" />
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -250,6 +253,8 @@ export default async function PlacePage({ params }: Props) {
         </div>
 
         <aside className="lg:w-[320px] lg:shrink-0">
+          {canEdit ? <PlaceActivityPanel placeId={place.id} activity={place.activity} /> : null}
+
           <section className="mb-8" aria-labelledby="en-bref">
             <SectionHeading id="en-bref" title="En bref" compact />
             <dl className="flex flex-col">

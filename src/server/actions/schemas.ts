@@ -14,6 +14,7 @@ import {
 import { fromGameInput } from "@/lib/dates";
 import { PLANS_MAX, POINTS_PAR_PLAN_MAX, clampPourcentage } from "@/lib/floor-plans";
 import { isBlobUrl } from "@/lib/images";
+import { MESSAGE_ACTIVITE_MAX } from "@/lib/place-activity";
 import { CONTINENT_HEIGHT, CONTINENT_WIDTH } from "@/lib/map";
 import {
   EVENT_TYPES,
@@ -208,6 +209,18 @@ const placeFields = z.object({
 
 const placeAlt = altAccompaniesImage<z.infer<typeof placeFields>>("bannerUrl", "bannerAlt");
 export const placeSchema = placeFields.refine(placeAlt.check, placeAlt.options);
+
+/** Le statut d'un lieu, tel que son équipe le bascule — depuis la fiche ou
+ *  depuis l'application bureau. Sans `message`, celui d'avant reste ; un
+ *  message vide l'efface. */
+export const placeActivitySchema = z.object({
+  active: z.boolean(),
+  message: z
+    .string()
+    .trim()
+    .max(MESSAGE_ACTIVITE_MAX, `${MESSAGE_ACTIVITE_MAX} caractères au plus.`)
+    .optional(),
+});
 
 export const eventSchema = z
   .object({

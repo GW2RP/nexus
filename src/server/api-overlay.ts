@@ -103,6 +103,7 @@ export function formeLieuResume(lieu: PlaceSummary) {
     bannerAlt: lieu.bannerAlt,
     coordinates: lieu.coordinates,
     upcomingEventCount: lieu.upcomingEventCount,
+    activity: lieu.activity,
   };
 }
 
