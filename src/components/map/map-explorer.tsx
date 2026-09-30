@@ -26,7 +26,7 @@ import {
   type Phenomene,
 } from "@/lib/weather/phenomena";
 import { TERRAIN_TONES } from "@/lib/weather/tones";
-import type { PlaceActivity } from "@/lib/place-activity";
+import { statutAffiche, type PlaceActivity } from "@/lib/place-activity";
 import { cn } from "@/lib/utils";
 import type {
   EventSummary,
@@ -455,9 +455,7 @@ export function MapExplorer({
                             .filter(Boolean)
                             .join(" · ")}
                         </span>
-                        {place.activity ? (
-                          <PlaceActivityLine activity={place.activity} />
-                        ) : null}
+                        <PlaceActivityLine activity={place.activity} />
                         {place.upcomingEventCount > 0 ? (
                           <span className="block text-[15px] text-crimson-ink">
                             {place.upcomingEventCount} évènement
@@ -725,8 +723,11 @@ function RumeurPanel({ rumeur, onClose }: { rumeur: RumorSummary; onClose: () =>
 
 /** Le statut d'un lieu dans la colonne : la puce et le message sur une ligne,
  *  coupée plutôt que de pousser la liste. Le `<button>` de la ligne n'admet
- *  pas de `<p>`, d'où ce `<span>`. */
-function PlaceActivityLine({ activity }: { activity: PlaceActivity }) {
+ *  pas de `<p>`, d'où ce `<span>`. Un lieu inactif sans message n'y dit
+ *  rien (`statutAffiche`). */
+function PlaceActivityLine({ activity: statut }: { activity: PlaceActivity | null }) {
+  const activity = statutAffiche(statut);
+  if (!activity) return null;
   return (
     <span className="mt-1 flex min-w-0 items-center gap-2">
       <StatusBadge tone={activity.active ? "crimson" : "neutral"} className="shrink-0">

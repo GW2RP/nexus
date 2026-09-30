@@ -399,7 +399,10 @@ donc le statut écrit, échéance comprise, et `listPlaces` / `listPlacesForMap`
 le jugent à la sortie du cache — jugé avant d'y entrer, une taverne resterait
 « active » tant qu'aucune écriture ne l'en retire. Corriger le message d'un
 lieu déjà actif ne rallonge pas la soirée, et le statut ne touche pas la date
-de modification de la fiche.
+de modification de la fiche. **Un lieu inactif sans message n'affiche rien**
+(`statutAffiche`) : la puce `INACTIF` ne se montre que pour porter un message
+— « Ouverture à 19h » —, sinon elle ne dirait que le silence de la plupart des
+lieux.
 
 Une seule écriture (`ecrireActivite`, `src/server/place-activity.ts`), pour
 l'interrupteur de la fiche et pour l'application bureau
