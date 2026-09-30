@@ -44,3 +44,11 @@ export function activiteA(
   }
   return activity;
 }
+
+/** Ce qui s'affiche d'un statut : `ACTIF` toujours, `INACTIF` seulement quand
+ *  l'équipe a laissé un message — « En vacances jusqu'au 12/10 ». Un lieu
+ *  inactif sans rien à dire n'annonce rien : la plupart des lieux le sont la
+ *  plupart du temps, et la puce ne dirait que le silence. */
+export function statutAffiche(activity: PlaceActivity | null): PlaceActivity | null {
+  return activity && (activity.active || activity.message) ? activity : null;
+}
