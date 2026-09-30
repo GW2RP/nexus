@@ -15,6 +15,7 @@ import type {
   WeatherCondition,
 } from "@/lib/domain";
 import type { BoardContent, BoardOwner, BoardVisibility } from "@/lib/boards";
+import type { PlaceActivity } from "@/lib/place-activity";
 import type { Phenomene } from "@/lib/weather/phenomena";
 
 /** Les formes sérialisées que les composants reçoivent : des objets simples,
@@ -66,6 +67,8 @@ export type PlaceSummary = {
   coordinates: { x: number; y: number } | null;
   upcomingEventCount: number;
   authorId: string;
+  /** Le statut que son équipe déclare, jugé à l'heure de la lecture. */
+  activity: PlaceActivity | null;
 };
 
 export type FloorPoint = {

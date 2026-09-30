@@ -46,6 +46,9 @@ export async function lieuxAutour(point: Point, rayon: number, limite: number) {
           district: lieu.district,
           coordinates: lieu.coordinates,
           upcomingEventCount: lieu.upcomingEventCount,
+          // Jugé à l'heure de la réponse, et resservi par le CDN deux minutes
+          // au plus : l'overlay rejuge l'échéance de son côté.
+          activity: lieu.activity,
           distance: Math.round(distance),
         },
       ];

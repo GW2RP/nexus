@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { PinIcon } from "@/components/icons";
+import { PlaceActivityStatus } from "@/components/content/place-activity";
 import { Card } from "@/components/ui/card";
 import { PlaceTypeChip } from "@/components/ui/chip";
 import { FramedMedia } from "@/components/ui/framed-media";
@@ -43,6 +44,7 @@ export function PlaceCard({ place }: { place: PlaceSummary }) {
           <PinIcon size={13} />
           {[place.district, REGION_LABELS[place.region]].filter(Boolean).join(", ")}
         </p>
+        <PlaceActivityStatus activity={place.activity} />
         {place.summary ? (
           <p className="body-compact text-ink-body">{place.summary}</p>
         ) : null}

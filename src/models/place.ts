@@ -1,6 +1,7 @@
 import { Schema, model, models, type InferSchemaType, type Model } from "mongoose";
 
 import { PLACE_TYPES, REGIONS } from "@/lib/domain";
+import { MESSAGE_ACTIVITE_MAX } from "@/lib/place-activity";
 
 /** Un point numéroté posé sur un plan, en pourcentage de l'image téléversée.
  *  En pourcentage et non en pixels : l'image se rend à la largeur de la colonne,
@@ -78,6 +79,20 @@ const placeSchema = new Schema(
     /** Les comptes qui peuvent modifier le lieu avec son auteur. */
     managerIds: { type: [String], default: [], index: true },
     hidden: { type: Boolean, default: false, index: true },
+    /** Le statut d'activité que l'équipe déclare (`src/lib/place-activity.ts`).
+     *  Absent tant qu'elle n'en a rien dit : la fiche n'affiche alors rien. */
+    activity: {
+      type: new Schema(
+        {
+          active: { type: Boolean, required: true },
+          message: { type: String, trim: true, maxlength: MESSAGE_ACTIVITE_MAX },
+          since: { type: Date },
+          until: { type: Date },
+        },
+        { _id: false },
+      ),
+      default: undefined,
+    },
   },
   { timestamps: true, versionKey: false },
 );

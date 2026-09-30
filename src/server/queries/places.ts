@@ -4,6 +4,7 @@ import { cache } from "react";
 
 import type { PlaceType, Region } from "@/lib/domain";
 import { isBlobUrl } from "@/lib/images";
+import { activiteA, type PlaceActivity } from "@/lib/place-activity";
 import { TAGS, remember } from "@/server/queries/cache";
 import { pasEncoreFini } from "@/server/queries/events";
 import { Character } from "@/models/character";
@@ -16,6 +17,7 @@ import {
   loadAuthors,
   searchRegex,
   toIso,
+  toIsoOrNull,
 } from "@/server/queries/shared";
 import type { FloorPlan, PlaceDetail, PlaceSummary } from "@/server/types";
 
@@ -78,6 +80,24 @@ function readFloorPlans(doc: PlaceDocument): FloorPlan[] {
     .filter((plan) => plan.imageUrl !== null || plan.points.length > 0);
 }
 
+/** Le statut tel qu'il est écrit, échéance comprise — pas encore jugé. Les
+ *  lectures mémorisées rangent cette forme-là : jugée avant d'entrer au cache,
+ *  une taverne resterait « active » tant qu'aucune écriture ne l'en retire. */
+function readActivity(doc: PlaceDocument): PlaceActivity | null {
+  if (!doc.activity) return null;
+  return {
+    active: Boolean(doc.activity.active),
+    message: doc.activity.message?.trim() || null,
+    since: toIsoOrNull(doc.activity.since),
+    until: toIsoOrNull(doc.activity.until),
+  };
+}
+
+/** Le statut jugé à l'heure de la requête, à la sortie du cache. */
+function withLiveActivity<T extends { activity: PlaceActivity | null }>(place: T): T {
+  return { ...place, activity: activiteA(place.activity) };
+}
+
 function baseSummary(doc: PlaceDocument & { _id: unknown }): Omit<PlaceSummary, "upcomingEventCount"> {
   return {
     id: String(doc._id),
@@ -94,6 +114,7 @@ function baseSummary(doc: PlaceDocument & { _id: unknown }): Omit<PlaceSummary, 
         ? { x: doc.coordinates.x, y: doc.coordinates.y }
         : null,
     authorId: doc.authorId,
+    activity: readActivity(doc),
   };
 }
 
@@ -139,7 +160,7 @@ const upcomingEventsByPlace = remember(
  *  Deux étiquettes : la fiche d'un lieu vient de `lieux`, mais la pastille
  *  « évènements à venir » vient de `evenements`. Sans la seconde, annoncer une
  *  scène ne mettrait pas à jour le compte affiché sur son lieu. */
-export const listPlaces = remember(
+const listPlacesStored = remember(
   async function listPlaces(options: ListOptions = {}) {
     await connectToDatabase();
 
@@ -180,8 +201,12 @@ export const listPlaces = remember(
   [TAGS.places, TAGS.events],
 );
 
-/** Tous les lieux épinglables sur la carte — la carte les charge d'un coup. */
-export const listPlacesForMap = remember(
+export async function listPlaces(options: ListOptions = {}) {
+  const result = await listPlacesStored(options);
+  return { ...result, items: result.items.map(withLiveActivity) };
+}
+
+const listPlacesForMapStored = remember(
   async function listPlacesForMap() {
     await connectToDatabase();
     const [docs, counts] = await Promise.all([
@@ -196,6 +221,11 @@ export const listPlacesForMap = remember(
   ["places:map"],
   [TAGS.places, TAGS.events],
 );
+
+/** Tous les lieux épinglables sur la carte — la carte les charge d'un coup. */
+export async function listPlacesForMap() {
+  return (await listPlacesForMapStored()).map(withLiveActivity);
+}
 
 export const getPlaceBySlug = cache(async (slug: string): Promise<PlaceDetail | null> => {
   await connectToDatabase();
@@ -233,7 +263,7 @@ export const getPlaceBySlug = cache(async (slug: string): Promise<PlaceDetail | 
 
   const floorPlans = readFloorPlans(doc);
 
-  return {
+  return withLiveActivity({
     ...baseSummary(doc as PlaceDocument & { _id: unknown }),
     upcomingEventCount: counts[String(doc._id)] ?? 0,
     description: doc.description ?? null,
@@ -249,7 +279,7 @@ export const getPlaceBySlug = cache(async (slug: string): Promise<PlaceDetail | 
     author: authors.get(doc.authorId) ?? null,
     createdAt: toIso(doc.createdAt),
     updatedAt: toIso(doc.updatedAt),
-  };
+  });
 });
 
 export const listPlaceOptions = remember(
@@ -281,4 +311,26 @@ export async function listPlaceSlugs() {
 export async function countPlaces() {
   await connectToDatabase();
   return Place.countDocuments({ hidden: { $ne: true } });
+}
+
+/** Les lieux qu'un compte tient, comme auteur ou co-gérant, et leur statut.
+ *  Lecture d'accès : elle ne passe pas par `remember`, et ne se sert pas
+ *  périmée. */
+export async function listManagedPlaces(userId: string) {
+  await connectToDatabase();
+  const docs = await Place.find({
+    hidden: { $ne: true },
+    $or: [{ authorId: userId }, { managerIds: userId }],
+  })
+    .select({ slug: 1, name: 1, activity: 1 })
+    .sort({ name: 1 })
+    .lean();
+  return docs.map((doc) =>
+    withLiveActivity({
+      id: String(doc._id),
+      slug: doc.slug,
+      name: doc.name,
+      activity: readActivity(doc as PlaceDocument),
+    }),
+  );
 }

@@ -390,6 +390,26 @@ est la règle de l'agenda (`pasEncoreFini`), pas le jour civil du début : une
 veillée commencée la veille et pas finie en fait partie. Son délai de cache
 s'arrête à minuit — la réponse de 23 h 59 ne doit pas annoncer la veille.
 
+**Un lieu se déclare actif ou inactif**, avec un court message de son équipe
+(`src/lib/place-activity.ts`) — « Soirée dansante jusqu'à 21h », « En vacances
+jusqu'au 12/10 ». Actif, il **redevient inactif au bout de quatre heures**,
+message gardé : l'échéance (`until`) s'écrit à l'activation et **se juge à la
+lecture** (`activiteA`), jamais par un cron. Les lectures mémorisées rangent
+donc le statut écrit, échéance comprise, et `listPlaces` / `listPlacesForMap`
+le jugent à la sortie du cache — jugé avant d'y entrer, une taverne resterait
+« active » tant qu'aucune écriture ne l'en retire. Corriger le message d'un
+lieu déjà actif ne rallonge pas la soirée, et le statut ne touche pas la date
+de modification de la fiche.
+
+Une seule écriture (`ecrireActivite`, `src/server/place-activity.ts`), pour
+l'interrupteur de la fiche et pour l'application bureau
+(`POST /api/lieux/[slug]/activite`, derrière le jeton) : même règle d'accès
+que la modification du lieu. L'overlay lit les lieux qu'on tient par
+`GET /api/lieux/geres`, **jamais mise en cache** : les alentours sont publics
+et resservis par le CDN, ils ne peuvent pas dire qui les lit. Ce sont les deux
+seules routes de l'overlay qui demandent une session. L'administration modifie
+tous les lieux sur le site, mais n'en tient aucun : `geres` ne lui en rend pas.
+
 **Le relevé de météo et les alentours portent `Cache-Control: public,
 s-maxage`** (`reponsePublique`). C'est le seul cache du hub que l'horloge
 gouverne et qu'aucune étiquette ne retire : le CDN ne connaît pas les

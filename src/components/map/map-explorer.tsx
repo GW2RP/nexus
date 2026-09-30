@@ -7,7 +7,9 @@ import { PhenomeneGlyph, PlaceGlyph, WeatherGlyph } from "@/components/type-glyp
 import { MapCanvas } from "@/components/map/map-canvas";
 import type { MapArea, MapPin, MapShape } from "@/components/map/tyria-map";
 import { RumorIcon, SearchIcon } from "@/components/icons";
+import { PlaceActivityStatus } from "@/components/content/place-activity";
 import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/ui/chip";
 import { Label, Select } from "@/components/ui/field";
 import {
   PLACE_TYPES,
@@ -24,6 +26,7 @@ import {
   type Phenomene,
 } from "@/lib/weather/phenomena";
 import { TERRAIN_TONES } from "@/lib/weather/tones";
+import type { PlaceActivity } from "@/lib/place-activity";
 import { cn } from "@/lib/utils";
 import type {
   EventSummary,
@@ -316,6 +319,7 @@ export function MapExplorer({
                     } à venir`
                   : null
               }
+              activity={selectedPlace.activity}
               href={`/lieux/${selectedPlace.slug}`}
               onClose={() => setSelectedId(null)}
             />
@@ -451,6 +455,9 @@ export function MapExplorer({
                             .filter(Boolean)
                             .join(" · ")}
                         </span>
+                        {place.activity ? (
+                          <PlaceActivityLine activity={place.activity} />
+                        ) : null}
                         {place.upcomingEventCount > 0 ? (
                           <span className="block text-[15px] text-crimson-ink">
                             {place.upcomingEventCount} évènement
@@ -716,17 +723,35 @@ function RumeurPanel({ rumeur, onClose }: { rumeur: RumorSummary; onClose: () =>
   );
 }
 
+/** Le statut d'un lieu dans la colonne : la puce et le message sur une ligne,
+ *  coupée plutôt que de pousser la liste. Le `<button>` de la ligne n'admet
+ *  pas de `<p>`, d'où ce `<span>`. */
+function PlaceActivityLine({ activity }: { activity: PlaceActivity }) {
+  return (
+    <span className="mt-1 flex min-w-0 items-center gap-2">
+      <StatusBadge tone={activity.active ? "crimson" : "neutral"} className="shrink-0">
+        {activity.active ? "ACTIF" : "INACTIF"}
+      </StatusBadge>
+      {activity.message ? (
+        <span className="truncate caption italic text-ink-body">« {activity.message} »</span>
+      ) : null}
+    </span>
+  );
+}
+
 /** L'infobulle du pin choisi : cartouche bordé 2 px `gold`, titre, méta, actions. */
 function DetailPanel({
   title,
   meta,
   note,
+  activity = null,
   href,
   onClose,
 }: {
   title: string;
   meta: string;
   note: string | null;
+  activity?: PlaceActivity | null;
   href: string;
   onClose: () => void;
 }) {
@@ -734,6 +759,7 @@ function DetailPanel({
     <div className="absolute inset-x-4 bottom-4 z-[600] w-auto border-2 border-gold bg-surface p-5 sm:left-4 sm:w-[318px]">
       <h2 className="card-title">{title}</h2>
       <p className="mt-1 text-[16px] text-ink-muted">{meta}</p>
+      <PlaceActivityStatus activity={activity} className="mt-2" />
       {note ? <p className="mt-1 text-[16px] text-crimson-ink">{note}</p> : null}
       <div className="mt-4 flex gap-3">
         <Button asChild size="sm">

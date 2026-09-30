@@ -18,13 +18,15 @@ import {
   invalidate,
   TAGS,
   errorState,
+  successState,
   objectIdOrNull,
   parseForm,
   requireContributor,
   toActionState,
   type ActionState,
 } from "@/server/actions/helpers";
-import { placeSchema } from "@/server/actions/schemas";
+import { placeActivitySchema, placeSchema } from "@/server/actions/schemas";
+import { ecrireActivite } from "@/server/place-activity";
 import { listCharactersOfMany } from "@/server/queries/characters";
 import { toObjectId } from "@/server/queries/shared";
 
@@ -272,4 +274,39 @@ export async function listKeeperOptionsAction(
   await requireContributor();
   // Neuf comptes au plus : l'auteur et les huit co-gérants que le schéma admet.
   return listCharactersOfMany(ownerIds.slice(0, 9));
+}
+
+/** Le statut d'un lieu, basculé depuis sa fiche. L'interrupteur l'envoie sans
+ *  message — celui d'avant reste ; le champ l'envoie avec l'état du moment. */
+export async function updatePlaceActivityAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  let slug: string;
+  try {
+    const user = await requireContributor();
+    const id = objectIdOrNull(formData.get("id"));
+    if (!id) return errorState("Ce lieu n'existe plus.");
+
+    const message = formData.get("message");
+    const parsed = placeActivitySchema.safeParse({
+      active: formData.get("active") === "true",
+      message: typeof message === "string" ? message : undefined,
+    });
+    if (!parsed.success) {
+      return errorState("Le statut n'a pas été enregistré.", {
+        message: parsed.error.issues[0]?.message ?? "Message invalide.",
+      });
+    }
+
+    ({ slug } = await ecrireActivite(user, { id }, parsed.data));
+  } catch (error) {
+    return toActionState(error);
+  }
+
+  invalidate(TAGS.places);
+  revalidatePath(`/lieux/${slug}`);
+  revalidatePath("/lieux");
+  revalidatePath("/carte");
+  return successState("Statut enregistré.");
 }
