@@ -241,6 +241,11 @@ function checkText(kind: ElementKind, text: string | undefined) {
   }
 }
 
+/** Seule une image porte une légende sous elle. */
+function checkCaption(kind: ElementKind, caption: string | undefined) {
+  if (caption && kind !== "image") throw new Refus("Seule une image porte une légende.");
+}
+
 /** La corbeille d'un panneau garde ses cinquante derniers éléments. */
 const REMOVED_MAX = 50;
 
@@ -299,7 +304,7 @@ export async function boardOperationAction(
 
     switch (op.type) {
       case "poser": {
-        const { id, kind, text, size, stroke, fill, ink, src: rawSrc, ...geometry } = op.element;
+        const { id, kind, text, size, stroke, fill, ink, src: rawSrc, caption, ...geometry } = op.element;
         if (elements.length >= ELEMENTS_MAX) {
           throw new Refus(`Un panneau ne porte pas plus de ${ELEMENTS_MAX} éléments.`);
         }
@@ -308,6 +313,7 @@ export async function boardOperationAction(
         checkColor("fill", fill);
         checkColor("ink", ink);
         checkText(kind, text);
+        checkCaption(kind, caption);
         // Une image vient du magasin, et du dossier de panneau de celui qui la
         // pose — ou d'un élément déjà sur ce panneau, quand on la duplique.
         // Une autre adresse ferait de ce panneau la cause du ménage d'une
@@ -332,6 +338,7 @@ export async function boardOperationAction(
               fill,
               ink,
               src,
+              caption: kind === "image" ? (caption ?? "") : "",
               authorId: user.id,
               createdAt: new Date(),
             },
@@ -347,6 +354,7 @@ export async function boardOperationAction(
         checkColor("fill", fill);
         checkColor("ink", ink);
         checkText(element.kind as ElementKind, rest.text);
+        checkCaption(element.kind as ElementKind, rest.caption);
         const patch = {
           ...boundGeometry({ x, y, w, h }, element as Geometry),
           ...rest,

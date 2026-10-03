@@ -82,6 +82,7 @@ function applyOp(state: State, op: BoardOperation, me: Me): State {
             {
               ...op.element,
               src: op.element.src ?? "",
+              caption: op.element.caption ?? "",
               z: maxZ + 1,
               authorId: me.id,
               authorName: me.name,
@@ -916,7 +917,7 @@ export function BoardEditor({
   function duplicate() {
     if (!selectedElement) return;
     settle();
-    const { kind, w, h, text, size, stroke, fill, ink, src } = selectedElement;
+    const { kind, w, h, text, size, stroke, fill, ink, src, caption } = selectedElement;
     // Une image dupliquée partage le fichier de l'autre : il ne quittera le
     // magasin qu'une fois les deux parties.
     const element = {
@@ -930,6 +931,7 @@ export function BoardEditor({
       fill,
       ink,
       src,
+      caption,
       x: clamp(selectedElement.x + GRID, 0, BOARD_WIDTH - w),
       y: clamp(selectedElement.y + GRID, 0, BOARD_HEIGHT - h),
     };

@@ -482,8 +482,10 @@ presse-papier — téléversée et posée sans détour, c'est le geste d'après 
 capture d'écran —, et tombe au milieu de la vue à sa proportion d'origine
 (`imageSize`). Son alternative est son `text`, **facultative** ici : une image
 collée arrive sans elle, et l'inspecteur la donne ensuite — un élément se
-corrige à la souris, contrairement au markdown. Son adresse `src` ne change
-plus. Elle se range sous **celui qui la téléverse**
+corrige à la souris, contrairement au markdown. Sa **légende** (`caption`),
+facultative elle aussi, s'affiche sous elle, dans son cadre : l'alternative dit
+ce qu'on voit, la légende ce qu'on en dit, et l'une ne remplace pas l'autre.
+Son adresse `src` ne change plus. Elle se range sous **celui qui la téléverse**
 (`panneaux/<id>/…`), pas sous l'auteur du panneau, et c'est à lui qu'elle
 compte. Le serveur n'accepte qu'une image de ce dossier-là, ou une adresse
 déjà portée par ce panneau — c'est ce que « dupliquer » envoie.

@@ -99,7 +99,9 @@ export async function createReportAction(
         return errorState("Ce contenu n'existe plus.");
       }
       authorId = found.element.authorId;
-      excerpt = async () => plainExcerpt(found.element.text ?? "", 400) || null;
+      // Une image se lit par sa légende, puis par son alternative.
+      const said = [found.element.caption, found.element.text].filter(Boolean).join(" — ");
+      excerpt = async () => plainExcerpt(said, 400) || null;
       // Le chemin se lit en base, pas dans le formulaire : c'est lui que
       // l'équipe suivra.
       targetSlug = `${found.path}?element=${targetId}`;

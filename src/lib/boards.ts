@@ -184,6 +184,10 @@ export type BoardElement = {
   /** L'adresse de l'image, pour un élément « image » ; vide pour les autres.
    *  Elle ne change pas : une autre image est un autre élément. */
   src: string;
+  /** La légende d'une image, affichée sous elle ; vide pour les autres. Elle
+   *  ne remplace pas l'alternative : l'une dit ce qu'on voit, l'autre ce qu'on
+   *  en dit. */
+  caption: string;
   authorId: string;
   authorName: string | null;
   createdAt: string;
@@ -207,7 +211,7 @@ export type BoardContent = { elements: BoardElement[]; arrows: BoardArrow[] };
 
 /** Ce qu'une modification d'élément peut toucher. */
 export type ElementPatch = Partial<
-  Pick<BoardElement, "x" | "y" | "w" | "h" | "text" | "size" | "stroke" | "fill" | "ink">
+  Pick<BoardElement, "x" | "y" | "w" | "h" | "text" | "size" | "stroke" | "fill" | "ink" | "caption">
 >;
 export type ArrowPatch = Partial<Pick<BoardArrow, "color" | "heads" | "dash" | "width" | "label">>;
 
@@ -222,6 +226,7 @@ export type BoardOperation =
       type: "poser";
       element: Pick<BoardElement, "id" | "kind" | "x" | "y" | "w" | "h" | "text" | "size" | "stroke" | "fill" | "ink"> & {
         src?: string;
+        caption?: string;
       };
     }
   | { type: "modifier"; id: string; patch: ElementPatch }
@@ -264,7 +269,8 @@ export function plainExcerpt(text: string, max = 120): string {
 }
 
 /** Le nom qu'un élément donne de lui-même : sa première ligne, ou son type. */
-export function elementName(element: Pick<BoardElement, "kind" | "text">): string {
+export function elementName(element: Pick<BoardElement, "kind" | "text"> & { caption?: string }): string {
+  if (element.kind === "image" && element.caption?.trim()) return element.caption.trim();
   const text = isRichKind(element.kind) ? plainExcerpt(element.text, 60) : element.text.trim();
   return text || ELEMENT_KIND_LABELS[element.kind];
 }

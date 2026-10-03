@@ -208,16 +208,28 @@ function ElementPanel({
       {heading}
 
       {image ? (
-        <div className="flex flex-col gap-2">
-          <Label htmlFor={`alternative-${element.id}`}>Alternative textuelle</Label>
-          <Input
-            id={`alternative-${element.id}`}
-            value={element.text}
-            maxLength={LEGEND_MAX}
-            onChange={(event) => actions.live({ text: event.target.value })}
-            onBlur={actions.settle}
-          />
-        </div>
+        <>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor={`alternative-${element.id}`}>Alternative textuelle</Label>
+            <Input
+              id={`alternative-${element.id}`}
+              value={element.text}
+              maxLength={LEGEND_MAX}
+              onChange={(event) => actions.live({ text: event.target.value })}
+              onBlur={actions.settle}
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor={`legende-${element.id}`}>Légende</Label>
+            <Input
+              id={`legende-${element.id}`}
+              value={element.caption}
+              maxLength={LEGEND_MAX}
+              onChange={(event) => actions.live({ caption: event.target.value })}
+              onBlur={actions.settle}
+            />
+          </div>
+        </>
       ) : rich ? (
         <BoardTextField
           key={element.id}
