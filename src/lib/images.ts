@@ -44,6 +44,12 @@ export function collectMarkdownImages(...texts: (string | null | undefined)[]): 
  *  abus, pas l'usage : une fiche bien illustrée tient en quelques mégaoctets. */
 export const IMAGE_QUOTA_BYTES = 250 * 1024 * 1024;
 
+/** La durée de vie d'un jeton de téléversement. Courte, parce qu'un jeton
+ *  réserve sans le dire la place qu'il autorise : le quota ne compte que ce qui
+ *  est arrivé. Et c'est le délai au-delà duquel une ligne du registre sans
+ *  fichier ne désigne plus un téléversement en cours. */
+export const UPLOAD_TOKEN_MS = 5 * 60 * 1000;
+
 /** Une taille en mégaoctets, à la française : « 12,3 Mo ». */
 export function formatMegaoctets(bytes: number): string {
   const megaoctets = bytes / (1024 * 1024);

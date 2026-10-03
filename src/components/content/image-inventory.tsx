@@ -49,7 +49,7 @@ export function ImageInventory({
         </p>
         {onlyOrphans && orphans.length > 1 ? (
           <DeleteContent
-            id="orphelines"
+            id={orphans.map((image) => image.url).join("\n")}
             action={deleteAction}
             title={`${orphans.length} images orphelines`}
             question="Supprimer toutes les images orphelines ?"

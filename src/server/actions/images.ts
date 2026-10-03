@@ -14,10 +14,11 @@ import {
 } from "@/server/actions/helpers";
 import { findImageUses, listImagesOf } from "@/server/images";
 
-/** Le jeton qui demande toutes les orphelines d'un coup, à la place d'une adresse. */
-const TOUTES_LES_ORPHELINES = "orphelines";
-
-/** Supprimer des images d'un inventaire : une seule, ou toutes les orphelines.
+/** Supprimer des images d'un inventaire : une seule, ou les orphelines que la
+ *  page montrait — leurs adresses, une par ligne. Jamais « toutes les
+ *  orphelines » au moment du geste : une image téléversée depuis dans un
+ *  formulaire encore ouvert partirait avec, et la fiche enregistrerait ensuite
+ *  une adresse morte.
  *
  *  Seule une image qui ne sert plus nulle part se supprime. Une image encore
  *  portée par une fiche se retire de la fiche, qui l'emporte alors au magasin :
@@ -37,19 +38,20 @@ export async function deleteImagesAction(
       return errorState("Ces images ne sont pas les vôtres.");
     }
 
-    const target = String(formData.get("id") ?? "");
+    const targets = new Set(
+      String(formData.get("id") ?? "")
+        .split("\n")
+        .filter(Boolean),
+    );
     const entries = await listImagesOf(ownerId);
-    const candidates =
-      target === TOUTES_LES_ORPHELINES
-        ? entries
-        : entries.filter((entry) => entry.url === target);
+    const candidates = entries.filter((entry) => targets.has(entry.url));
     if (candidates.length === 0) return errorState("Cette image n'est plus là.");
 
     const uses = await findImageUses(candidates);
     const orphans = candidates.filter((entry) => (uses.get(entry.url) ?? []).length === 0);
     if (orphans.length === 0) {
       return errorState(
-        target === TOUTES_LES_ORPHELINES
+        targets.size > 1
           ? "Aucune image orpheline à supprimer."
           : "Cette image sert encore : retirez-la d'abord du contenu qui la montre.",
       );

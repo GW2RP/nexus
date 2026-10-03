@@ -3,6 +3,7 @@ import "server-only";
 import { BlobNotFoundError, head, list } from "@vercel/blob";
 
 import { IMAGE_FOLDERS, readBlobPathname } from "@/lib/blob";
+import { UPLOAD_TOKEN_MS } from "@/lib/images";
 import { Board } from "@/models/board";
 import { Character } from "@/models/character";
 import { Event } from "@/models/event";
@@ -96,10 +97,15 @@ export async function listImagesOf(userId: string): Promise<ImageEntry[]> {
           uploadedAt: blob.uploadedAt.toISOString(),
         } satisfies ImageEntry;
       } catch (error) {
-        // Un jeton jamais servi, ou un fichier supprimé depuis : la ligne ne
-        // désigne plus rien.
+        // Pas encore de fichier. Tant que le jeton vit, le transfert peut être
+        // en cours : la ligne reste, sinon l'image passerait à l'auteur du
+        // dossier en arrivant. Au-delà, jeton jamais servi ou fichier
+        // supprimé depuis : elle ne désigne plus rien.
         if (error instanceof BlobNotFoundError) {
-          await UploadedImage.deleteOne({ pathname: row.pathname } as never);
+          const age = Date.now() - new Date(row.createdAt ?? 0).getTime();
+          if (age > UPLOAD_TOKEN_MS * 2) {
+            await UploadedImage.deleteOne({ pathname: row.pathname } as never);
+          }
           return null;
         }
         throw error;

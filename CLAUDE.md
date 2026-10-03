@@ -529,12 +529,15 @@ ligne donnerait le fichier d'un autre à qui la pose.
 
 Le magasin fait foi pour le reste : `listImagesOf` (`src/server/images.ts`) lit
 les dossiers du compte, en retire ce que le registre donne à d'autres, et y
-ajoute ce que le registre lui donne ailleurs. Une ligne sans fichier — jeton
-jamais servi, image supprimée — s'efface en passant. `imageUsage` additionne
+ajoute ce que le registre lui donne ailleurs. Une ligne sans fichier ne s'efface
+qu'une fois passé deux fois la vie d'un jeton (`UPLOAD_TOKEN_MS`) : avant, le
+transfert peut être en cours, et l'effacer donnerait l'image à l'auteur du
+dossier à son arrivée. `imageUsage` additionne
 cet inventaire : la page de compte, la route et le quota lisent la même chose.
 
 Le quota se tient **au jeton** : la route n'autorise que ce qui reste
 (`maximumSizeInBytes`), et le magasin refuse le fichier qui dépasse. Un jeton
+vit cinq minutes, parce qu'il réserve sans le dire la place qu'il autorise. Un jeton
 refusé n'arrive au navigateur que comme un échec sans phrase, donc
 `uploadImage` demande d'abord ce qui reste (`GET /api/televersement`) pour dire
 pourquoi.
@@ -545,7 +548,8 @@ les compte. `/mon-compte/images` les liste, filtre `orphelines`, et
 `/admin/utilisateurs/<id>/images` montre le même inventaire à l'administration.
 `findImageUses` cherche l'adresse dans les contenus **entiers** de l'auteur du
 dossier — une adresse vit aussi bien dans une bannière que dans un plan ou au
-milieu d'un texte — et sur tous les panneaux, corbeille comprise. **Seule une
+milieu d'un texte — et sur tous les panneaux, corbeille comprise. « Tout supprimer » n'emporte que les adresses que la page montrait, jamais
+une image arrivée depuis dans un formulaire encore ouvert. **Seule une
 orpheline se supprime d'ici** : une image qui sert se retire de son contenu,
 qui l'emporte au magasin, sinon la fiche montrerait un cadre vide.
 

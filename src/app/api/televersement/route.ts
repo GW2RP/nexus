@@ -3,7 +3,7 @@ import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
 
 import { isPathnameOwnedBy, readBlobPathname } from "@/lib/blob";
-import { IMAGE_QUOTA_BYTES, formatMegaoctets } from "@/lib/images";
+import { IMAGE_QUOTA_BYTES, UPLOAD_TOKEN_MS, formatMegaoctets } from "@/lib/images";
 import { Place } from "@/models/place";
 import { UploadedImage } from "@/models/uploaded-image";
 import { connectToDatabase } from "@/lib/mongoose";
@@ -169,6 +169,7 @@ export async function POST(request: Request): Promise<NextResponse> {
           // sort : le chemin du jeton est celui du fichier, et le registre peut
           // s'y fier. Un chemin déjà pris est refusé, jamais écrasé.
           addRandomSuffix: false,
+          validUntil: Date.now() + UPLOAD_TOKEN_MS,
           allowOverwrite: false,
           tokenPayload: JSON.stringify({ userId: user.id }),
         };
