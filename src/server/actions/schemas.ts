@@ -8,6 +8,7 @@ import {
   BOARD_NAME_MAX,
   BOARD_VISIBILITIES,
   ELEMENT_KINDS,
+  LEGEND_MAX,
   TEXT_MAX,
   TEXT_SIZES,
 } from "@/lib/boards";
@@ -372,6 +373,8 @@ const textSize = z
   .number()
   .refine((value) => (TEXT_SIZES as readonly number[]).includes(value), "Cette taille n'existe pas.");
 
+const caption = z.string().trim().max(LEGEND_MAX, "La légende d'une image tient en quelques mots.");
+
 const elementPatchSchema = z
   .object({
     x: coordinate.optional(),
@@ -383,6 +386,7 @@ const elementPatchSchema = z
     stroke: color.optional(),
     fill: color.optional(),
     ink: color.optional(),
+    caption: caption.optional(),
   })
   .strict();
 
@@ -412,6 +416,7 @@ export const boardOperationSchema = z.discriminatedUnion("type", [
       fill: color,
       ink: color,
       src: z.string().trim().max(500).optional(),
+      caption: caption.optional(),
     }),
   }),
   z.object({ type: z.literal("modifier"), id: itemId, patch: elementPatchSchema }),

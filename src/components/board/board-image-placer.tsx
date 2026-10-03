@@ -11,12 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/field";
 import { BOARD_IMAGE_FOLDER, LEGEND_MAX, imageSize } from "@/lib/boards";
 
-/** Poser une image sur le panneau.
+/** Poser une image sur le panneau par son outil.
  *
- *  L'alternative se saisit **avant** le fichier, et le bouton reste fermé tant
- *  qu'elle manque : une image posée sans elle ne dit plus rien à qui ne la voit
- *  pas. L'image se range sous celui qui la téléverse, dans son dossier de
- *  panneaux, et compte dans son quota. */
+ *  L'alternative se propose avant le fichier, mais elle n'est pas exigée : sur
+ *  un panneau, une image collée depuis le presse-papier arrive sans elle, et
+ *  l'inspecteur la donne ensuite. L'image se range sous celui qui la
+ *  téléverse, dans son dossier de panneaux, et compte dans son quota. */
 export function BoardImagePlacer({
   ownerId,
   onPlaced,
@@ -35,11 +35,7 @@ export function BoardImagePlacer({
     setFailure(null);
     setBusy(true);
     try {
-      // La proportion se lit sur le fichier avant qu'il parte : l'image arrive
-      // sur le panneau à sa forme d'origine, pas dans un cadre imposé.
-      const natural = await naturalSize(file);
-      const src = await uploadImage(file, BOARD_IMAGE_FOLDER, ownerId);
-      onPlaced({ src, alt: alt.trim(), ...imageSize(natural.width, natural.height) });
+      onPlaced(await uploadBoardImage(file, ownerId, alt.trim()));
     } catch (uploadError) {
       setFailure(uploadFailureMessage(uploadError));
     } finally {
@@ -86,7 +82,7 @@ export function BoardImagePlacer({
           type="button"
           variant="outline"
           size="sm"
-          disabled={busy || alt.trim().length === 0}
+          disabled={busy}
           onClick={() => fileRef.current?.click()}
         >
           {busy ? "TÉLÉVERSEMENT…" : "CHOISIR L'IMAGE"}
@@ -97,6 +93,20 @@ export function BoardImagePlacer({
       </div>
     </div>
   );
+}
+
+/** Téléverse une image de panneau et rend ce qu'il faut pour la poser : son
+ *  adresse, son alternative et sa taille. La proportion se lit sur le fichier
+ *  avant qu'il parte : l'image arrive à sa forme d'origine, pas dans un cadre
+ *  imposé. */
+export async function uploadBoardImage(
+  file: File,
+  ownerId: string,
+  alt = "",
+): Promise<{ src: string; alt: string; w: number; h: number }> {
+  const natural = await naturalSize(file);
+  const src = await uploadImage(file, BOARD_IMAGE_FOLDER, ownerId);
+  return { src, alt, ...imageSize(natural.width, natural.height) };
 }
 
 /** Les dimensions d'origine d'un fichier image, lues dans le navigateur. Un

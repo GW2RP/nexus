@@ -11,6 +11,7 @@ import {
   ELEMENT_KINDS,
   ELEMENT_MAX,
   ELEMENT_MIN,
+  LEGEND_MAX,
   TEXT_MAX,
 } from "@/lib/boards";
 
@@ -35,6 +36,8 @@ const elementSchema = new Schema(
     /** L'adresse d'une image du magasin, pour un élément « image » ; son
      *  alternative est `text`. */
     src: { type: String, default: "" },
+    /** La légende d'une image, sous elle. */
+    caption: { type: String, default: "", maxlength: LEGEND_MAX },
     authorId: { type: String, required: true },
     /** Masqué par la modération : il ne s'affiche plus, mais reste consultable
      *  en base le temps que la décision soit contestée. */

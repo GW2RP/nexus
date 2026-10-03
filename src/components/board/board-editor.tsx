@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 
 import { ArrowLabel, ArrowStrokes, BoardGrid, ElementBody } from "@/components/board/board-layer";
-import { BoardImagePlacer } from "@/components/board/board-image-placer";
+import { BoardImagePlacer, uploadBoardImage } from "@/components/board/board-image-placer";
+import { ACCEPTED_IMAGE_TYPES, uploadFailureMessage } from "@/components/forms/upload-image";
 import { BoardInspector } from "@/components/board/board-inspector";
 import {
   ARROW_DEFAULTS,
@@ -81,6 +82,7 @@ function applyOp(state: State, op: BoardOperation, me: Me): State {
             {
               ...op.element,
               src: op.element.src ?? "",
+              caption: op.element.caption ?? "",
               z: maxZ + 1,
               authorId: me.id,
               authorName: me.name,
@@ -304,6 +306,7 @@ export function BoardEditor({
   const [justCreated, setJustCreated] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [placingImage, setPlacingImage] = useState(false);
+  const [pasting, setPasting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [historyCounts, setHistoryCounts] = useState({ undo: 0, redo: 0 });
 
@@ -592,6 +595,43 @@ export function BoardEditor({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [undo, redo]);
 
+  // Une image collée depuis le presse-papier se téléverse et se pose tout de
+  // suite, sans passer par l'outil : c'est le geste qu'on fait après une
+  // capture d'écran. Elle arrive sans alternative, que l'inspecteur donne
+  // ensuite. Un champ de saisie garde son collage, et une modale ouverte
+  // n'est pas le panneau.
+  const pasteImage = useRef<(file: File) => void>(() => {});
+  useLayoutEffect(() => {
+    pasteImage.current = async (file: File) => {
+      if (!me) return;
+      setError(null);
+      setPasting(true);
+      try {
+        placeImage(await uploadBoardImage(file, me.id));
+      } catch (uploadError) {
+        setError(uploadFailureMessage(uploadError));
+      } finally {
+        setPasting(false);
+      }
+    };
+  });
+  useEffect(() => {
+    if (!canWrite || !me) return;
+    function onPaste(event: ClipboardEvent) {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("input, textarea, [contenteditable='true'], [role='dialog'], [role='alertdialog']")) return;
+      if (target && target !== document.body && !rootRef.current?.contains(target)) return;
+      const file = [...(event.clipboardData?.files ?? [])].find((one) =>
+        ACCEPTED_IMAGE_TYPES.split(",").includes(one.type),
+      );
+      if (!file) return;
+      event.preventDefault();
+      void pasteImage.current(file);
+    }
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, [canWrite, me]);
+
   function toBoard(clientX: number, clientY: number) {
     const rect = canvasRef.current!.getBoundingClientRect();
     return {
@@ -877,7 +917,7 @@ export function BoardEditor({
   function duplicate() {
     if (!selectedElement) return;
     settle();
-    const { kind, w, h, text, size, stroke, fill, ink, src } = selectedElement;
+    const { kind, w, h, text, size, stroke, fill, ink, src, caption } = selectedElement;
     // Une image dupliquée partage le fichier de l'autre : il ne quittera le
     // magasin qu'une fois les deux parties.
     const element = {
@@ -891,6 +931,7 @@ export function BoardEditor({
       fill,
       ink,
       src,
+      caption,
       x: clamp(selectedElement.x + GRID, 0, BOARD_WIDTH - w),
       y: clamp(selectedElement.y + GRID, 0, BOARD_HEIGHT - h),
     };
@@ -1193,7 +1234,7 @@ export function BoardEditor({
           </p>
         ) : null}
         <p role="status" className="sr-only">
-          {saving ? "Enregistrement en cours." : ""}
+          {pasting ? "Téléversement de l'image collée." : saving ? "Enregistrement en cours." : ""}
         </p>
         {placingImage && me ? (
           <BoardImagePlacer
@@ -1238,6 +1279,7 @@ export function BoardEditor({
             onReverse={reverseArrow}
           />
         )}
+        {pasting ? <p className="caption text-ink-muted">Téléversement de l&apos;image…</p> : null}
         {saving ? <p className="caption text-ink-muted">Enregistrement…</p> : null}
       </aside>
     </div>

@@ -69,28 +69,41 @@ function ElementShape({ element, links }: { element: BoardElement; links: boolea
   switch (element.kind) {
     case "image":
       // Seule une image du magasin s'affiche. Sans elle, le cadre garde sa
-      // place et dit sa dimension, plutôt que de montrer autre chose.
+      // place et dit sa dimension, plutôt que de montrer autre chose. La
+      // légende se range sous l'image, dans le cadre : l'image cède la
+      // hauteur qu'elle prend, sans se déformer — jamais plus de la moitié,
+      // sinon une légende longue sous une image basse la ferait disparaître.
       return (
-        <div
-          className={cn("absolute inset-0 overflow-hidden border", !isBlobUrl(element.src) && "hatch")}
+        <figure
+          className="absolute inset-0 m-0 flex flex-col overflow-hidden border"
           style={{ background: fill, borderColor: stroke }}
         >
-          {isBlobUrl(element.src) ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={element.src}
-              alt={element.text}
-              loading="lazy"
-              decoding="async"
-              draggable={false}
-              className="size-full object-contain"
-            />
-          ) : (
-            <span className="flex size-full items-center justify-center caption text-ink-muted">
-              {element.w} × {element.h}
-            </span>
-          )}
-        </div>
+          <div className={cn("min-h-0 flex-1", !isBlobUrl(element.src) && "hatch")}>
+            {isBlobUrl(element.src) ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={element.src}
+                alt={element.text}
+                loading="lazy"
+                decoding="async"
+                draggable={false}
+                className="size-full object-contain"
+              />
+            ) : (
+              <span className="flex size-full items-center justify-center caption text-ink-muted">
+                {element.w} × {element.h}
+              </span>
+            )}
+          </div>
+          {element.caption ? (
+            <figcaption
+              className="line-clamp-2 max-h-1/2 shrink-0 overflow-hidden border-t px-3 py-2 caption text-ink-body"
+              style={{ borderColor: stroke }}
+            >
+              {element.caption}
+            </figcaption>
+          ) : null}
+        </figure>
       );
     case "note":
       return (
