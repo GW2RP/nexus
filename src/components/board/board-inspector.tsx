@@ -170,6 +170,7 @@ function ElementPanel({
   onRemove: () => void;
 }) {
   const rich = isRichKind(element.kind);
+  const image = element.kind === "image";
   const sizeIndex = TEXT_SIZES.indexOf(element.size as (typeof TEXT_SIZES)[number]);
 
   const report = canReport ? (
@@ -200,13 +201,24 @@ function ElementPanel({
     );
   }
 
-  const contrast = contrastOf(element);
+  const contrast = image ? null : contrastOf(element);
 
   return (
     <div className="flex flex-col gap-5">
       {heading}
 
-      {rich ? (
+      {image ? (
+        <div className="flex flex-col gap-2">
+          <Label htmlFor={`alternative-${element.id}`}>Alternative textuelle</Label>
+          <Input
+            id={`alternative-${element.id}`}
+            value={element.text}
+            maxLength={LEGEND_MAX}
+            onChange={(event) => actions.live({ text: event.target.value })}
+            onBlur={actions.settle}
+          />
+        </div>
+      ) : rich ? (
         <BoardTextField
           key={element.id}
           id={`texte-${element.id}`}
@@ -228,46 +240,48 @@ function ElementPanel({
         </div>
       )}
 
-      <div className="flex flex-col gap-2">
-        <span id={`taille-${element.id}`} className="meta text-ink-muted">
-          Taille du texte
-        </span>
-        <div
-          role="group"
-          aria-labelledby={`taille-${element.id}`}
-          className="flex self-start border border-rule"
-        >
-          <button
-            type="button"
-            aria-label="Réduire le texte"
-            disabled={sizeIndex <= 0}
-            onClick={() => actions.commit({ size: TEXT_SIZES[sizeIndex - 1] })}
-            className="size-tap text-[15px] text-ink-body hover:bg-surface-selected disabled:opacity-40"
-          >
-            A−
-          </button>
-          <span
-            aria-live="polite"
-            className="flex min-w-[76px] items-center justify-center border-x border-hairline text-[17px]"
-          >
-            {element.size} px
+      {image ? null : (
+        <div className="flex flex-col gap-2">
+          <span id={`taille-${element.id}`} className="meta text-ink-muted">
+            Taille du texte
           </span>
-          <button
-            type="button"
-            aria-label="Agrandir le texte"
-            disabled={sizeIndex < 0 || sizeIndex >= TEXT_SIZES.length - 1}
-            onClick={() => actions.commit({ size: TEXT_SIZES[sizeIndex + 1] })}
-            className="size-tap text-[21px] text-ink-body hover:bg-surface-selected disabled:opacity-40"
+          <div
+            role="group"
+            aria-labelledby={`taille-${element.id}`}
+            className="flex self-start border border-rule"
           >
-            A+
-          </button>
+            <button
+              type="button"
+              aria-label="Réduire le texte"
+              disabled={sizeIndex <= 0}
+              onClick={() => actions.commit({ size: TEXT_SIZES[sizeIndex - 1] })}
+              className="size-tap text-[15px] text-ink-body hover:bg-surface-selected disabled:opacity-40"
+            >
+              A−
+            </button>
+            <span
+              aria-live="polite"
+              className="flex min-w-[76px] items-center justify-center border-x border-hairline text-[17px]"
+            >
+              {element.size} px
+            </span>
+            <button
+              type="button"
+              aria-label="Agrandir le texte"
+              disabled={sizeIndex < 0 || sizeIndex >= TEXT_SIZES.length - 1}
+              onClick={() => actions.commit({ size: TEXT_SIZES[sizeIndex + 1] })}
+              className="size-tap text-[21px] text-ink-body hover:bg-surface-selected disabled:opacity-40"
+            >
+              A+
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {element.kind === "texte" ? null : (
         <ColorRow
           palette="stroke"
-          legend={element.kind === "note" ? "Épingle" : "Trait"}
+          legend={element.kind === "note" ? "Épingle" : image ? "Cadre" : "Trait"}
           value={element.stroke}
           onLive={(stroke) => actions.live({ stroke })}
           onSettle={actions.settle}
@@ -283,14 +297,16 @@ function ElementPanel({
         onSettle={actions.settle}
         onPick={(fill) => actions.commit({ fill })}
       />
-      <ColorRow
-        palette="ink"
-        legend="Texte"
-        value={element.ink}
-        onLive={(ink) => actions.live({ ink })}
-        onSettle={actions.settle}
-        onPick={(ink) => actions.commit({ ink })}
-      />
+      {image ? null : (
+        <ColorRow
+          palette="ink"
+          legend="Texte"
+          value={element.ink}
+          onLive={(ink) => actions.live({ ink })}
+          onSettle={actions.settle}
+          onPick={(ink) => actions.commit({ ink })}
+        />
+      )}
       {contrast !== null && contrast < 4.5 ? (
         <p role="status" className="-mt-2 caption text-crimson-ink">
           Contraste {contrast.toFixed(1).replace(".", ",")}:1 : sous le seuil de 4,5:1.

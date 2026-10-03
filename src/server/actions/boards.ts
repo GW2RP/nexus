@@ -34,7 +34,16 @@ import { getCurrentUser } from "@/lib/session";
 import { Board } from "@/models/board";
 import { Group } from "@/models/group";
 import { Place } from "@/models/place";
-import { loadBoard, type LoadedBoard, type RawArrow, type RawElement } from "@/server/boards";
+import {
+  boardImagesOf,
+  deleteBoards,
+  isBoardImageOf,
+  loadBoard,
+  releaseBoardImages,
+  type LoadedBoard,
+  type RawArrow,
+  type RawElement,
+} from "@/server/boards";
 import {
   errorState,
   objectIdOrNull,
@@ -180,7 +189,7 @@ export async function deleteBoardAction(
       );
     }
 
-    await Board.deleteOne({ _id: loaded.doc._id } as never);
+    await deleteBoards({ _id: loaded.doc._id });
     refreshOwner(loaded);
     ownerPath = loaded.ownerPath;
   } catch (error) {
@@ -223,10 +232,20 @@ function checkColor(palette: Palette, value: string | undefined) {
 }
 
 function checkText(kind: ElementKind, text: string | undefined) {
+  if (text !== undefined && kind === "image" && text.trim().length === 0) {
+    throw new Refus("Une image garde son alternative : dites ce qu'elle montre.");
+  }
   if (text !== undefined && !isRichKind(kind) && text.length > LEGEND_MAX) {
-    throw new Refus("La légende d'une forme tient en quelques mots.");
+    throw new Refus(
+      kind === "image"
+        ? "L'alternative d'une image tient en quelques mots."
+        : "La légende d'une forme tient en quelques mots.",
+    );
   }
 }
+
+/** La corbeille d'un panneau garde ses cinquante derniers éléments. */
+const REMOVED_MAX = 50;
 
 const oid = (id: string) => new Types.ObjectId(id);
 
@@ -283,7 +302,7 @@ export async function boardOperationAction(
 
     switch (op.type) {
       case "poser": {
-        const { id, kind, text, size, stroke, fill, ink, ...geometry } = op.element;
+        const { id, kind, text, size, stroke, fill, ink, src: rawSrc, ...geometry } = op.element;
         if (elements.length >= ELEMENTS_MAX) {
           throw new Refus(`Un panneau ne porte pas plus de ${ELEMENTS_MAX} éléments.`);
         }
@@ -292,6 +311,17 @@ export async function boardOperationAction(
         checkColor("fill", fill);
         checkColor("ink", ink);
         checkText(kind, text);
+        // Une image vient du magasin, et du dossier de panneau de celui qui la
+        // pose — ou d'un élément déjà sur ce panneau, quand on la duplique.
+        // Une autre adresse ferait de ce panneau la cause du ménage d'une
+        // image qui n'est pas la sienne.
+        const src = kind === "image" ? (rawSrc ?? "") : "";
+        if (kind === "image") {
+          const known = boardImagesOf([...elements, ...removed]).includes(src);
+          if (!isBoardImageOf(src, user.id) && !known) {
+            throw new Refus("Cette image n'a pas été téléversée pour ce panneau.");
+          }
+        }
         await Board.updateOne(filter, {
           $push: {
             elements: {
@@ -304,6 +334,7 @@ export async function boardOperationAction(
               stroke,
               fill,
               ink,
+              src,
               authorId: user.id,
               createdAt: new Date(),
             },
@@ -353,14 +384,17 @@ export async function boardOperationAction(
           (arrow) => String(arrow.from) === op.id || String(arrow.to) === op.id,
         );
         // La corbeille est bornée : on rétablit un geste malheureux, on
-        // n'archive pas le panneau.
+        // n'archive pas le panneau. Ce qui en sort par le fond ne se rétablira
+        // plus, et son image part au magasin.
+        const evicted = removed.slice(0, Math.max(0, removed.length + 1 - REMOVED_MAX));
         await Board.updateOne(filter, {
           $pull: { elements: { _id: id }, arrows: { $or: [{ from: id }, { to: id }] } },
           $push: {
-            removed: { $each: [element], $slice: -50 },
+            removed: { $each: [element], $slice: -REMOVED_MAX },
             removedArrows: { $each: attached, $slice: -100 },
           },
         } as never);
+        await releaseBoardImages(boardImagesOf(evicted));
         break;
       }
 

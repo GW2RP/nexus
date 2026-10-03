@@ -476,6 +476,22 @@ flèches une fois au clavier — d'un pas de grille (`GRID`), d'un dixième avec
 `Maj`. `Alt` redimensionne. Une flèche relie deux éléments et suit leur contour ;
 elle n'a pas de coordonnées à elle.
 
+**Une image est un élément**, pas un morceau de note : le markdown d'une note
+reste sans image. Elle se pose par son outil — alternative d'abord, fichier
+ensuite — et tombe au milieu de la vue à sa proportion d'origine
+(`imageSize`) ; son alternative est son `text`, son adresse `src`, qui ne
+change plus. Elle se range sous **celui qui la téléverse**
+(`panneaux/<id>/…`), pas sous l'auteur du panneau, et c'est à lui qu'elle
+compte. Le serveur n'accepte qu'une image de ce dossier-là, ou une adresse
+déjà portée par ce panneau — c'est ce que « dupliquer » envoie.
+
+Une image se partage donc entre éléments, et **elle ne quitte le magasin que
+quand plus aucun panneau ne la porte**, corbeille comprise
+(`releaseBoardImages`) : à la fermeture d'un panneau ou de son groupe ou lieu
+(`deleteBoards`), à la suppression de modération, et quand un élément sort de
+la corbeille par le fond. Retirer un élément ne l'efface pas — « annuler »
+doit pouvoir le rétablir avec son image.
+
 Un élément se signale depuis son panneau (`element-panneau`). Il n'a pas
 d'adresse à lui : le signalement range celle de son panneau, qui l'ouvre
 sélectionné (`?element=`).
@@ -500,6 +516,16 @@ en téléverse par le même chemin, et le markdown enregistré les écrit
 contenu portait à ce qu'il porte encore. Comparer les deux listes plutôt que
 supprimer l'ancienne évite d'emporter une image seulement déplacée d'un
 paragraphe à l'autre.
+
+**Un compte héberge 250 Mo d'images au plus** (`IMAGE_QUOTA_BYTES`), tout
+usage confondu. Le magasin fait foi, pas la base : `imageUsage` additionne ce
+qu'il garde sous les dossiers du compte — c'est exactement ce qu'il paie. Le
+quota est celui du **propriétaire du dossier**, donc l'image qu'un co-gérant pose
+sur un lieu compte à l'auteur du lieu. Il se tient **au jeton** : la route
+n'autorise que ce qui reste (`maximumSizeInBytes`), et le magasin refuse le
+fichier qui dépasse. Un jeton refusé n'arrive au navigateur que comme un échec
+sans phrase, donc `uploadImage` demande d'abord ce qui reste
+(`GET /api/televersement?chemin=…`) pour dire pourquoi.
 
 **À la lecture, une image ne s'affiche que si elle vient du magasin**
 (`isBlobUrl`). Une adresse quelconque collée dans un champ ferait du texte d'un

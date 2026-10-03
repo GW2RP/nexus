@@ -11,7 +11,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { LoadMore } from "@/components/ui/load-more";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { imageUsage } from "@/lib/blob";
 import { ROLE_LABELS } from "@/lib/domain";
+import { IMAGE_QUOTA_BYTES, formatMegaoctets } from "@/lib/images";
 import { isSuspended } from "@/lib/permissions";
 import { buildMetadata } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
@@ -44,7 +46,7 @@ export default async function AccountPage({
   const annoncesPage = Math.max(1, Number(params.annonces ?? 1) || 1);
   const annoncesLimite = ANNONCES_PAR_PAGE * annoncesPage;
 
-  const [characters, places, registrations, authoredPlusOne] = await Promise.all([
+  const [characters, places, registrations, authoredPlusOne, images] = await Promise.all([
     listCharactersOf(user.id),
     listPlaces({ authorId: user.id, pageSize: 24 }),
     listEvents({ registeredFor: user.id, viewer: user, limit: 20 }),
@@ -56,6 +58,12 @@ export default async function AccountPage({
       includePast: true,
       order: "desc",
       limit: annoncesLimite + 1,
+    }),
+    // Le magasin injoignable ne fait pas tomber la page : la section se tait
+    // plutôt que d'afficher un chiffre inventé.
+    imageUsage(user.id).catch((error) => {
+      console.error("Espace d'images illisible :", error);
+      return null;
     }),
   ]);
   const authored = authoredPlusOne.slice(0, annoncesLimite);
@@ -186,6 +194,29 @@ export default async function AccountPage({
               <p className="text-[17px] text-ink-muted">Aucun lieu posé à votre nom.</p>
             )}
           </section>
+
+          {images !== null ? (
+            <section className="mb-8" aria-labelledby="mes-images">
+              <SectionHeading id="mes-images" title="Mes images" compact />
+              <p className="text-[18px] text-ink">
+                {formatMegaoctets(images)} sur {formatMegaoctets(IMAGE_QUOTA_BYTES)}
+              </p>
+              <div
+                role="meter"
+                aria-labelledby="mes-images"
+                aria-valuemin={0}
+                aria-valuemax={IMAGE_QUOTA_BYTES}
+                aria-valuenow={Math.min(images, IMAGE_QUOTA_BYTES)}
+                aria-valuetext={`${formatMegaoctets(images)} sur ${formatMegaoctets(IMAGE_QUOTA_BYTES)}`}
+                className="mt-3 h-2 border border-rule bg-surface-inset"
+              >
+                <div
+                  className={images >= IMAGE_QUOTA_BYTES ? "h-full bg-crimson" : "h-full bg-gold"}
+                  style={{ width: `${Math.min(100, (images / IMAGE_QUOTA_BYTES) * 100)}%` }}
+                />
+              </div>
+            </section>
+          ) : null}
 
           <section aria-labelledby="mon-role">
             <SectionHeading id="mon-role" title="Mon rôle" compact />

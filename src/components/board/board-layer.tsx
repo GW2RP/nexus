@@ -15,6 +15,7 @@ import {
   type BoardContent,
   type BoardElement,
 } from "@/lib/boards";
+import { isBlobUrl } from "@/lib/images";
 import { cn } from "@/lib/utils";
 
 /** Le dessin d'un panneau, sans aucun geste : l'aperçu d'une fiche le montre
@@ -66,6 +67,31 @@ function ElementShape({ element, links }: { element: BoardElement; links: boolea
     element.kind === "note" && element.fill === "aucun" ? "var(--surface)" : colorCss("fill", element.fill);
 
   switch (element.kind) {
+    case "image":
+      // Seule une image du magasin s'affiche. Sans elle, le cadre garde sa
+      // place et dit sa dimension, plutôt que de montrer autre chose.
+      return (
+        <div
+          className={cn("absolute inset-0 overflow-hidden border", !isBlobUrl(element.src) && "hatch")}
+          style={{ background: fill, borderColor: stroke }}
+        >
+          {isBlobUrl(element.src) ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={element.src}
+              alt={element.text}
+              loading="lazy"
+              decoding="async"
+              draggable={false}
+              className="size-full object-contain"
+            />
+          ) : (
+            <span className="flex size-full items-center justify-center caption text-ink-muted">
+              {element.w} × {element.h}
+            </span>
+          )}
+        </div>
+      );
     case "note":
       return (
         <div

@@ -18,7 +18,7 @@ export const BOARD_VISIBILITY_LABELS: Record<BoardVisibility, string> = {
 export const BOARD_OWNERS = ["groupe", "lieu"] as const;
 export type BoardOwner = (typeof BOARD_OWNERS)[number];
 
-export const ELEMENT_KINDS = ["note", "texte", "carre", "rond", "triangle"] as const;
+export const ELEMENT_KINDS = ["note", "texte", "carre", "rond", "triangle", "image"] as const;
 export type ElementKind = (typeof ELEMENT_KINDS)[number];
 
 export const ELEMENT_KIND_LABELS: Record<ElementKind, string> = {
@@ -27,10 +27,11 @@ export const ELEMENT_KIND_LABELS: Record<ElementKind, string> = {
   carre: "Carré",
   rond: "Rond",
   triangle: "Triangle",
+  image: "Image",
 };
 
 /** Les notes et les blocs de texte portent du markdown ; les formes, une légende
- *  en texte brut. */
+ *  en texte brut ; une image, son alternative. */
 export function isRichKind(kind: ElementKind): boolean {
   return kind === "note" || kind === "texte";
 }
@@ -136,7 +137,27 @@ export const ELEMENT_DEFAULTS: Record<
   carre: { w: 180, h: 100, text: "", size: 17, stroke: "encre", fill: "aucun", ink: "encre" },
   rond: { w: 140, h: 140, text: "", size: 17, stroke: "encre", fill: "aucun", ink: "encre" },
   triangle: { w: 160, h: 140, text: "", size: 17, stroke: "encre", fill: "aucun", ink: "encre" },
+  image: { w: 320, h: 240, text: "", size: 17, stroke: "encre", fill: "aucun", ink: "encre" },
 };
+
+/** Le dossier du magasin où se rangent les images d'un panneau, sous celui
+ *  qui les téléverse. */
+export const BOARD_IMAGE_FOLDER = "panneaux";
+
+/** Le côté le plus long d'une image fraîchement posée, en pixels du panneau :
+ *  elle arrive à sa proportion d'origine, réduite pour tenir à l'écran. */
+export const IMAGE_SIDE = 360;
+
+/** La taille d'une image posée : sa proportion d'origine, le grand côté ramené
+ *  à `IMAGE_SIDE`, et aucun côté sous le minimum d'un élément. */
+export function imageSize(naturalWidth: number, naturalHeight: number): { w: number; h: number } {
+  if (!(naturalWidth > 0 && naturalHeight > 0)) return { w: IMAGE_SIDE, h: IMAGE_SIDE };
+  const scale = IMAGE_SIDE / Math.max(naturalWidth, naturalHeight);
+  return {
+    w: Math.max(ELEMENT_MIN, Math.round(naturalWidth * scale)),
+    h: Math.max(ELEMENT_MIN, Math.round(naturalHeight * scale)),
+  };
+}
 
 export const ARROW_DEFAULTS = {
   color: "encre",
@@ -160,6 +181,9 @@ export type BoardElement = {
   stroke: string;
   fill: string;
   ink: string;
+  /** L'adresse de l'image, pour un élément « image » ; vide pour les autres.
+   *  Elle ne change pas : une autre image est un autre élément. */
+  src: string;
   authorId: string;
   authorName: string | null;
   createdAt: string;
@@ -196,7 +220,9 @@ export type ArrowPatch = Partial<Pick<BoardArrow, "color" | "heads" | "dash" | "
 export type BoardOperation =
   | {
       type: "poser";
-      element: Pick<BoardElement, "id" | "kind" | "x" | "y" | "w" | "h" | "text" | "size" | "stroke" | "fill" | "ink">;
+      element: Pick<BoardElement, "id" | "kind" | "x" | "y" | "w" | "h" | "text" | "size" | "stroke" | "fill" | "ink"> & {
+        src?: string;
+      };
     }
   | { type: "modifier"; id: string; patch: ElementPatch }
   | { type: "plan"; id: string; sens: "avant" | "arriere" }

@@ -38,3 +38,16 @@ export function collectMarkdownImages(...texts: (string | null | undefined)[]): 
   }
   return [...found];
 }
+
+/** Ce qu'un compte peut héberger d'images, tout usage du hub confondu :
+ *  bannières, portraits, plans, textes longs et panneaux. Le plafond borne les
+ *  abus, pas l'usage : une fiche bien illustrée tient en quelques mégaoctets. */
+export const IMAGE_QUOTA_BYTES = 250 * 1024 * 1024;
+
+/** Une taille en mégaoctets, à la française : « 12,3 Mo ». */
+export function formatMegaoctets(bytes: number): string {
+  const megaoctets = bytes / (1024 * 1024);
+  return `${megaoctets.toLocaleString("fr-FR", {
+    maximumFractionDigits: megaoctets < 10 ? 1 : 0,
+  })} Mo`;
+}

@@ -27,12 +27,31 @@ export async function uploadImage(
   if (file.size > MAX_IMAGE_BYTES) throw new Error(TOO_LARGE);
 
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-  const result = await upload(`${folder}/${ownerId}/${Date.now()}.${extension}`, file, {
+  const pathname = `${folder}/${ownerId}/${Date.now()}.${extension}`;
+  await checkQuota(pathname, file.size);
+  const result = await upload(pathname, file, {
     access: "public",
     handleUploadUrl: "/api/televersement",
     contentType: file.type,
   });
   return result.url;
+}
+
+/** Le quota d'un compte se tient au serveur, qui n'émet de jeton que pour ce
+ *  qui reste. Mais un jeton refusé n'arrive ici que comme un échec sans
+ *  phrase : on demande d'abord ce qui reste, pour dire pourquoi. Si la
+ *  question elle-même échoue, on tente quand même — le serveur tranchera. */
+async function checkQuota(pathname: string, size: number): Promise<void> {
+  let quota: { restant: number; message: string } | null = null;
+  try {
+    const response = await fetch(`/api/televersement?chemin=${encodeURIComponent(pathname)}`, {
+      cache: "no-store",
+    });
+    if (response.ok) quota = await response.json();
+  } catch {
+    quota = null;
+  }
+  if (quota && size > quota.restant) throw new Error(quota.message);
 }
 
 /** Le message à montrer quand un téléversement échoue. */
