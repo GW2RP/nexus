@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { buttonVariants } from "@/components/ui/button";
+import { PAGE_MAX } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
 
 /** « Charger la suite » : un lien vers la page suivante, pour que la pagination
@@ -27,7 +28,8 @@ export function LoadMore({
   anchor?: string;
   className?: string;
 }) {
-  if (!hasMore) return null;
+  // La page suivante serait ramenée à `PAGE_MAX` : le bouton tournerait en rond.
+  if (!hasMore || page >= PAGE_MAX) return null;
 
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(searchParams)) {

@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { REGIONS, REGION_LABELS, type Region } from "@/lib/domain";
 import { readPointParam } from "@/lib/map";
+import { lirePage } from "@/lib/pagination";
 import { canContribute, canReportContent } from "@/lib/permissions";
 import { buildMetadata } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
@@ -44,13 +45,14 @@ export default async function RumorsPage({
     typeof params.y === "string" ? params.y : undefined,
   );
   const sort = params.tri === "reprises" ? "reprises" : "recentes";
-  const page = Number(params.page ?? 1) || 1;
+  // Relue depuis la première page, allongée : voir le registre des personnages.
+  const page = lirePage(params.page);
 
   const [{ items, hasMore }, top, characters, places] = await Promise.all([
     listRumors({
       region: REGIONS.includes(region as Region) ? region : undefined,
       sort: sort as RumorSort,
-      page,
+      page: 1,
       pageSize: 10 * page,
       viewerId: user?.id ?? null,
     }),
