@@ -11,13 +11,13 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { LoadMore } from "@/components/ui/load-more";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionHeading } from "@/components/ui/section-heading";
-import { imageUsage } from "@/lib/blob";
 import { ROLE_LABELS } from "@/lib/domain";
 import { IMAGE_QUOTA_BYTES, formatMegaoctets } from "@/lib/images";
 import { isSuspended } from "@/lib/permissions";
 import { buildMetadata } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
 import { formatLongDate } from "@/lib/dates";
+import { imageUsage } from "@/server/images";
 import { listCharactersOf } from "@/server/queries/characters";
 import { listEvents } from "@/server/queries/events";
 import { listPlaces } from "@/server/queries/places";
@@ -197,7 +197,13 @@ export default async function AccountPage({
 
           {images !== null ? (
             <section className="mb-8" aria-labelledby="mes-images">
-              <SectionHeading id="mes-images" title="Mes images" compact />
+              <SectionHeading
+                id="mes-images"
+                title="Mes images"
+                href="/mon-compte/images"
+                linkLabel="Voir mes images"
+                compact
+              />
               <p className="text-[18px] text-ink">
                 {formatMegaoctets(images)} sur {formatMegaoctets(IMAGE_QUOTA_BYTES)}
               </p>

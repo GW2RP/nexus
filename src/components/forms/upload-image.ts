@@ -27,8 +27,11 @@ export async function uploadImage(
   if (file.size > MAX_IMAGE_BYTES) throw new Error(TOO_LARGE);
 
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-  const pathname = `${folder}/${ownerId}/${Date.now()}.${extension}`;
-  await checkQuota(pathname, file.size);
+  // Le tirage rend le chemin unique : deux co-gérants qui téléversent dans le
+  // même dossier à la même milliseconde ne se heurtent pas.
+  const tirage = crypto.getRandomValues(new Uint32Array(1))[0].toString(36);
+  const pathname = `${folder}/${ownerId}/${Date.now()}-${tirage}.${extension}`;
+  await checkQuota(file.size);
   const result = await upload(pathname, file, {
     access: "public",
     handleUploadUrl: "/api/televersement",
@@ -41,12 +44,10 @@ export async function uploadImage(
  *  qui reste. Mais un jeton refusé n'arrive ici que comme un échec sans
  *  phrase : on demande d'abord ce qui reste, pour dire pourquoi. Si la
  *  question elle-même échoue, on tente quand même — le serveur tranchera. */
-async function checkQuota(pathname: string, size: number): Promise<void> {
+async function checkQuota(size: number): Promise<void> {
   let quota: { restant: number; message: string } | null = null;
   try {
-    const response = await fetch(`/api/televersement?chemin=${encodeURIComponent(pathname)}`, {
-      cache: "no-store",
-    });
+    const response = await fetch("/api/televersement", { cache: "no-store" });
     if (response.ok) quota = await response.json();
   } catch {
     quota = null;

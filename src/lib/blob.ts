@@ -1,6 +1,6 @@
 import "server-only";
 
-import { del, list } from "@vercel/blob";
+import { del } from "@vercel/blob";
 
 import { isBlobUrl } from "@/lib/images";
 
@@ -54,32 +54,6 @@ export function isPathnameOwnedBy(pathname: string, ownerId: string): boolean {
   return (
     (IMAGE_FOLDERS as readonly string[]).includes(path.folder) && path.ownerId === ownerId
   );
-}
-
-/** Ce que ce compte héberge, en octets : la somme de ses dossiers du magasin.
- *
- *  Le magasin fait foi, pas la base. Une image n'y entre que par le
- *  téléversement et n'en sort que par le ménage : compter ce qu'il garde sous
- *  un propriétaire, c'est compter exactement ce qu'il paie — y compris l'image
- *  d'un panneau qui attend dans la corbeille, puisqu'on peut encore l'en
- *  rétablir.
- *
- *  L'image qu'un co-gérant pose sur un lieu se range sous l'auteur du lieu, et
- *  c'est donc à lui qu'elle compte : c'est sa fiche qui la porte. */
-export async function imageUsage(ownerId: string): Promise<number> {
-  const totals = await Promise.all(
-    IMAGE_FOLDERS.map(async (folder) => {
-      let total = 0;
-      let cursor: string | undefined;
-      do {
-        const page = await list({ prefix: `${folder}/${ownerId}/`, cursor, limit: 1000 });
-        for (const blob of page.blobs) total += blob.size;
-        cursor = page.hasMore ? page.cursor : undefined;
-      } while (cursor);
-      return total;
-    }),
-  );
-  return totals.reduce((sum, one) => sum + one, 0);
 }
 
 /** Supprime les images d'un contenu, et ne fait jamais échouer l'appelant.

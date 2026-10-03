@@ -518,14 +518,36 @@ supprimer l'ancienne évite d'emporter une image seulement déplacée d'un
 paragraphe à l'autre.
 
 **Un compte héberge 250 Mo d'images au plus** (`IMAGE_QUOTA_BYTES`), tout
-usage confondu. Le magasin fait foi, pas la base : `imageUsage` additionne ce
-qu'il garde sous les dossiers du compte — c'est exactement ce qu'il paie. Le
-quota est celui du **propriétaire du dossier**, donc l'image qu'un co-gérant pose
-sur un lieu compte à l'auteur du lieu. Il se tient **au jeton** : la route
-n'autorise que ce qui reste (`maximumSizeInBytes`), et le magasin refuse le
-fichier qui dépasse. Un jeton refusé n'arrive au navigateur que comme un échec
-sans phrase, donc `uploadImage` demande d'abord ce qui reste
-(`GET /api/televersement?chemin=…`) pour dire pourquoi.
+usage confondu, et c'est **celui qui téléverse** qui paie, pas le propriétaire
+du dossier : l'image qu'un co-gérant pose sur un lieu se range sous l'auteur du
+lieu — c'est ce qui rend le ménage sûr — mais compte au co-gérant. Le registre
+`UploadedImage` ne tient que ces cas-là, une ligne par fichier rangé chez un
+autre, écrite **à l'émission du jeton** : le chemin est alors déjà celui du
+fichier (`addRandomSuffix: false`, le navigateur y met un tirage), donc rien
+n'attend un rappel du magasin. Un chemin déjà servi ne s'enregistre pas — la
+ligne donnerait le fichier d'un autre à qui la pose.
+
+Le magasin fait foi pour le reste : `listImagesOf` (`src/server/images.ts`) lit
+les dossiers du compte, en retire ce que le registre donne à d'autres, et y
+ajoute ce que le registre lui donne ailleurs. Une ligne sans fichier — jeton
+jamais servi, image supprimée — s'efface en passant. `imageUsage` additionne
+cet inventaire : la page de compte, la route et le quota lisent la même chose.
+
+Le quota se tient **au jeton** : la route n'autorise que ce qui reste
+(`maximumSizeInBytes`), et le magasin refuse le fichier qui dépasse. Un jeton
+refusé n'arrive au navigateur que comme un échec sans phrase, donc
+`uploadImage` demande d'abord ce qui reste (`GET /api/televersement`) pour dire
+pourquoi.
+
+**Une image orpheline est une image qu'aucun contenu ne montre** : un
+formulaire abandonné après le téléversement en laisse derrière lui, et le quota
+les compte. `/mon-compte/images` les liste, filtre `orphelines`, et
+`/admin/utilisateurs/<id>/images` montre le même inventaire à l'administration.
+`findImageUses` cherche l'adresse dans les contenus **entiers** de l'auteur du
+dossier — une adresse vit aussi bien dans une bannière que dans un plan ou au
+milieu d'un texte — et sur tous les panneaux, corbeille comprise. **Seule une
+orpheline se supprime d'ici** : une image qui sert se retire de son contenu,
+qui l'emporte au magasin, sinon la fiche montrerait un cadre vide.
 
 **À la lecture, une image ne s'affiche que si elle vient du magasin**
 (`isBlobUrl`). Une adresse quelconque collée dans un champ ferait du texte d'un

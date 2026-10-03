@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 
 import { EmptyState } from "@/components/ui/empty-state";
@@ -97,6 +98,12 @@ async function Resultats({ searchParams }: { searchParams: Promise<Params> }) {
                 <tr key={user.id} className="border-b border-hairline bg-surface last:border-b-0">
                   <th scope="row" className="px-4 py-4 align-top font-normal body-compact text-ink">
                     {user.name}
+                    <Link
+                      href={`/admin/utilisateurs/${user.id}/images`}
+                      className="mt-1 block meta text-ink-muted underline hover:text-ink"
+                    >
+                      Images
+                    </Link>
                   </th>
                   <td className="px-4 py-4 align-top body-compact break-all text-ink-body">
                     {user.email}

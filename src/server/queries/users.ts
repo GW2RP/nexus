@@ -6,6 +6,7 @@ import {
   type QueryFilter,
   connectToDatabase,
   searchRegex,
+  toObjectId,
   toIso,
   toIsoOrNull,
 } from "@/server/queries/shared";
@@ -74,4 +75,13 @@ export async function listUsers(
   }));
 
   return { items, total, page, pageCount };
+}
+
+/** Le pseudo d'un compte, pour l'administration ; `null` s'il n'existe pas. */
+export async function getUserName(id: string): Promise<string | null> {
+  await connectToDatabase();
+  const objectId = toObjectId(id);
+  if (!objectId) return null;
+  const doc = await User.findById(objectId).select({ name: 1 }).lean();
+  return doc?.name ?? null;
 }
