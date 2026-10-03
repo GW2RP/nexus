@@ -2,15 +2,18 @@ import "server-only";
 
 import {
   ARROW_DASHES,
-  ARROW_HEADS,
+  ARROW_ROUTES,
+  ARROW_TIPS,
   ARROW_WIDTHS,
   type ArrowDash,
-  type ArrowHeads,
+  type ArrowRoute,
+  type ArrowTip,
   type ArrowWidth,
   type BoardContent,
   type BoardOwner,
   type BoardVisibility,
   type ElementKind,
+  tipsFromHeads,
 } from "@/lib/boards";
 import { canSeeBoard, type BoardAccess, type GroupAccess } from "@/lib/permissions";
 import type { SessionUser } from "@/lib/session";
@@ -71,7 +74,9 @@ export async function serializeContent(doc: Pick<BoardDoc, "elements" | "arrows"
       from: String(arrow.from),
       to: String(arrow.to),
       color: arrow.color,
-      heads: pick<ArrowHeads>(ARROW_HEADS, arrow.heads, "fin"),
+      startTip: pick<ArrowTip>(ARROW_TIPS, arrow.startTip, tipsFromHeads(arrow.heads).startTip),
+      endTip: pick<ArrowTip>(ARROW_TIPS, arrow.endTip, tipsFromHeads(arrow.heads).endTip),
+      route: pick<ArrowRoute>(ARROW_ROUTES, arrow.route, "droit"),
       dash: pick<ArrowDash>(ARROW_DASHES, arrow.dash, "plein"),
       width: pick<ArrowWidth>(ARROW_WIDTHS, arrow.width, "fin"),
       label: arrow.label ?? "",

@@ -942,8 +942,8 @@ export function BoardEditor({
   function reverseArrow() {
     if (!selectedArrow) return;
     // Inverser, c'est relier dans l'autre sens : la flèche garde son style.
-    const { id, from, to, color, heads, dash, width, label } = selectedArrow;
-    const reversed = { id: newItemId(), from: to, to: from, color, heads, dash, width, label };
+    const { id, from, to, color, startTip, endTip, route, dash, width, label } = selectedArrow;
+    const reversed = { id: newItemId(), from: to, to: from, color, startTip, endTip, route, dash, width, label };
     perform(
       [{ type: "retirer-fleche", id }, { type: "relier", arrow: reversed }],
       [{ type: "retirer-fleche", id: reversed.id }, { type: "retablir-fleche", id }],

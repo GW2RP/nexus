@@ -2,7 +2,8 @@ import { Schema, model, models, type InferSchemaType, type Model } from "mongoos
 
 import {
   ARROW_DASHES,
-  ARROW_HEADS,
+  ARROW_ROUTES,
+  ARROW_TIPS,
   ARROW_WIDTHS,
   BOARD_HEIGHT,
   BOARD_OWNERS,
@@ -11,6 +12,7 @@ import {
   ELEMENT_KINDS,
   ELEMENT_MAX,
   ELEMENT_MIN,
+  LEGACY_ARROW_HEADS,
   LEGEND_MAX,
   TEXT_MAX,
 } from "@/lib/boards";
@@ -52,7 +54,12 @@ const arrowSchema = new Schema(
     from: { type: Schema.Types.ObjectId, required: true },
     to: { type: Schema.Types.ObjectId, required: true },
     color: { type: String, required: true },
-    heads: { type: String, enum: ARROW_HEADS, required: true },
+    startTip: { type: String, enum: ARROW_TIPS },
+    endTip: { type: String, enum: ARROW_TIPS },
+    route: { type: String, enum: ARROW_ROUTES },
+    /** L'ancien champ, qui disait d'un mot les deux bouts : encore lu, jamais
+     *  écrit (`tipsFromHeads`). */
+    heads: { type: String, enum: LEGACY_ARROW_HEADS },
     dash: { type: String, enum: ARROW_DASHES, required: true },
     width: { type: String, enum: ARROW_WIDTHS, required: true },
     label: { type: String, default: "", maxlength: 80 },

@@ -7,8 +7,10 @@ import { Input, Label } from "@/components/ui/field";
 import {
   ARROW_DASHES,
   ARROW_DASH_LABELS,
-  ARROW_HEADS,
-  ARROW_HEAD_LABELS,
+  ARROW_ROUTES,
+  ARROW_ROUTE_LABELS,
+  ARROW_TIPS,
+  ARROW_TIP_LABELS,
   ARROW_WIDTHS,
   ARROW_WIDTH_LABELS,
   ELEMENT_KIND_LABELS,
@@ -391,14 +393,34 @@ function ArrowPanel({
       />
 
       <Segmented
-        legend="Pointes"
-        options={ARROW_HEADS.map((value) => ({
+        legend="Chemin"
+        options={ARROW_ROUTES.map((value) => ({
           value,
-          label: ARROW_HEAD_LABELS[value],
-          content: <HeadGlyph heads={value} />,
+          label: ARROW_ROUTE_LABELS[value],
+          content: <RouteGlyph route={value} />,
         }))}
-        value={arrow.heads}
-        onPick={(heads) => actions.commit({ heads })}
+        value={arrow.route}
+        onPick={(route) => actions.commit({ route })}
+      />
+      <Segmented
+        legend="Départ"
+        options={ARROW_TIPS.map((value) => ({
+          value,
+          label: `${ARROW_TIP_LABELS[value]} au départ`,
+          content: <TipGlyph tip={value} side="start" />,
+        }))}
+        value={arrow.startTip}
+        onPick={(startTip) => actions.commit({ startTip })}
+      />
+      <Segmented
+        legend="Arrivée"
+        options={ARROW_TIPS.map((value) => ({
+          value,
+          label: `${ARROW_TIP_LABELS[value]} à l'arrivée`,
+          content: <TipGlyph tip={value} side="end" />,
+        }))}
+        value={arrow.endTip}
+        onPick={(endTip) => actions.commit({ endTip })}
       />
       <Segmented
         legend="Tracé"
@@ -476,12 +498,34 @@ function Segmented<T extends string>({
   );
 }
 
-function HeadGlyph({ heads }: { heads: BoardArrow["heads"] }) {
+/** Un bout de flèche, dessiné à gauche pour le départ, à droite pour
+ *  l'arrivée : la rangée se lit comme la flèche. */
+function TipGlyph({ tip, side }: { tip: BoardArrow["startTip"]; side: "start" | "end" }) {
+  const shape = {
+    aucune: null,
+    fleche: <path d="M29 6l-7-4v8z" stroke="none" />,
+    rond: <circle cx="25" cy="6" r="4" stroke="none" />,
+    carre: <rect x="21" y="2" width="8" height="8" stroke="none" />,
+  }[tip];
   return (
-    <svg width="30" height="12" viewBox="0 0 30 12" aria-hidden="true" className="fill-current stroke-current">
-      <path d="M3 6h24" strokeWidth="1.5" />
-      {heads !== "aucune" ? <path d="M29 6l-7-4v8z" stroke="none" /> : null}
-      {heads === "deux" ? <path d="M1 6l7-4v8z" stroke="none" /> : null}
+    <svg
+      width="30"
+      height="12"
+      viewBox="0 0 30 12"
+      aria-hidden="true"
+      className={cn("fill-current stroke-current", side === "start" && "-scale-x-100")}
+    >
+      <path d={tip === "aucune" ? "M3 6h26" : "M3 6h20"} strokeWidth="1.5" />
+      {shape}
+    </svg>
+  );
+}
+
+function RouteGlyph({ route }: { route: BoardArrow["route"] }) {
+  const d = { droit: "M2 10L28 2", courbe: "M2 10C15 10 15 2 28 2", creneau: "M2 10H15V2H28" }[route];
+  return (
+    <svg width="30" height="12" viewBox="0 0 30 12" aria-hidden="true" className="fill-none stroke-current">
+      <path d={d} strokeWidth="1.5" />
     </svg>
   );
 }

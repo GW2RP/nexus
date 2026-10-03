@@ -197,33 +197,27 @@ export function ArrowStrokes({
         return (
           <g key={arrow.id}>
             {selected ? (
-              <line
-                x1={geometry.start.x}
-                y1={geometry.start.y}
-                x2={geometry.end.x}
-                y2={geometry.end.y}
+              <path
+                d={geometry.path}
+                fill="none"
                 className="stroke-gold"
                 strokeOpacity={0.35}
                 strokeWidth={width + 8}
               />
             ) : null}
-            <line
-              x1={geometry.lineStart.x}
-              y1={geometry.lineStart.y}
-              x2={geometry.lineEnd.x}
-              y2={geometry.lineEnd.y}
+            <path
+              d={geometry.line}
+              fill="none"
               style={{ stroke: color }}
               strokeWidth={width}
               strokeDasharray={arrow.dash === "tirets" ? "8 6" : undefined}
             />
-            {geometry.headEnd ? <polygon points={geometry.headEnd} style={{ fill: color }} /> : null}
-            {geometry.headStart ? <polygon points={geometry.headStart} style={{ fill: color }} /> : null}
+            {geometry.headEnd ? <path d={geometry.headEnd} style={{ fill: color }} /> : null}
+            {geometry.headStart ? <path d={geometry.headStart} style={{ fill: color }} /> : null}
             {onArrowPointerDown ? (
-              <line
-                x1={geometry.start.x}
-                y1={geometry.start.y}
-                x2={geometry.end.x}
-                y2={geometry.end.y}
+              <path
+                d={geometry.path}
+                fill="none"
                 stroke="transparent"
                 strokeWidth={16}
                 className="cursor-pointer"

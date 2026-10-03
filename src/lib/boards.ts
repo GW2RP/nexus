@@ -106,13 +106,37 @@ export function colorCss(palette: Palette, value: string): string {
   return swatch.token ? `var(${swatch.token})` : "transparent";
 }
 
-export const ARROW_HEADS = ["fin", "deux", "aucune"] as const;
-export type ArrowHeads = (typeof ARROW_HEADS)[number];
-export const ARROW_HEAD_LABELS: Record<ArrowHeads, string> = {
-  fin: "Pointe à l'arrivée",
-  deux: "Pointe aux deux bouts",
-  aucune: "Sans pointe",
+/** La forme posée à un bout de flèche. Chaque bout a la sienne : une flèche
+ *  peut partir d'un rond et arriver sur une pointe. */
+export const ARROW_TIPS = ["aucune", "fleche", "rond", "carre"] as const;
+export type ArrowTip = (typeof ARROW_TIPS)[number];
+export const ARROW_TIP_LABELS: Record<ArrowTip, string> = {
+  aucune: "Aucune",
+  fleche: "Flèche",
+  rond: "Rond",
+  carre: "Carré",
 };
+
+/** Le chemin du trait d'un élément à l'autre : droit, en courbe, ou en
+ *  créneau — un Z d'angles droits. */
+export const ARROW_ROUTES = ["droit", "courbe", "creneau"] as const;
+export type ArrowRoute = (typeof ARROW_ROUTES)[number];
+export const ARROW_ROUTE_LABELS: Record<ArrowRoute, string> = {
+  droit: "Droit",
+  courbe: "Courbe",
+  creneau: "Créneau",
+};
+
+/** L'ancien champ `heads`, qui disait d'un mot les deux bouts : encore lu,
+ *  jamais écrit — la première modification de la flèche le range en
+ *  `startTip` / `endTip` et l'efface. */
+export const LEGACY_ARROW_HEADS = ["fin", "deux", "aucune"] as const;
+export type LegacyArrowHeads = (typeof LEGACY_ARROW_HEADS)[number];
+export function tipsFromHeads(heads: unknown): { startTip: ArrowTip; endTip: ArrowTip } {
+  if (heads === "deux") return { startTip: "fleche", endTip: "fleche" };
+  if (heads === "aucune") return { startTip: "aucune", endTip: "aucune" };
+  return { startTip: "aucune", endTip: "fleche" };
+}
 
 export const ARROW_DASHES = ["plein", "tirets"] as const;
 export type ArrowDash = (typeof ARROW_DASHES)[number];
@@ -161,7 +185,9 @@ export function imageSize(naturalWidth: number, naturalHeight: number): { w: num
 
 export const ARROW_DEFAULTS = {
   color: "encre",
-  heads: "fin" as ArrowHeads,
+  startTip: "aucune" as ArrowTip,
+  endTip: "fleche" as ArrowTip,
+  route: "droit" as ArrowRoute,
   dash: "plein" as ArrowDash,
   width: "fin" as ArrowWidth,
   label: "",
@@ -198,7 +224,9 @@ export type BoardArrow = {
   from: string;
   to: string;
   color: string;
-  heads: ArrowHeads;
+  startTip: ArrowTip;
+  endTip: ArrowTip;
+  route: ArrowRoute;
   dash: ArrowDash;
   width: ArrowWidth;
   label: string;
@@ -213,7 +241,7 @@ export type BoardContent = { elements: BoardElement[]; arrows: BoardArrow[] };
 export type ElementPatch = Partial<
   Pick<BoardElement, "x" | "y" | "w" | "h" | "text" | "size" | "stroke" | "fill" | "ink" | "caption">
 >;
-export type ArrowPatch = Partial<Pick<BoardArrow, "color" | "heads" | "dash" | "width" | "label">>;
+export type ArrowPatch = Partial<Pick<BoardArrow, "color" | "startTip" | "endTip" | "route" | "dash" | "width" | "label">>;
 
 /** Une opération sur un panneau. L'éditeur les applique chez lui tout de suite,
  *  puis les envoie une à une : deux membres qui travaillent ensemble ne
@@ -276,6 +304,10 @@ export function elementName(element: Pick<BoardElement, "kind" | "text"> & { cap
 }
 
 type Box = Pick<BoardElement, "kind" | "x" | "y" | "w" | "h">;
+type Point = { x: number; y: number };
+
+/** L'écart laissé entre le contour d'un élément et le bout d'une flèche. */
+const ARROW_GAP = 10;
 
 /** Le point où un trait parti du centre d'un élément, dans la direction
  *  (dx, dy), sort de son contour — plus un écart, pour que la pointe ne touche
@@ -296,51 +328,148 @@ function exitPoint(box: Box, dx: number, dy: number, gap: number) {
   return { x: cx + dx * t, y: cy + dy * t };
 }
 
+/** Le milieu du côté d'un élément tourné vers (sx, sy) — un seul des deux est
+ *  non nul —, plus l'écart. Un triangle n'a pas de côté vertical : à mi-hauteur,
+ *  ses flancs sont rentrés d'un quart de sa largeur. */
+function sidePoint(box: Box, sx: number, sy: number, gap: number): Point {
+  const cx = box.x + box.w / 2;
+  const cy = box.y + box.h / 2;
+  if (sx) {
+    const inset = box.kind === "triangle" ? box.w / 4 : 0;
+    return { x: cx + sx * (box.w / 2 - inset + gap), y: cy };
+  }
+  return { x: cx, y: cy + sy * (box.h / 2 + gap) };
+}
+
+/** L'axe qu'un tracé courbe ou en créneau suit en quittant ses éléments : celui
+ *  où ils sont le plus écartés. S'ils se chevauchent sur les deux, celui où leurs
+ *  centres le sont. */
+function routeAxis(from: Box, to: Box): "x" | "y" {
+  const gapX = Math.max(to.x - (from.x + from.w), from.x - (to.x + to.w));
+  const gapY = Math.max(to.y - (from.y + from.h), from.y - (to.y + to.h));
+  if (gapX > 0 || gapY > 0) return gapX >= gapY ? "x" : "y";
+  const dx = to.x + to.w / 2 - (from.x + from.w / 2);
+  const dy = to.y + to.h / 2 - (from.y + from.h / 2);
+  return Math.abs(dx) >= Math.abs(dy) ? "x" : "y";
+}
+
+/** Le dessin d'une pointe, en chemin SVG : posée sur `tip`, tournée vers la
+ *  direction (vx, vy), et longue de `size`. Le trait s'arrête à sa base. */
+function tipPath(kind: ArrowTip, tip: Point, vx: number, vy: number, size: number): string | null {
+  const half = size / 2;
+  const bx = tip.x - vx * size;
+  const by = tip.y - vy * size;
+  switch (kind) {
+    case "fleche":
+      return `M${tip.x},${tip.y}L${bx - vy * half},${by + vx * half}L${bx + vy * half},${by - vx * half}Z`;
+    case "rond": {
+      const cx = tip.x - vx * half;
+      const cy = tip.y - vy * half;
+      return `M${cx - half},${cy}a${half},${half} 0 1 0 ${size},0a${half},${half} 0 1 0 ${-size},0Z`;
+    }
+    case "carre": {
+      const corners = [
+        [tip.x - vy * half, tip.y + vx * half],
+        [tip.x + vy * half, tip.y - vx * half],
+        [bx + vy * half, by - vx * half],
+        [bx - vy * half, by + vx * half],
+      ];
+      return `M${corners.map(([x, y]) => `${x},${y}`).join("L")}Z`;
+    }
+    default:
+      return null;
+  }
+}
+
 export type ArrowGeometry = {
-  start: { x: number; y: number };
-  end: { x: number; y: number };
+  start: Point;
+  end: Point;
+  /** Le chemin entier, d'un bout à l'autre : la surbrillance et la zone de clic. */
+  path: string;
   /** Le trait lui-même, raccourci sous chaque pointe. */
-  lineStart: { x: number; y: number };
-  lineEnd: { x: number; y: number };
+  line: string;
   headStart: string | null;
   headEnd: string | null;
-  middle: { x: number; y: number };
+  middle: Point;
 };
 
 /** Le tracé d'une flèche entre deux éléments : elle suit leurs contours, donc
- *  elle suit aussi les éléments quand on les déplace ou les redimensionne. */
-export function arrowGeometry(from: Box, to: Box, arrow: Pick<BoardArrow, "heads" | "width">): ArrowGeometry {
-  const dx = to.x + to.w / 2 - (from.x + from.w / 2);
-  const dy = to.y + to.h / 2 - (from.y + from.h / 2);
-  const start = exitPoint(from, dx, dy, 10);
-  const end = exitPoint(to, -dx, -dy, 10);
-  const length = Math.hypot(end.x - start.x, end.y - start.y) || 1;
-  const ux = (end.x - start.x) / length;
-  const uy = (end.y - start.y) / length;
+ *  elle suit aussi les éléments quand on les déplace ou les redimensionne.
+ *
+ *  Droite, elle va de centre à centre. Courbe ou en créneau, elle quitte le
+ *  milieu d'un côté et arrive au milieu d'un autre, perpendiculaire aux deux :
+ *  ses pointes tombent alors d'aplomb sur l'élément qu'elles désignent. */
+export function arrowGeometry(
+  from: Box,
+  to: Box,
+  arrow: Pick<BoardArrow, "startTip" | "endTip" | "route" | "width">,
+): ArrowGeometry {
   const size = 9 + ARROW_WIDTH_PX[arrow.width] * 2;
+  // La longueur dont chaque bout recule sous sa pointe.
+  const backStart = arrow.startTip === "aucune" ? 0 : size;
+  const backEnd = arrow.endTip === "aucune" ? 0 : size;
 
-  function head(tip: { x: number; y: number }, vx: number, vy: number) {
-    const bx = tip.x - vx * size;
-    const by = tip.y - vy * size;
-    const half = size / 2;
-    return {
-      base: { x: bx, y: by },
-      points: `${tip.x},${tip.y} ${bx - vy * half},${by + vx * half} ${bx + vy * half},${by - vx * half}`,
-    };
+  let start: Point;
+  let end: Point;
+  /** La direction du trait en quittant le départ, et en arrivant au bout. */
+  let outStart: Point;
+  let inEnd: Point;
+  let build: (a: Point, b: Point) => string;
+  let middle: Point;
+
+  if (arrow.route === "droit") {
+    const dx = to.x + to.w / 2 - (from.x + from.w / 2);
+    const dy = to.y + to.h / 2 - (from.y + from.h / 2);
+    start = exitPoint(from, dx, dy, ARROW_GAP);
+    end = exitPoint(to, -dx, -dy, ARROW_GAP);
+    const length = Math.hypot(end.x - start.x, end.y - start.y) || 1;
+    outStart = { x: (end.x - start.x) / length, y: (end.y - start.y) / length };
+    inEnd = outStart;
+    build = (a, b) => `M${a.x},${a.y}L${b.x},${b.y}`;
+    middle = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
+  } else {
+    const axis = routeAxis(from, to);
+    const delta =
+      axis === "x" ? to.x + to.w / 2 - (from.x + from.w / 2) : to.y + to.h / 2 - (from.y + from.h / 2);
+    const sign = delta < 0 ? -1 : 1;
+    const unit = axis === "x" ? { x: sign, y: 0 } : { x: 0, y: sign };
+    start = sidePoint(from, unit.x, unit.y, ARROW_GAP);
+    end = sidePoint(to, -unit.x, -unit.y, ARROW_GAP);
+    outStart = unit;
+    inEnd = unit;
+    if (arrow.route === "courbe") {
+      // Les poignées tirent dans l'axe, d'au moins 40 px : sans quoi deux
+      // éléments proches se relieraient d'un trait presque droit.
+      const reach = Math.max(Math.abs(axis === "x" ? end.x - start.x : end.y - start.y) / 2, 40);
+      const c1 = { x: start.x + unit.x * reach, y: start.y + unit.y * reach };
+      const c2 = { x: end.x - unit.x * reach, y: end.y - unit.y * reach };
+      build = (a, b) => `M${a.x},${a.y}C${c1.x},${c1.y} ${c2.x},${c2.y} ${b.x},${b.y}`;
+      // Le point de la courbe à mi-parcours (t = ½).
+      middle = {
+        x: (start.x + 3 * c1.x + 3 * c2.x + end.x) / 8,
+        y: (start.y + 3 * c1.y + 3 * c2.y + end.y) / 8,
+      };
+    } else {
+      // Le créneau tourne à mi-chemin des deux bouts.
+      const knee = axis === "x" ? (start.x + end.x) / 2 : (start.y + end.y) / 2;
+      build = (a, b) =>
+        axis === "x"
+          ? `M${a.x},${a.y}H${knee}V${b.y}H${b.x}`
+          : `M${a.x},${a.y}V${knee}H${b.x}V${b.y}`;
+      middle = axis === "x" ? { x: knee, y: (start.y + end.y) / 2 } : { x: (start.x + end.x) / 2, y: knee };
+    }
   }
 
-  const withEnd = arrow.heads !== "aucune";
-  const withStart = arrow.heads === "deux";
-  const endHead = head(end, ux, uy);
-  const startHead = head(start, -ux, -uy);
+  const lineStart = { x: start.x + outStart.x * backStart, y: start.y + outStart.y * backStart };
+  const lineEnd = { x: end.x - inEnd.x * backEnd, y: end.y - inEnd.y * backEnd };
   return {
     start,
     end,
-    lineStart: withStart ? startHead.base : start,
-    lineEnd: withEnd ? endHead.base : end,
-    headStart: withStart ? startHead.points : null,
-    headEnd: withEnd ? endHead.points : null,
-    middle: { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 },
+    path: build(start, end),
+    line: build(lineStart, lineEnd),
+    headStart: tipPath(arrow.startTip, start, -outStart.x, -outStart.y, size),
+    headEnd: tipPath(arrow.endTip, end, inEnd.x, inEnd.y, size),
+    middle,
   };
 }
 
