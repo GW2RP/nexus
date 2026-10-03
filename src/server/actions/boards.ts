@@ -232,9 +232,6 @@ function checkColor(palette: Palette, value: string | undefined) {
 }
 
 function checkText(kind: ElementKind, text: string | undefined) {
-  if (text !== undefined && kind === "image" && text.trim().length === 0) {
-    throw new Refus("Une image garde son alternative : dites ce qu'elle montre.");
-  }
   if (text !== undefined && !isRichKind(kind) && text.length > LEGEND_MAX) {
     throw new Refus(
       kind === "image"

@@ -477,10 +477,13 @@ flèches une fois au clavier — d'un pas de grille (`GRID`), d'un dixième avec
 elle n'a pas de coordonnées à elle.
 
 **Une image est un élément**, pas un morceau de note : le markdown d'une note
-reste sans image. Elle se pose par son outil — alternative d'abord, fichier
-ensuite — et tombe au milieu de la vue à sa proportion d'origine
-(`imageSize`) ; son alternative est son `text`, son adresse `src`, qui ne
-change plus. Elle se range sous **celui qui la téléverse**
+reste sans image. Elle se pose par son outil, ou se **colle** depuis le
+presse-papier — téléversée et posée sans détour, c'est le geste d'après une
+capture d'écran —, et tombe au milieu de la vue à sa proportion d'origine
+(`imageSize`). Son alternative est son `text`, **facultative** ici : une image
+collée arrive sans elle, et l'inspecteur la donne ensuite — un élément se
+corrige à la souris, contrairement au markdown. Son adresse `src` ne change
+plus. Elle se range sous **celui qui la téléverse**
 (`panneaux/<id>/…`), pas sous l'auteur du panneau, et c'est à lui qu'elle
 compte. Le serveur n'accepte qu'une image de ce dossier-là, ou une adresse
 déjà portée par ce panneau — c'est ce que « dupliquer » envoie.
@@ -558,8 +561,8 @@ qui l'emporte au magasin, sinon la fiche montrerait un cadre vide.
 membre une requête vers le serveur d'un autre — pixel de suivi compris — et rien
 ne garantirait qu'elle réponde encore demain.
 
-**L'alternative se saisit avant le fichier**, et le bouton reste fermé tant
-qu'elle manque : une image posée sans elle ne dit plus rien à qui ne la voit pas,
+**L'alternative se saisit avant le fichier** dans un formulaire, et le bouton
+reste fermé tant qu'elle manque (les panneaux font exception, voir plus haut) : une image posée sans elle ne dit plus rien à qui ne la voit pas,
 et il faudrait la retirer pour la reposer — le markdown ne se corrige pas à la
 souris.
 
