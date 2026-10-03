@@ -59,6 +59,7 @@ export async function serializeContent(doc: Pick<BoardDoc, "elements" | "arrows"
         stroke: element.stroke,
         fill: element.fill,
         ink: element.ink,
+        src: element.src ?? "",
         authorId: element.authorId,
         authorName: authors.get(element.authorId)?.name ?? null,
         createdAt: toIso(element.createdAt ?? new Date(0)),

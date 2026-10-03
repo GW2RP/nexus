@@ -476,6 +476,22 @@ flèches une fois au clavier — d'un pas de grille (`GRID`), d'un dixième avec
 `Maj`. `Alt` redimensionne. Une flèche relie deux éléments et suit leur contour ;
 elle n'a pas de coordonnées à elle.
 
+**Une image est un élément**, pas un morceau de note : le markdown d'une note
+reste sans image. Elle se pose par son outil — alternative d'abord, fichier
+ensuite — et tombe au milieu de la vue à sa proportion d'origine
+(`imageSize`) ; son alternative est son `text`, son adresse `src`, qui ne
+change plus. Elle se range sous **celui qui la téléverse**
+(`panneaux/<id>/…`), pas sous l'auteur du panneau, et c'est à lui qu'elle
+compte. Le serveur n'accepte qu'une image de ce dossier-là, ou une adresse
+déjà portée par ce panneau — c'est ce que « dupliquer » envoie.
+
+Une image se partage donc entre éléments, et **elle ne quitte le magasin que
+quand plus aucun panneau ne la porte**, corbeille comprise
+(`releaseBoardImages`) : à la fermeture d'un panneau ou de son groupe ou lieu
+(`deleteBoards`), à la suppression de modération, et quand un élément sort de
+la corbeille par le fond. Retirer un élément ne l'efface pas — « annuler »
+doit pouvoir le rétablir avec son image.
+
 Un élément se signale depuis son panneau (`element-panneau`). Il n'a pas
 d'adresse à lui : le signalement range celle de son panneau, qui l'ouvre
 sélectionné (`?element=`).
@@ -500,6 +516,42 @@ en téléverse par le même chemin, et le markdown enregistré les écrit
 contenu portait à ce qu'il porte encore. Comparer les deux listes plutôt que
 supprimer l'ancienne évite d'emporter une image seulement déplacée d'un
 paragraphe à l'autre.
+
+**Un compte héberge 250 Mo d'images au plus** (`IMAGE_QUOTA_BYTES`), tout
+usage confondu, et c'est **celui qui téléverse** qui paie, pas le propriétaire
+du dossier : l'image qu'un co-gérant pose sur un lieu se range sous l'auteur du
+lieu — c'est ce qui rend le ménage sûr — mais compte au co-gérant. Le registre
+`UploadedImage` ne tient que ces cas-là, une ligne par fichier rangé chez un
+autre, écrite **à l'émission du jeton** : le chemin est alors déjà celui du
+fichier (`addRandomSuffix: false`, le navigateur y met un tirage), donc rien
+n'attend un rappel du magasin. Un chemin déjà servi ne s'enregistre pas — la
+ligne donnerait le fichier d'un autre à qui la pose.
+
+Le magasin fait foi pour le reste : `listImagesOf` (`src/server/images.ts`) lit
+les dossiers du compte, en retire ce que le registre donne à d'autres, et y
+ajoute ce que le registre lui donne ailleurs. Une ligne sans fichier ne s'efface
+qu'une fois passé deux fois la vie d'un jeton (`UPLOAD_TOKEN_MS`) : avant, le
+transfert peut être en cours, et l'effacer donnerait l'image à l'auteur du
+dossier à son arrivée. `imageUsage` additionne
+cet inventaire : la page de compte, la route et le quota lisent la même chose.
+
+Le quota se tient **au jeton** : la route n'autorise que ce qui reste
+(`maximumSizeInBytes`), et le magasin refuse le fichier qui dépasse. Un jeton
+vit cinq minutes, parce qu'il réserve sans le dire la place qu'il autorise. Un jeton
+refusé n'arrive au navigateur que comme un échec sans phrase, donc
+`uploadImage` demande d'abord ce qui reste (`GET /api/televersement`) pour dire
+pourquoi.
+
+**Une image orpheline est une image qu'aucun contenu ne montre** : un
+formulaire abandonné après le téléversement en laisse derrière lui, et le quota
+les compte. `/mon-compte/images` les liste, filtre `orphelines`, et
+`/admin/utilisateurs/<id>/images` montre le même inventaire à l'administration.
+`findImageUses` cherche l'adresse dans les contenus **entiers** de l'auteur du
+dossier — une adresse vit aussi bien dans une bannière que dans un plan ou au
+milieu d'un texte — et sur tous les panneaux, corbeille comprise. « Tout supprimer » n'emporte que les adresses que la page montrait, jamais
+une image arrivée depuis dans un formulaire encore ouvert. **Seule une
+orpheline se supprime d'ici** : une image qui sert se retire de son contenu,
+qui l'emporte au magasin, sinon la fiche montrerait un cadre vide.
 
 **À la lecture, une image ne s'affiche que si elle vient du magasin**
 (`isBlobUrl`). Une adresse quelconque collée dans un champ ferait du texte d'un

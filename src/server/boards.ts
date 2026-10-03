@@ -1,6 +1,8 @@
 import "server-only";
 
-import type { BoardVisibility } from "@/lib/boards";
+import { deleteUploadedImages, readBlobPath } from "@/lib/blob";
+import { BOARD_IMAGE_FOLDER, type BoardVisibility } from "@/lib/boards";
+import { isBlobUrl } from "@/lib/images";
 import type { BoardAccess } from "@/lib/permissions";
 import { Board, type BoardDocument } from "@/models/board";
 import { Group } from "@/models/group";
@@ -89,16 +91,69 @@ export async function loadBoardOfElement(
   return { ...loaded, element };
 }
 
+/** Les images que portent des éléments de panneau. */
+export function boardImagesOf(elements: { src?: string | null }[] | null | undefined): string[] {
+  return (elements ?? []).map((element) => element.src ?? "").filter(isBlobUrl);
+}
+
+/** Est-ce une image de panneau rangée sous ce compte ? Seules celles-là
+ *  entrent sur un panneau : une bannière de personnage glissée dans un élément
+ *  partirait au magasin avec lui. */
+export function isBoardImageOf(url: string, ownerId: string): boolean {
+  if (!isBlobUrl(url)) return false;
+  const path = readBlobPath(url);
+  return path?.folder === BOARD_IMAGE_FOLDER && path.ownerId === ownerId;
+}
+
+/** Le ménage des images de panneau, après qu'un élément a quitté la base pour
+ *  de bon — fermeture du panneau, sortie de corbeille, suppression de
+ *  modération.
+ *
+ *  Une image se partage : « dupliquer » recopie l'adresse, et l'équipe d'un
+ *  lieu peut dupliquer l'image d'un autre. Elle ne part donc que quand plus
+ *  aucun panneau ne la porte, corbeille comprise. Elle est rangée sous celui
+ *  qui l'a téléversée, pas sous l'auteur de l'élément : c'est son dossier qui
+ *  dit à qui elle compte, et à qui elle s'efface. Ne fait jamais échouer
+ *  l'appelant. */
+export async function releaseBoardImages(urls: string[]): Promise<void> {
+  try {
+    const candidates = [...new Set(urls.filter(isBlobUrl))];
+    for (const url of candidates) {
+      const path = readBlobPath(url);
+      if (!path || path.folder !== BOARD_IMAGE_FOLDER) continue;
+      const still = await Board.exists({ $or: [{ "elements.src": url }, { "removed.src": url }] } as never);
+      if (still) continue;
+      await deleteUploadedImages([url], path.ownerId);
+    }
+  } catch (error) {
+    console.error("Images de panneau non libérées :", urls, error);
+  }
+}
+
 /** Retirer un élément pour de bon, avec les flèches qui s'y rattachent. C'est
  *  la suppression de la modération : rien ne part à la corbeille, rien ne se
- *  rétablit. */
+ *  rétablit — et son image part au magasin. */
 export async function deleteBoardElement(elementId: string): Promise<void> {
   const id = toObjectId(elementId);
   if (!id) return;
+  const found = (await Board.findOne({ "elements._id": id } as never)
+    .select({ elements: { $elemMatch: { _id: id } } })
+    .lean()) as Pick<BoardDoc, "elements"> | null;
   await Board.updateOne(
     { "elements._id": id } as never,
     { $pull: { elements: { _id: id }, arrows: { $or: [{ from: id }, { to: id }] } } } as never,
   );
+  await releaseBoardImages(boardImagesOf(found?.elements));
+}
+
+/** Supprimer des panneaux entiers — fermés, ou partis avec leur groupe ou leur
+ *  lieu —, puis leurs images. */
+export async function deleteBoards(filter: Record<string, unknown>): Promise<void> {
+  const docs = (await Board.find(filter as never)
+    .select({ "elements.src": 1, "removed.src": 1 })
+    .lean()) as Pick<BoardDoc, "elements" | "removed">[];
+  await Board.deleteMany(filter as never);
+  await releaseBoardImages(docs.flatMap((doc) => [...boardImagesOf(doc.elements), ...boardImagesOf(doc.removed)]));
 }
 
 /** Masquer ou démasquer un élément. Masqué, il ne s'affiche plus nulle part ;

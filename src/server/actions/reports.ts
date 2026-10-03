@@ -8,7 +8,6 @@ import { collectMarkdownImages, deleteUploadedImages } from "@/lib/blob";
 import { plainExcerpt } from "@/lib/boards";
 import type { ReportTarget } from "@/lib/domain";
 import { canSeeBoard } from "@/lib/permissions";
-import { Board } from "@/models/board";
 import { Character } from "@/models/character";
 import { Event } from "@/models/event";
 import { ModerationLog } from "@/models/moderation-log";
@@ -19,6 +18,7 @@ import { Rumor } from "@/models/rumor";
 import { User } from "@/models/user";
 import {
   deleteBoardElement,
+  deleteBoards,
   loadBoardOfElement,
   setBoardElementHidden,
 } from "@/server/boards";
@@ -204,7 +204,7 @@ export async function resolveReportAction(
       }
       if (targetType === "lieu" && parsed.data.decision === "supprimer") {
         // Le panneau d'un lieu part avec lui.
-        await Board.deleteMany({ placeId: report.targetId } as never);
+        await deleteBoards({ placeId: report.targetId });
       }
     }
 
@@ -244,8 +244,7 @@ export async function resolveReportAction(
 }
 
 /** La décision sur un élément de panneau. Il n'a pas de document à lui : on le
- *  retire de son panneau, ou on l'y masque. Aucune image à emporter — un
- *  panneau n'en porte pas. */
+ *  retire de son panneau, avec son image, ou on l'y masque. */
 async function resolveBoardElement(elementId: string, decision: string): Promise<void> {
   const found = await loadBoardOfElement(elementId);
   if (!found) return;

@@ -32,6 +32,9 @@ const elementSchema = new Schema(
     stroke: { type: String, required: true },
     fill: { type: String, required: true },
     ink: { type: String, required: true },
+    /** L'adresse d'une image du magasin, pour un élément « image » ; son
+     *  alternative est `text`. */
+    src: { type: String, default: "" },
     authorId: { type: String, required: true },
     /** Masqué par la modération : il ne s'affiche plus, mais reste consultable
      *  en base le temps que la décision soit contestée. */

@@ -10,7 +10,6 @@ import {
 } from "@/lib/blob";
 import { canEditContent, canEditPlace, canManagePlaceTeam } from "@/lib/permissions";
 import { uniqueSlug } from "@/lib/slug";
-import { Board } from "@/models/board";
 import { Character } from "@/models/character";
 import { Place } from "@/models/place";
 import { User } from "@/models/user";
@@ -26,6 +25,7 @@ import {
   type ActionState,
 } from "@/server/actions/helpers";
 import { placeActivitySchema, placeSchema } from "@/server/actions/schemas";
+import { deleteBoards } from "@/server/boards";
 import { ecrireActivite } from "@/server/place-activity";
 import { listCharactersOfMany } from "@/server/queries/characters";
 import { toObjectId } from "@/server/queries/shared";
@@ -253,7 +253,7 @@ export async function deletePlaceAction(
       ...collectMarkdownImages(existing.description),
     ];
     // Le panneau d'affichage n'existe que par le lieu : il part avec.
-    await Board.deleteMany({ placeId: existing._id } as never);
+    await deleteBoards({ placeId: existing._id });
     await existing.deleteOne();
     await deleteUploadedImages(images, existing.authorId);
   } catch (error) {

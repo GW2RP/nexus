@@ -411,6 +411,7 @@ export const boardOperationSchema = z.discriminatedUnion("type", [
       stroke: color,
       fill: color,
       ink: color,
+      src: z.string().trim().max(500).optional(),
     }),
   }),
   z.object({ type: z.literal("modifier"), id: itemId, patch: elementPatchSchema }),

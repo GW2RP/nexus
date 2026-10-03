@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 
 import { ArrowLabel, ArrowStrokes, BoardGrid, ElementBody } from "@/components/board/board-layer";
+import { BoardImagePlacer } from "@/components/board/board-image-placer";
 import { BoardInspector } from "@/components/board/board-inspector";
 import {
   ARROW_DEFAULTS,
@@ -42,7 +43,10 @@ import { boardOperationAction, readBoardContentAction } from "@/server/actions/b
  *  son auteur ; le reposer l'attribuerait à celui qui annule. */
 
 type Me = { id: string; name: string };
-type Tool = "select" | ElementKind | "fleche";
+/** Une image ne se pose pas d'un clic sur le plan : elle demande d'abord son
+ *  alternative et son fichier (`BoardImagePlacer`), puis tombe au milieu de la
+ *  vue. Ce n'est donc pas un outil de création comme les autres. */
+type Tool = "select" | Exclude<ElementKind, "image"> | "fleche";
 type Selection = { type: "element" | "arrow"; id: string } | null;
 type View = { x: number; y: number; zoom: number };
 
@@ -76,6 +80,7 @@ function applyOp(state: State, op: BoardOperation, me: Me): State {
             ...elements,
             {
               ...op.element,
+              src: op.element.src ?? "",
               z: maxZ + 1,
               authorId: me.id,
               authorName: me.name,
@@ -298,6 +303,7 @@ export function BoardEditor({
   const [framed, setFramed] = useState(false);
   const [justCreated, setJustCreated] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [placingImage, setPlacingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [historyCounts, setHistoryCounts] = useState({ undo: 0, redo: 0 });
 
@@ -600,6 +606,27 @@ export function BoardEditor({
     settle();
     setJustCreated(null);
     setSelection(next);
+    if (next) setPlacingImage(false);
+  }
+
+  /** L'image téléversée tombe au milieu de ce que la vue montre. */
+  function placeImage(image: { src: string; alt: string; w: number; h: number }) {
+    const rect = canvasRef.current!.getBoundingClientRect();
+    const point = toBoard(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    const element = {
+      id: newItemId(),
+      kind: "image" as const,
+      ...ELEMENT_DEFAULTS.image,
+      w: image.w,
+      h: image.h,
+      text: image.alt,
+      src: image.src,
+      x: clamp(Math.round((point.x - image.w / 2) / GRID) * GRID, 0, BOARD_WIDTH - image.w),
+      y: clamp(Math.round((point.y - image.h / 2) / GRID) * GRID, 0, BOARD_HEIGHT - image.h),
+    };
+    perform([{ type: "poser", element }], [{ type: "retirer", id: element.id }]);
+    setPlacingImage(false);
+    setSelection({ type: "element", id: element.id });
   }
 
   function create(kind: ElementKind, clientX: number, clientY: number) {
@@ -850,7 +877,9 @@ export function BoardEditor({
   function duplicate() {
     if (!selectedElement) return;
     settle();
-    const { kind, w, h, text, size, stroke, fill, ink } = selectedElement;
+    const { kind, w, h, text, size, stroke, fill, ink, src } = selectedElement;
+    // Une image dupliquée partage le fichier de l'autre : il ne quittera le
+    // magasin qu'une fois les deux parties.
     const element = {
       id: newItemId(),
       kind,
@@ -861,6 +890,7 @@ export function BoardEditor({
       stroke,
       fill,
       ink,
+      src,
       x: clamp(selectedElement.x + GRID, 0, BOARD_WIDTH - w),
       y: clamp(selectedElement.y + GRID, 0, BOARD_HEIGHT - h),
     };
@@ -1025,6 +1055,7 @@ export function BoardEditor({
                   settle();
                   setTool(one.tool);
                   setPending(null);
+                  setPlacingImage(false);
                   if (one.tool !== "select") setSelection(null);
                 }}
                 className={cn(
@@ -1037,6 +1068,33 @@ export function BoardEditor({
                 <Glyph>{one.glyph}</Glyph>
               </button>
             ))}
+            {me ? (
+              <button
+                type="button"
+                aria-label="Image"
+                title="Image"
+                aria-pressed={placingImage}
+                onClick={() => {
+                  settle();
+                  setTool("select");
+                  setPending(null);
+                  setSelection(null);
+                  setPlacingImage((open) => !open);
+                }}
+                className={cn(
+                  "flex size-tap shrink-0 items-center justify-center border",
+                  placingImage
+                    ? "border-gold bg-surface-selected text-gold-ink"
+                    : "border-transparent text-ink-body hover:bg-surface-selected",
+                )}
+              >
+                <Glyph>
+                  <rect x="3.5" y="5" width="17" height="14" />
+                  <path d="M3.5 16l5-5 4 4 3-3 5 5" strokeLinejoin="round" />
+                  <circle cx="15.5" cy="9" r="1.5" />
+                </Glyph>
+              </button>
+            ) : null}
             <span aria-hidden="true" className="mx-1 w-px shrink-0 bg-hairline lg:mx-1 lg:my-1 lg:h-px lg:w-auto" />
             <button
               type="button"
@@ -1137,41 +1195,49 @@ export function BoardEditor({
         <p role="status" className="sr-only">
           {saving ? "Enregistrement en cours." : ""}
         </p>
-        <BoardInspector
-          element={selectedElement}
-          arrow={selectedArrow}
-          elements={elements}
-          facts={[
-            ...facts,
-            { label: "Éléments", value: String(elements.length) },
-            { label: "Flèches", value: String(arrows.length) },
-          ]}
-          canModify={selectedCanModify}
-          canReport={canReport && Boolean(selectedElement) && selectedElement?.authorId !== me?.id}
-          autoFocusText={justCreated !== null && justCreated === selectedElement?.id}
-          elementActions={elementActions}
-          arrowActions={arrowActions}
-          onFront={() =>
-            selectedElement &&
-            perform(
-              [{ type: "plan", id: selectedElement.id, sens: "avant" }],
-              [{ type: "plan", id: selectedElement.id, sens: "arriere" }],
-            )
-          }
-          onBack={() =>
-            selectedElement &&
-            perform(
-              [{ type: "plan", id: selectedElement.id, sens: "arriere" }],
-              [{ type: "plan", id: selectedElement.id, sens: "avant" }],
-            )
-          }
-          onDuplicate={duplicate}
-          onRemove={() => {
-            if (selectedElement) removeSelected(selectedElement.id);
-            else if (selectedArrow) removeArrow(selectedArrow.id);
-          }}
-          onReverse={reverseArrow}
-        />
+        {placingImage && me ? (
+          <BoardImagePlacer
+            ownerId={me.id}
+            onPlaced={placeImage}
+            onCancel={() => setPlacingImage(false)}
+          />
+        ) : (
+          <BoardInspector
+            element={selectedElement}
+            arrow={selectedArrow}
+            elements={elements}
+            facts={[
+              ...facts,
+              { label: "Éléments", value: String(elements.length) },
+              { label: "Flèches", value: String(arrows.length) },
+            ]}
+            canModify={selectedCanModify}
+            canReport={canReport && Boolean(selectedElement) && selectedElement?.authorId !== me?.id}
+            autoFocusText={justCreated !== null && justCreated === selectedElement?.id}
+            elementActions={elementActions}
+            arrowActions={arrowActions}
+            onFront={() =>
+              selectedElement &&
+              perform(
+                [{ type: "plan", id: selectedElement.id, sens: "avant" }],
+                [{ type: "plan", id: selectedElement.id, sens: "arriere" }],
+              )
+            }
+            onBack={() =>
+              selectedElement &&
+              perform(
+                [{ type: "plan", id: selectedElement.id, sens: "arriere" }],
+                [{ type: "plan", id: selectedElement.id, sens: "avant" }],
+              )
+            }
+            onDuplicate={duplicate}
+            onRemove={() => {
+              if (selectedElement) removeSelected(selectedElement.id);
+              else if (selectedArrow) removeArrow(selectedArrow.id);
+            }}
+            onReverse={reverseArrow}
+          />
+        )}
         {saving ? <p className="caption text-ink-muted">Enregistrement…</p> : null}
       </aside>
     </div>
