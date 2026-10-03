@@ -16,6 +16,7 @@ import {
   LEGEND_MAX,
   isRichKind,
   isValidColor,
+  tipsFromHeads,
   type BoardContent,
   type BoardOperation,
   type BoardOperationResult,
@@ -461,14 +462,23 @@ export async function boardOperationAction(
       }
 
       case "modifier-fleche": {
-        targetArrow(op.id);
+        const arrow = targetArrow(op.id);
         checkColor("stroke", op.patch.color);
         const set: Record<string, unknown> = {};
         for (const [key, value] of Object.entries(op.patch)) {
           if (value !== undefined) set[`arrows.$[a].${key}`] = value;
         }
         if (Object.keys(set).length === 0) break;
-        await Board.updateOne(filter, { $set: set } as never, {
+        // Une flèche d'avant les bouts séparés les range à sa première
+        // modification, et perd l'ancien champ.
+        const legacy = arrow.startTip === undefined || arrow.endTip === undefined;
+        if (legacy) {
+          const tips = tipsFromHeads(arrow.heads);
+          set["arrows.$[a].startTip"] ??= arrow.startTip ?? tips.startTip;
+          set["arrows.$[a].endTip"] ??= arrow.endTip ?? tips.endTip;
+        }
+        const update = legacy ? { $set: set, $unset: { "arrows.$[a].heads": "" } } : { $set: set };
+        await Board.updateOne(filter, update as never, {
           arrayFilters: [{ "a._id": oid(op.id) }],
         });
         break;

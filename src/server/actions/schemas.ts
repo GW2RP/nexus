@@ -2,8 +2,9 @@ import { z } from "zod";
 
 import {
   ARROW_DASHES,
-  ARROW_HEADS,
   ARROW_LABEL_MAX,
+  ARROW_ROUTES,
+  ARROW_TIPS,
   ARROW_WIDTHS,
   BOARD_NAME_MAX,
   BOARD_VISIBILITIES,
@@ -393,7 +394,9 @@ const elementPatchSchema = z
 const arrowPatchSchema = z
   .object({
     color: color.optional(),
-    heads: z.enum(ARROW_HEADS).optional(),
+    startTip: z.enum(ARROW_TIPS).optional(),
+    endTip: z.enum(ARROW_TIPS).optional(),
+    route: z.enum(ARROW_ROUTES).optional(),
     dash: z.enum(ARROW_DASHES).optional(),
     width: z.enum(ARROW_WIDTHS).optional(),
     label: z.string().trim().max(ARROW_LABEL_MAX, "La légende d'une flèche tient en une ligne.").optional(),
