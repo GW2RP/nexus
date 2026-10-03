@@ -19,6 +19,7 @@ import {
   type PlaceType,
   type Region,
 } from "@/lib/domain";
+import { lirePage } from "@/lib/pagination";
 import { canContribute } from "@/lib/permissions";
 import { SITE_URL, buildMetadata, jsonLdScript } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
@@ -45,7 +46,7 @@ function lireOptions(params: Params) {
     query: typeof params.q === "string" ? params.q : undefined,
     type: PLACE_TYPES.includes(type as PlaceType) ? type : undefined,
     region: REGIONS.includes(region as Region) ? region : undefined,
-    page: Math.max(1, Number(params.page ?? 1) || 1),
+    page: lirePage(params.page),
   };
 }
 
