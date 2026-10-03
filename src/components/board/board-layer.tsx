@@ -71,7 +71,8 @@ function ElementShape({ element, links }: { element: BoardElement; links: boolea
       // Seule une image du magasin s'affiche. Sans elle, le cadre garde sa
       // place et dit sa dimension, plutôt que de montrer autre chose. La
       // légende se range sous l'image, dans le cadre : l'image cède la
-      // hauteur qu'elle prend, sans se déformer.
+      // hauteur qu'elle prend, sans se déformer — jamais plus de la moitié,
+      // sinon une légende longue sous une image basse la ferait disparaître.
       return (
         <figure
           className="absolute inset-0 m-0 flex flex-col overflow-hidden border"
@@ -96,7 +97,7 @@ function ElementShape({ element, links }: { element: BoardElement; links: boolea
           </div>
           {element.caption ? (
             <figcaption
-              className="shrink-0 border-t px-3 py-2 caption text-ink-body"
+              className="line-clamp-2 max-h-1/2 shrink-0 overflow-hidden border-t px-3 py-2 caption text-ink-body"
               style={{ borderColor: stroke }}
             >
               {element.caption}
