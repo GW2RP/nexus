@@ -116,14 +116,18 @@ async function Resultats({ searchParams }: { searchParams: Promise<Params> }) {
 
   const race = typeof params.race === "string" ? (params.race as Race) : undefined;
   const sort = typeof params.tri === "string" ? (params.tri as CharacterSort) : "recents";
-  const page = Number(params.page ?? 1) || 1;
+  const page = Math.max(1, Number(params.page ?? 1) || 1);
 
+  // « Charger la suite » allonge la liste plutôt que de la remplacer : on relit
+  // les `page` premières pages d'un coup, donc depuis la première. Passer
+  // `page` en plus du `pageSize` élargi sauterait `(page - 1) × pageSize`
+  // fiches, et la page 2 d'un registre de 17 fiches commençait à la 25ᵉ.
   const { items, total, hasMore } = await listCharacters({
     query: typeof params.q === "string" ? params.q : undefined,
     race: RACES.includes(race as Race) ? race : undefined,
     sort: SORT_OPTIONS.some((option) => option.value === sort) ? sort : "recents",
     withPortrait: params.portrait === "1",
-    page,
+    page: 1,
     pageSize: 12 * page,
   });
 

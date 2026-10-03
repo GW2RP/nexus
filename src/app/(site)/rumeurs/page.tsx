@@ -44,13 +44,14 @@ export default async function RumorsPage({
     typeof params.y === "string" ? params.y : undefined,
   );
   const sort = params.tri === "reprises" ? "reprises" : "recentes";
-  const page = Number(params.page ?? 1) || 1;
+  // Relue depuis la première page, allongée : voir le registre des personnages.
+  const page = Math.max(1, Number(params.page ?? 1) || 1);
 
   const [{ items, hasMore }, top, characters, places] = await Promise.all([
     listRumors({
       region: REGIONS.includes(region as Region) ? region : undefined,
       sort: sort as RumorSort,
-      page,
+      page: 1,
       pageSize: 10 * page,
       viewerId: user?.id ?? null,
     }),

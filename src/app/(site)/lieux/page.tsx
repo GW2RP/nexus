@@ -45,8 +45,15 @@ function lireOptions(params: Params) {
     query: typeof params.q === "string" ? params.q : undefined,
     type: PLACE_TYPES.includes(type as PlaceType) ? type : undefined,
     region: REGIONS.includes(region as Region) ? region : undefined,
-    page: Number(params.page ?? 1) || 1,
+    page: Math.max(1, Number(params.page ?? 1) || 1),
   };
+}
+
+/** « Charger la suite » allonge la liste plutôt que de la remplacer : on relit
+ *  les `page` premières pages d'un coup, donc depuis la première. Passer `page`
+ *  en plus du `pageSize` élargi sauterait `(page - 1) × pageSize` lieux. */
+function lireListe({ page, ...filtres }: ReturnType<typeof lireOptions>) {
+  return listPlaces({ ...filtres, page: 1, pageSize: 12 * page });
 }
 
 /** Le registre des lieux. Même découpage que celui des personnages : la page
@@ -106,7 +113,7 @@ export default function PlacesPage({ searchParams }: { searchParams: Promise<Par
 
 async function Compte({ searchParams }: { searchParams: Promise<Params> }) {
   const options = lireOptions(await searchParams);
-  const { total } = await listPlaces({ ...options, pageSize: 12 * options.page });
+  const { total } = await lireListe(options);
   if (total === 0) return null;
   return `${total} lieu${total > 1 ? "x" : ""}`;
 }
@@ -129,7 +136,7 @@ async function Resultats({ searchParams }: { searchParams: Promise<Params> }) {
   const options = lireOptions(params);
   const page = options.page;
 
-  const { items, total, hasMore } = await listPlaces({ ...options, pageSize: 12 * page });
+  const { items, total, hasMore } = await lireListe(options);
 
   if (items.length === 0) {
     return (
