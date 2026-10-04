@@ -401,6 +401,14 @@ est la règle de l'agenda (`pasEncoreFini`), pas le jour civil du début : une
 veillée commencée la veille et pas finie en fait partie. Son délai de cache
 s'arrête à minuit — la réponse de 23 h 59 ne doit pas annoncer la veille.
 
+**Les scènes privées du jour passent par `/api/evenements/aujourdhui/pour-moi`**,
+derrière le jeton : la même lecture (`src/server/aujourdhui.ts`), avec le
+lecteur, donc tout ce que son agenda lui montre — l'administration n'y a pas
+plus de passe-droit qu'à l'agenda. Une adresse à part, et non un en-tête sur la
+publique : le CDN ressert une adresse sans savoir qui la demande, et une scène
+privée resservie à un autre joueur serait sortie. Elle n'est **jamais mise en
+cache**, et rend 401 sans session.
+
 **Un lieu se déclare actif ou inactif**, avec un court message de son équipe
 (`src/lib/place-activity.ts`) — « Soirée dansante jusqu'à 21h », « En vacances
 jusqu'au 12/10 ». Actif, il **redevient inactif au bout de quatre heures**,
@@ -420,8 +428,9 @@ l'interrupteur de la fiche et pour l'application bureau
 (`POST /api/lieux/[slug]/activite`, derrière le jeton) : même règle d'accès
 que la modification du lieu. L'overlay lit les lieux qu'on tient par
 `GET /api/lieux/geres`, **jamais mise en cache** : les alentours sont publics
-et resservis par le CDN, ils ne peuvent pas dire qui les lit. Ce sont les deux
-seules routes de l'overlay qui demandent une session. L'administration modifie
+et resservis par le CDN, ils ne peuvent pas dire qui les lit. Avec les scènes
+du jour `pour-moi`, ce sont les seules routes de l'overlay qui demandent une
+session. L'administration modifie
 tous les lieux sur le site, mais n'en tient aucun : `geres` ne lui en rend pas.
 
 **Le relevé de météo et les alentours portent `Cache-Control: public,

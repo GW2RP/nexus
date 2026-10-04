@@ -138,6 +138,10 @@ export function formeEvenement(evenement: EventSummary) {
     capacity: evenement.capacity,
     registeredCount: evenement.registeredCount,
     liveStatus: evenement.liveStatus,
+    // Toujours « publique » sur les routes sans lecteur ; « privee » ne sort
+    // que de `pour-moi`, pour que l'overlay dise qu'il faut être connecté sur
+    // le site pour l'ouvrir.
+    visibility: evenement.visibility,
   };
 }
 
