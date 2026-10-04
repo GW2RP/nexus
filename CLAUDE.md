@@ -142,6 +142,14 @@ description : `deleteOrphanedImages` compare l'avant et l'après d'un seul
 document. La cadence, la pause et les séances se règlent sur `/seances`, et
 d'un seul endroit.
 
+**Une scène se tient dans un lieu du registre, ou ailleurs** (`locationMode`).
+Dans le registre, elle en hérite le point et la région. Ailleurs, elle porte
+**toujours un nom d'endroit**, point sur la carte ou non : un point seul ne dit
+pas où se retrouver. Le champ de l'autre mode ne s'écrit pas. Le lieu et
+l'organisateur se choisissent par une liste qui se cherche (`SearchSelect`) —
+le registre en compte trop pour une liste déroulante —, et l'organisateur est
+l'un des personnages de l'**auteur** de l'annonce, vérifié au serveur.
+
 **Les heures se lisent et s'écrivent à l'heure du serveur de jeu.** Un champ
 `datetime-local` envoie « 2026-10-17T21:00 » sans fuseau ; `new Date()` le
 lirait en UTC sur Vercel, et la veillée tapée à 21h00 se tiendrait à 23h00.
@@ -152,6 +160,9 @@ troisième dimanche ».
 **Pour un groupe, « public » dit qui le voit, pas qui peut y entrer** : dans les
 deux cas, c'est le meneur qui ajoute les membres, par leur pseudo. Le meneur est
 membre de droit — il compte, mais ne figure pas dans `memberIds`.
+**Tout membre d'un groupe peut lui associer une scène privée**, pas seulement
+son meneur : c'est le cercle qui joue. Le groupe déjà associé se garde à
+l'enregistrement même quand celui qui corrige n'en est pas.
 
 **Ce qui est privé ne sort jamais** : ni du plan du site, ni des compteurs
 publics (`countUpcomingEvents`, le compte d'évènements d'un lieu), ni des

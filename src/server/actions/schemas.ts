@@ -224,6 +224,15 @@ export const placeActivitySchema = z.object({
     .optional(),
 });
 
+export const LOCATION_MODES = ["registre", "ailleurs"] as const;
+export type LocationMode = (typeof LOCATION_MODES)[number];
+
+/** Où se tient la scène, tel que le formulaire l'a dit — ou, faute de le dire,
+ *  tel que les champs le laissent entendre. */
+export function lieuChoisi(value: { locationMode?: LocationMode; placeId?: string | null }): LocationMode {
+  return value.locationMode ?? (value.placeId ? "registre" : "ailleurs");
+}
+
 export const eventSchema = z
   .object({
     title: trimmed(140).min(3, "Le titre fait au moins trois caractères."),
@@ -232,6 +241,9 @@ export const eventSchema = z
     description: optionalText(20000),
     startsAt: gameDate("La date de début est attendue."),
     endsAt: optionalGameDate(),
+    /** Dans un lieu du registre, ou ailleurs. Absent d'un envoi plus ancien,
+     *  il se déduit du lieu (`lieuChoisi`). */
+    locationMode: z.enum(LOCATION_MODES).optional(),
     placeId: optionalText(40),
     freeLocationLabel: optionalText(160),
     // Une scène hors du registre se pose sur la carte comme un lieu. Quand elle
@@ -255,9 +267,16 @@ export const eventSchema = z
     seriesCount: optionalInteger(2, 60, "Le nombre de séances s'écrit en entier."),
     seriesUntil: optionalGameDate(),
   })
-  .refine((value) => value.placeId || value.freeLocationLabel, {
-    message: "Choisissez un lieu du registre, ou décrivez un point libre sur la carte.",
+  // Dans un lieu du registre, il faut le lieu ; ailleurs, il faut un nom à
+  // l'endroit, qu'il porte un point sur la carte ou non : un point seul ne dit
+  // pas où se retrouver.
+  .refine((value) => lieuChoisi(value) !== "registre" || Boolean(value.placeId), {
+    message: "Choisissez un lieu du registre.",
     path: ["placeId"],
+  })
+  .refine((value) => lieuChoisi(value) !== "ailleurs" || Boolean(value.freeLocationLabel), {
+    message: "Nommez l'endroit où se tient la scène.",
+    path: ["freeLocationLabel"],
   })
   .refine((value) => !value.endsAt || value.endsAt > value.startsAt, {
     message: "La fin vient après le début.",

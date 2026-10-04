@@ -154,12 +154,15 @@ export const getGroupBySlug = cache(
   },
 );
 
-/** Les groupes qu'un compte mène : le choix proposé quand on associe un groupe
- *  à une scène. On ne propose pas un groupe dont on n'est que membre —
- *  y annoncer une scène reviendrait à écrire chez quelqu'un d'autre. */
-export async function listGroupsLedBy(userId: string) {
+/** Les groupes d'un compte, qu'il les mène ou en soit membre : le choix
+ *  proposé quand on associe un groupe à une scène privée. Tout membre peut y
+ *  inviter le groupe — c'est le cercle qui joue, pas seulement son meneur. */
+export async function listGroupsOf(userId: string) {
   await connectToDatabase();
-  const docs = (await Group.find({ authorId: userId, hidden: { $ne: true } })
+  const docs = (await Group.find({
+    hidden: { $ne: true },
+    $or: [{ authorId: userId }, { memberIds: userId }],
+  } as never)
     .sort({ name: 1 })
     .select({ name: 1, slug: 1, memberIds: 1 })
     .lean()) as GroupDoc[];
