@@ -5,8 +5,10 @@ import { cn } from "@/lib/utils";
 /** Champs à angles vifs sur `surface-inset`, bordés de 1 px `rule`.
  *  Chaque contrôle a une étiquette visible : le système ne dessine aucun champ flottant. */
 
+// Un champ refusé porte son refus sur son cadre, pas seulement dans la phrase
+// sous lui : dans un long formulaire, c'est le cadre qu'on retrouve en remontant.
 const controlClasses =
-  "w-full min-h-tap rounded-none border border-rule bg-surface-inset px-[14px] py-3 text-[17px] text-ink placeholder:text-ink-subtle";
+  "w-full min-h-tap rounded-none border border-rule bg-surface-inset px-[14px] py-3 text-[17px] text-ink placeholder:text-ink-subtle aria-invalid:border-crimson-edge";
 
 function Label({
   className,

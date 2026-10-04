@@ -356,6 +356,7 @@ async function loadEvent(
 
   return {
     ...summary,
+    freeLocationLabel: doc.freeLocationLabel ?? null,
     description: doc.description ?? null,
     practicalNotes: (doc.practicalNotes ?? []).filter(Boolean),
     bannerAlt: doc.bannerAlt ?? null,

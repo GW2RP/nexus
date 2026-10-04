@@ -16,6 +16,7 @@ import type { SessionUser } from "@/lib/session";
 import { nouveauCodeDePartage } from "@/lib/share-code";
 import { uniqueSlug } from "@/lib/slug";
 import { Event, type EventDocument } from "@/models/event";
+import { Character } from "@/models/character";
 import { EventSeries } from "@/models/event-series";
 import { Group } from "@/models/group";
 import { Place } from "@/models/place";
@@ -24,6 +25,7 @@ import {
   invalidate,
   TAGS,
   errorState,
+  FieldRefusal,
   objectIdOrNull,
   parseForm,
   requireContributor,
@@ -31,7 +33,7 @@ import {
   toActionState,
   type ActionState,
 } from "@/server/actions/helpers";
-import { eventSchema } from "@/server/actions/schemas";
+import { eventSchema, lieuChoisi } from "@/server/actions/schemas";
 import { groupIdsOf } from "@/server/queries/groups";
 
 async function slugTaken(candidate: string) {
@@ -64,9 +66,25 @@ async function ledGroupId(groupId: string | null | undefined, user: SessionUser)
   return id;
 }
 
+/** L'organisateur se choisit parmi les personnages de l'auteur de l'annonce.
+ *  Sans cette vérification, il suffirait de poster l'identifiant du personnage
+ *  d'un autre pour le faire signer une scène. */
+async function organiserOf(characterId: string | null | undefined, authorId: string) {
+  const id = objectIdOrNull(characterId ?? null);
+  if (!id) return undefined;
+  const mine = await Character.exists({ _id: id, authorId, hidden: { $ne: true } });
+  if (!mine) {
+    throw new FieldRefusal("organiserCharacterId", "Ce personnage n'appartient pas à l'auteur de l'annonce.");
+  }
+  return id;
+}
+
 /** Un évènement qui se tient dans un lieu du registre en hérite la région et le
- *  point ; une scène libre porte le point qu'on a posé sur la carte. */
-async function toDocument(data: EventInput, user: SessionUser) {
+ *  point ; une scène libre porte son nom, sa région et, si on l'a posé, son
+ *  point sur la carte. `authorId` est l'auteur de l'annonce : c'est parmi ses
+ *  personnages que se choisit l'organisateur. */
+async function toDocument(data: EventInput, user: SessionUser, authorId: string) {
+  const dansLeRegistre = lieuChoisi(data) === "registre";
   const document: Record<string, unknown> = {
     // Les champs sont nommés un à un plutôt que repris en bloc : le schéma
     // porte aussi la règle de la série, qui ne vit pas sur l'évènement.
@@ -76,20 +94,22 @@ async function toDocument(data: EventInput, user: SessionUser) {
     description: data.description,
     startsAt: data.startsAt,
     endsAt: data.endsAt,
-    freeLocationLabel: data.freeLocationLabel,
+    // Le champ de l'autre mode a pu rester rempli d'une saisie précédente : il
+    // ne s'écrit pas, sinon la fiche garderait un nom que personne ne voit.
+    freeLocationLabel: dansLeRegistre ? undefined : data.freeLocationLabel,
     region: data.region,
     capacity: data.capacity,
     bannerUrl: data.bannerUrl,
     bannerAlt: data.bannerAlt,
     visibility: data.visibility,
     coordinates:
-      typeof data.coordinateX === "number" && typeof data.coordinateY === "number"
+      !dansLeRegistre && typeof data.coordinateX === "number" && typeof data.coordinateY === "number"
         ? { x: data.coordinateX, y: data.coordinateY }
         : undefined,
-    // Ces identifiants viennent de listes déroulantes : un identifiant tordu
-    // est ignoré plutôt que de faire lever une CastError à Mongoose.
-    placeId: objectIdOrNull(data.placeId ?? null) ?? undefined,
-    organiserCharacterId: objectIdOrNull(data.organiserCharacterId ?? null) ?? undefined,
+    // Ces identifiants viennent de listes : un identifiant tordu est ignoré
+    // plutôt que de faire lever une CastError à Mongoose.
+    placeId: dansLeRegistre ? (objectIdOrNull(data.placeId ?? null) ?? undefined) : undefined,
+    organiserCharacterId: await organiserOf(data.organiserCharacterId, authorId),
     practicalNotes: data.practicalNotes
       ? data.practicalNotes.split("\n").map((line) => line.trim()).filter(Boolean)
       : [],
@@ -99,12 +119,15 @@ async function toDocument(data: EventInput, user: SessionUser) {
     groupId: data.visibility === "privee" ? await ledGroupId(data.groupId, user) : null,
   };
 
-  if (document.placeId) {
-    const place = await Place.findById(document.placeId).select({ region: 1, coordinates: 1 }).lean();
-    if (place) {
-      document.region = place.region;
-      if (typeof place.coordinates?.x === "number") document.coordinates = place.coordinates;
-    }
+  if (dansLeRegistre) {
+    const place = document.placeId
+      ? await Place.findOne({ _id: document.placeId, hidden: { $ne: true } })
+          .select({ region: 1, coordinates: 1 })
+          .lean()
+      : null;
+    if (!place) throw new FieldRefusal("placeId", "Ce lieu n'est plus au registre.");
+    document.region = place.region;
+    if (typeof place.coordinates?.x === "number") document.coordinates = place.coordinates;
   }
 
   return document;
@@ -213,7 +236,7 @@ export async function createEventAction(
     if (!parsed.ok) return parsed.state;
     const data = parsed.data;
 
-    const document = await toDocument(data, user);
+    const document = await toDocument(data, user, user.id);
     slug = await uniqueSlug(data.title, slugTaken);
 
     if (data.recurrence === "aucune") {
@@ -299,7 +322,7 @@ export async function updateEventAction(
       ...collectMarkdownImages(existing.description),
     ];
 
-    const document = await toDocument(parsed.data, user);
+    const document = await toDocument(parsed.data, user, existing.authorId);
     existing.set(document);
 
     // Le code suit la visibilité : une scène qui s'ouvre perd le sien — son

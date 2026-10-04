@@ -155,6 +155,9 @@ export type EventSeriesDetail = {
 };
 
 export type EventDetail = EventSummary & {
+  /** Le nom de l'endroit tel que l'auteur l'a écrit, hors registre. Distinct
+   *  de `locationLabel`, qui dit « Lieu à préciser » faute de mieux. */
+  freeLocationLabel: string | null;
   description: string | null;
   practicalNotes: string[];
   bannerAlt: string | null;

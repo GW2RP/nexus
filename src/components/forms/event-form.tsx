@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 
 import { useKeptFormValues } from "@/components/forms/keep-values";
 import { AccountPicker } from "@/components/forms/account-picker";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ChoiceRow } from "@/components/ui/choice-row";
 import { ImageField } from "@/components/forms/image-field";
 import { RichTextField } from "@/components/forms/rich-text-field";
+import { SearchSelect } from "@/components/forms/search-select";
 import { MapPicker } from "@/components/map/map-picker";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { FormMessage } from "@/components/ui/form-message";
@@ -24,6 +25,7 @@ import {
   RECURRENCES,
   RECURRENCE_LABELS,
   type Recurrence,
+  type Region,
   REGIONS,
   REGION_LABELS,
 } from "@/lib/domain";
@@ -77,12 +79,47 @@ export function EventForm({
   // React vide un formulaire soumis : cette garde lui laisse ses valeurs.
   const formulaire = useKeptFormValues();
 
+  // Un refus du serveur ramène au premier champ refusé : le message général
+  // tombe en bas du formulaire, et le champ en cause peut être tout en haut.
+  useEffect(() => {
+    if (state.status !== "error" || !state.fieldErrors) return;
+    const champ = formulaire.current?.querySelector<HTMLElement>("[aria-invalid='true']");
+    champ?.focus({ preventScroll: true });
+    champ?.scrollIntoView({ block: "center" });
+  }, [state, formulaire]);
+
   // Un évènement tenu dans un lieu du registre en hérite le point : la carte ne
   // s'ouvre que pour une scène qui se tient ailleurs, sinon deux emplacements
   // se contrediraient à l'écran. Le pin reprend le glyphe du type et le titre.
-  const [placeId, setPlaceId] = useState(event?.place?.id ?? "");
+  // Un lieu retiré du registre depuis ne se propose plus : la liste le tait,
+  // donc le champ part vide plutôt que de porter un identifiant invisible.
+  const [placeId, setPlaceId] = useState(
+    event?.place && places.some((place) => place.id === event.place?.id) ? event.place.id : "",
+  );
+  const [locationMode, setLocationMode] = useState<"registre" | "ailleurs">(
+    event ? (event.place ? "registre" : "ailleurs") : initialCoordinates ? "ailleurs" : "registre",
+  );
+  // Les champs d'« ailleurs » survivent à un aller-retour vers le registre :
+  // changer d'avis ne doit pas effacer ce qu'on avait tapé ou pointé.
+  const [freeLocationLabel, setFreeLocationLabel] = useState(
+    event?.place ? "" : (event?.freeLocationLabel ?? ""),
+  );
+  const [region, setRegion] = useState<string>(event?.place ? "" : (event?.region ?? ""));
+  const [point, setPoint] = useState<{ x: number; y: number } | null>(
+    event?.place ? null : (event?.coordinates ?? initialCoordinates ?? null),
+  );
+  const placeOptions = places.map((place) => ({
+    id: place.id,
+    label: place.name,
+    detail: REGION_LABELS[place.region as Region] ?? place.region,
+  }));
   const [type, setType] = useState<EventType>(event?.type ?? "taverne");
   const [title, setTitle] = useState(event?.title ?? "");
+  const [organiser, setOrganiser] = useState(
+    event?.organiser && characters.some((character) => character.id === event.organiser?.id)
+      ? event.organiser.id
+      : "",
+  );
 
   // Qui voit la scène, et la série qu'elle ouvre. Les deux se décident à
   // l'écran, et l'aperçu des séances se recalcule à chaque frappe : une série
@@ -122,6 +159,7 @@ export function EventForm({
               name="title"
               required
               maxLength={140}
+              aria-invalid={errors.title ? true : undefined}
               value={title}
               onChange={(field) => setTitle(field.target.value)}
               placeholder="Veillée au Lion Noir"
@@ -187,108 +225,142 @@ export function EventForm({
 
       <section>
         <SectionHeading title="Quand et où" compact />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            label="Début"
-            htmlFor="startsAt"
-            required
-            hint={`Heure du serveur de jeu (${GAME_TIME_ZONE}).`}
-            error={errors.startsAt}
-          >
-            <Input
-              id="startsAt"
-              name="startsAt"
-              type="datetime-local"
+        <div className="flex flex-col gap-6">
+          <div className="grid items-start gap-4 sm:grid-cols-[1fr_1fr_140px]">
+            <Field
+              label="Début"
+              htmlFor="startsAt"
               required
-              value={startsAt}
-              onChange={(field) => setStartsAt(field.target.value)}
-            />
-          </Field>
-
-          <Field label="Fin" htmlFor="endsAt" error={errors.endsAt}>
-            <Input
-              id="endsAt"
-              name="endsAt"
-              type="datetime-local"
-              defaultValue={toLocalInput(event?.endsAt)}
-            />
-          </Field>
-
-          <Field
-            label="Lieu du registre"
-            htmlFor="placeId"
-            hint="La région et le point sur la carte en découlent."
-            error={errors.placeId}
-          >
-            <Select
-              id="placeId"
-              name="placeId"
-              value={placeId}
-              onChange={(field) => setPlaceId(field.target.value)}
+              hint={`Heure du serveur de jeu (${GAME_TIME_ZONE}).`}
+              error={errors.startsAt}
             >
-              <option value="">Point libre sur la carte</option>
-              {places.map((place) => (
-                <option key={place.id} value={place.id}>
-                  {place.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
+              <Input
+                id="startsAt"
+                name="startsAt"
+                type="datetime-local"
+                required
+                aria-invalid={errors.startsAt ? true : undefined}
+                value={startsAt}
+                onChange={(field) => setStartsAt(field.target.value)}
+              />
+            </Field>
 
-          <Field
-            label="Point libre"
-            htmlFor="freeLocationLabel"
-            hint="Si la scène ne se tient pas dans un lieu du registre."
-            error={errors.freeLocationLabel}
-          >
-            <Input
-              id="freeLocationLabel"
-              name="freeLocationLabel"
-              maxLength={160}
-              defaultValue={event?.place ? "" : (event?.locationLabel ?? "")}
-              placeholder="Champs de Gendarran, près du pont"
-            />
-          </Field>
+            <Field label="Fin" htmlFor="endsAt" error={errors.endsAt}>
+              <Input
+                id="endsAt"
+                name="endsAt"
+                type="datetime-local"
+                min={startsAt || undefined}
+                aria-invalid={errors.endsAt ? true : undefined}
+                defaultValue={toLocalInput(event?.endsAt)}
+              />
+            </Field>
 
-          <Field label="Région" htmlFor="region" error={errors.region}>
-            <Select id="region" name="region" defaultValue={event?.region ?? ""}>
-              <option value="">Sans région précise</option>
-              {REGIONS.map((region) => (
-                <option key={region} value={region}>
-                  {REGION_LABELS[region]}
-                </option>
-              ))}
-            </Select>
-          </Field>
-
-          <Field
-            label="Places"
-            htmlFor="capacity"
-            hint="Laissez vide si la scène n'a pas de limite."
-            error={errors.capacity}
-          >
-            <Input
-              id="capacity"
-              name="capacity"
-              type="number"
-              min={0}
-              max={999}
-              defaultValue={event?.capacity ?? ""}
-            />
-          </Field>
-        </div>
-
-        {placeId ? null : (
-          <div className="mt-6">
-            <MapPicker
-              kind="evenement"
-              type={type}
-              name={title}
-              initial={event?.coordinates ?? initialCoordinates ?? null}
-              error={errors.coordinateX ?? errors.coordinateY}
-            />
+            <Field label="Places" htmlFor="capacity" error={errors.capacity}>
+              <Input
+                id="capacity"
+                name="capacity"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={999}
+                placeholder="Sans limite"
+                aria-invalid={errors.capacity ? true : undefined}
+                defaultValue={event?.capacity ?? ""}
+              />
+            </Field>
           </div>
-        )}
+
+          <fieldset className="flex flex-col gap-3 border-0 p-0">
+            <legend className="meta mb-2 text-ink-muted">
+              Lieu<span aria-hidden="true"> *</span>
+              <span className="sr-only"> (obligatoire)</span>
+            </legend>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <ChoiceRow
+                name="locationMode"
+                value="registre"
+                checked={locationMode === "registre"}
+                onSelect={() => setLocationMode("registre")}
+                title="Un lieu du registre"
+                hint="Son point et sa région suivent."
+              />
+              <ChoiceRow
+                name="locationMode"
+                value="ailleurs"
+                checked={locationMode === "ailleurs"}
+                onSelect={() => setLocationMode("ailleurs")}
+                title="Ailleurs"
+                hint="Un endroit que vous nommez, avec ou sans point sur la carte."
+              />
+            </div>
+          </fieldset>
+
+          {locationMode === "registre" ? (
+            <Field label="Lieu du registre" htmlFor="placeId" required error={errors.placeId}>
+              <SearchSelect
+                id="placeId"
+                name="placeId"
+                options={placeOptions}
+                value={placeId}
+                onChange={setPlaceId}
+                placeholder="Chercher un lieu par son nom ou sa région"
+                required
+                invalid={Boolean(errors.placeId)}
+              />
+            </Field>
+          ) : (
+            <>
+              <div className="grid items-start gap-4 sm:grid-cols-2">
+                <Field
+                  label="Nom de l'endroit"
+                  htmlFor="freeLocationLabel"
+                  required
+                  error={errors.freeLocationLabel}
+                >
+                  <Input
+                    id="freeLocationLabel"
+                    name="freeLocationLabel"
+                    required
+                    maxLength={160}
+                    aria-invalid={errors.freeLocationLabel ? true : undefined}
+                    value={freeLocationLabel}
+                    onChange={(field) => setFreeLocationLabel(field.target.value)}
+                    placeholder="Champs de Gendarran, près du pont"
+                  />
+                </Field>
+
+                <Field label="Région" htmlFor="region" error={errors.region}>
+                  <Select
+                    id="region"
+                    name="region"
+                    value={region}
+                    onChange={(field) => setRegion(field.target.value)}
+                  >
+                    <option value="">Sans région précise</option>
+                    {REGIONS.map((region) => (
+                      <option key={region} value={region}>
+                        {REGION_LABELS[region]}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <p className="meta text-ink-muted">Point sur la carte (facultatif)</p>
+                <MapPicker
+                  kind="evenement"
+                  type={type}
+                  name={title || freeLocationLabel}
+                  initial={point}
+                  onChange={setPoint}
+                  error={errors.coordinateX ?? errors.coordinateY}
+                />
+              </div>
+            </>
+          )}
+        </div>
       </section>
 
       <section>
@@ -503,18 +575,16 @@ export function EventForm({
               htmlFor="organiserCharacterId"
               error={errors.organiserCharacterId}
             >
-              <Select
+              <SearchSelect
                 id="organiserCharacterId"
                 name="organiserCharacterId"
-                defaultValue={event?.organiser?.id ?? ""}
-              >
-                <option value="">Sans personnage organisateur</option>
-                {characters.map((character) => (
-                  <option key={character.id} value={character.id}>
-                    {character.name}
-                  </option>
-                ))}
-              </Select>
+                options={characters.map((character) => ({ id: character.id, label: character.name }))}
+                value={organiser}
+                onChange={setOrganiser}
+                placeholder="Chercher un personnage"
+                noneLabel="Sans personnage organisateur"
+                invalid={Boolean(errors.organiserCharacterId)}
+              />
             </Field>
           ) : null}
 

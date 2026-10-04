@@ -36,7 +36,9 @@ export default async function EditEventPage({ params }: Props) {
 
   const [places, characters, groups] = await Promise.all([
     listPlaceOptions(),
-    listCharactersOf(user.id),
+    // L'organisateur est l'un des personnages de l'auteur, même quand c'est
+    // l'administration qui corrige l'annonce.
+    listCharactersOf(event.authorId),
     listGroupsLedBy(user.id),
   ]);
 

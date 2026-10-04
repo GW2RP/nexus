@@ -32,6 +32,7 @@ export function MapPicker({
   initial,
   height = 420,
   error,
+  onChange,
 }: {
   /** Ce qu'on pose : le pin en reprend le glyphe. Une rumeur est son propre
    *  type et n'en attend donc pas. */
@@ -43,8 +44,15 @@ export function MapPicker({
    *  donner autant qu'une page de formulaire. */
   height?: number;
   error?: string;
+  /** Le point, à chaque fois qu'il change : le formulaire qui replie la carte
+   *  le lui rend quand il la rouvre. */
+  onChange?: (point: { x: number; y: number } | null) => void;
 }) {
-  const [point, setPoint] = useState<{ x: number; y: number } | null>(initial ?? null);
+  const [point, setPointState] = useState<{ x: number; y: number } | null>(initial ?? null);
+  const setPoint = (next: { x: number; y: number } | null) => {
+    setPointState(next);
+    onChange?.(next);
+  };
 
   // Le cadrage d'ouverture ne se lit qu'au montage : le figer sur le point
   // d'origine évite que la carte saute à chaque clic.
