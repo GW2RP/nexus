@@ -53,15 +53,29 @@ function refreshEventPaths(slug?: string) {
   revalidatePath("/");
 }
 
-/** Le groupe qu'on associe à une scène doit être un groupe qu'on mène.
- *  Sans cette vérification, il suffirait de coller l'identifiant d'un cercle
- *  auquel on n'appartient pas pour y poser une annonce. */
-async function ledGroupId(groupId: string | null | undefined, user: SessionUser) {
+/** Le groupe qu'on associe à une scène doit être un groupe dont on est —
+ *  meneur ou membre. Sans cette vérification, il suffirait de coller
+ *  l'identifiant d'un cercle auquel on n'appartient pas pour y poser une
+ *  annonce. Le groupe déjà associé se garde tel quel : l'administration qui
+ *  corrige l'annonce, ou un membre qui a quitté le cercle depuis, ne le
+ *  retirent pas en enregistrant. */
+async function memberGroupId(
+  groupId: string | null | undefined,
+  user: SessionUser,
+  currentGroupId: string | null,
+) {
   const id = objectIdOrNull(groupId ?? null);
   if (!id) return null;
-  const group = await Group.findOne({ _id: id, authorId: user.id }).select({ _id: 1 }).lean();
+  if (currentGroupId && String(id) === currentGroupId) return id;
+  const group = await Group.findOne({
+    _id: id,
+    hidden: { $ne: true },
+    $or: [{ authorId: user.id }, { memberIds: user.id }],
+  } as never)
+    .select({ _id: 1 })
+    .lean();
   if (!group) {
-    throw new Error("Vous ne pouvez associer une scène qu'à un groupe que vous menez.");
+    throw new FieldRefusal("groupId", "Vous ne pouvez associer une scène qu'à un groupe dont vous êtes.");
   }
   return id;
 }
@@ -82,8 +96,14 @@ async function organiserOf(characterId: string | null | undefined, authorId: str
 /** Un évènement qui se tient dans un lieu du registre en hérite la région et le
  *  point ; une scène libre porte son nom, sa région et, si on l'a posé, son
  *  point sur la carte. `authorId` est l'auteur de l'annonce : c'est parmi ses
- *  personnages que se choisit l'organisateur. */
-async function toDocument(data: EventInput, user: SessionUser, authorId: string) {
+ *  personnages que se choisit l'organisateur. `currentGroupId` est le groupe
+ *  déjà associé, à la modification. */
+async function toDocument(
+  data: EventInput,
+  user: SessionUser,
+  authorId: string,
+  currentGroupId: string | null = null,
+) {
   const dansLeRegistre = lieuChoisi(data) === "registre";
   const document: Record<string, unknown> = {
     // Les champs sont nommés un à un plutôt que repris en bloc : le schéma
@@ -116,7 +136,7 @@ async function toDocument(data: EventInput, user: SessionUser, authorId: string)
     // Une scène redevenue publique perd ses invités et son groupe : ils ne
     // veulent plus rien dire, et les garder ferait mentir la fiche.
     invitedUserIds: data.visibility === "privee" ? [...new Set(data.invitedUserIds)] : [],
-    groupId: data.visibility === "privee" ? await ledGroupId(data.groupId, user) : null,
+    groupId: data.visibility === "privee" ? await memberGroupId(data.groupId, user, currentGroupId) : null,
   };
 
   if (dansLeRegistre) {
@@ -322,7 +342,12 @@ export async function updateEventAction(
       ...collectMarkdownImages(existing.description),
     ];
 
-    const document = await toDocument(parsed.data, user, existing.authorId);
+    const document = await toDocument(
+      parsed.data,
+      user,
+      existing.authorId,
+      existing.groupId ? String(existing.groupId) : null,
+    );
     existing.set(document);
 
     // Le code suit la visibilité : une scène qui s'ouvre perd le sien — son

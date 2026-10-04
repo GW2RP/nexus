@@ -160,6 +160,9 @@ troisième dimanche ».
 **Pour un groupe, « public » dit qui le voit, pas qui peut y entrer** : dans les
 deux cas, c'est le meneur qui ajoute les membres, par leur pseudo. Le meneur est
 membre de droit — il compte, mais ne figure pas dans `memberIds`.
+**Tout membre d'un groupe peut lui associer une scène privée**, pas seulement
+son meneur : c'est le cercle qui joue. Le groupe déjà associé se garde à
+l'enregistrement même quand celui qui corrige n'en est pas.
 
 **Ce qui est privé ne sort jamais** : ni du plan du site, ni des compteurs
 publics (`countUpcomingEvents`, le compte d'évènements d'un lieu), ni des

@@ -63,8 +63,9 @@ export function EventForm({
   event?: EventDetail;
   places: { id: string; name: string; region: string }[];
   characters: CharacterSummary[];
-  /** Les cercles que ce compte mène : on n'annonce pas chez les autres. */
-  groups: { id: string; name: string; memberCount: number }[];
+  /** Les cercles dont ce compte est, meneur ou membre. `memberCount` manque
+   *  pour le groupe déjà associé qu'on ne compte pas parmi les siens. */
+  groups: { id: string; name: string; memberCount: number | null }[];
   /** Les comptes déjà invités, à la modification. */
   invited?: AuthorSummary[];
   /** Le point cliqué sur la carte, quand la scène part de là. */
@@ -415,14 +416,16 @@ export function EventForm({
                     <option value="">Aucun groupe</option>
                     {groups.map((group) => (
                       <option key={group.id} value={group.id}>
-                        {group.name} — {group.memberCount} membre{group.memberCount > 1 ? "s" : ""}
+                        {group.memberCount === null
+                          ? group.name
+                          : `${group.name} — ${group.memberCount} membre${group.memberCount > 1 ? "s" : ""}`}
                       </option>
                     ))}
                   </Select>
                 </Field>
               ) : (
                 <p className="caption text-ink-subtle">
-                  Vous ne menez aucun cercle. <Link href="/groupes/nouveau" className="text-crimson-ink underline underline-offset-4">Créer un groupe</Link> pour ouvrir une scène à plusieurs d&apos;un coup.
+                  Vous n&apos;êtes d&apos;aucun groupe. <Link href="/groupes/nouveau" className="text-crimson-ink underline underline-offset-4">Créer un groupe</Link> pour ouvrir une scène à plusieurs d&apos;un coup.
                 </p>
               )}
 

@@ -8,7 +8,7 @@ import { canContribute } from "@/lib/permissions";
 import { buildMetadata } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
 import { listCharactersOf } from "@/server/queries/characters";
-import { listGroupsLedBy } from "@/server/queries/groups";
+import { listGroupsOf } from "@/server/queries/groups";
 import { listPlaceOptions } from "@/server/queries/places";
 
 export const metadata: Metadata = buildMetadata({
@@ -31,7 +31,7 @@ export default async function NewEventPage({
   const [places, characters, groups] = await Promise.all([
     listPlaceOptions(),
     listCharactersOf(user.id),
-    listGroupsLedBy(user.id),
+    listGroupsOf(user.id),
   ]);
 
   return (
