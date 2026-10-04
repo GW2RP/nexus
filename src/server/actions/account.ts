@@ -64,8 +64,9 @@ export async function liftSuspensionAction(
  *  a été pris, l'intrus ne garde pas la sienne. Le cache de cookie de Better
  *  Auth peut laisser une session ouverte quelques minutes au plus.
  *
- *  Son propre mot de passe se change depuis « Mon compte », avec l'ancien : ici,
- *  l'administration se fermerait elle-même toutes ses sessions sans le prouver. */
+ *  Un compte d'administration n'est pas une cible. Son propre mot de passe se
+ *  change depuis « Mon compte », avec l'ancien : ici, l'administration se
+ *  fermerait elle-même toutes ses sessions sans le prouver. */
 export async function setUserPasswordAction(
   userId: string,
   _previous: ActionState,
@@ -85,6 +86,20 @@ export async function setUserPasswordAction(
     const context = await auth.$context;
     const user = await context.internalAdapter.findUserById(id);
     if (!user) return errorState("Ce compte n'existe plus.");
+    // Entre pairs, poser le mot de passe de l'autre reviendrait à prendre son
+    // nom : ses décisions de modération s'inscriraient au journal sous le sien.
+    if ((user as { role?: string }).role === "administration") {
+      return errorState("Le mot de passe d'un compte d'administration ne se change que par lui.");
+    }
+    // Les bornes de Better Auth font foi : un mot de passe hors de ses bornes
+    // ne servirait pas à la connexion.
+    const { minPasswordLength, maxPasswordLength } = context.password.config;
+    const length = parsed.data.password.length;
+    if (length < minPasswordLength || length > maxPasswordLength) {
+      return errorState("Le formulaire comporte des erreurs.", {
+        password: `Entre ${minPasswordLength} et ${maxPasswordLength} caractères.`,
+      });
+    }
     if (!(await context.internalAdapter.findCredentialAccount(id))) {
       return errorState("Ce compte n'a pas de mot de passe à changer.");
     }
