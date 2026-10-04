@@ -453,3 +453,19 @@ export const boardOperationSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("retirer-fleche"), id: itemId }),
   z.object({ type: z.literal("retablir-fleche"), id: itemId }),
 ]);
+
+/** Les bornes sont celles de Better Auth (`minPasswordLength`, et ses 128
+ *  caractères au plus) : un mot de passe posé par l'administration doit pouvoir
+ *  servir à la connexion. */
+export const adminPasswordSchema = z
+  .object({
+    password: z
+      .string()
+      .min(10, "Dix caractères au moins.")
+      .max(128, "128 caractères au plus."),
+    passwordConfirm: z.string(),
+  })
+  .refine((data) => data.password === data.passwordConfirm, {
+    path: ["passwordConfirm"],
+    message: "Les deux mots de passe ne sont pas identiques.",
+  });
