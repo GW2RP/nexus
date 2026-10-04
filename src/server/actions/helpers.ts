@@ -77,7 +77,6 @@ export function parseForm<T>(
   };
 }
 
-/** Transforme l'exception d'une action en état de formulaire lisible. */
 /** Un refus qui tient à un champ, levé après la validation du schéma : le
  *  lieu choisi n'est plus au registre, le personnage n'est pas à soi. Il
  *  s'affiche sous le champ qu'il désigne, pas seulement en tête de formulaire. */
@@ -90,6 +89,7 @@ export class FieldRefusal extends Error {
   }
 }
 
+/** Transforme l'exception d'une action en état de formulaire lisible. */
 export function toActionState(error: unknown): ActionState {
   if (error instanceof FieldRefusal) {
     return errorState("Le formulaire comporte des erreurs.", { [error.field]: error.message });

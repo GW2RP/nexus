@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { CloseIcon, SearchIcon } from "@/components/icons";
 import { controlClasses } from "@/components/ui/field";
@@ -87,16 +87,36 @@ export function SearchSelect({
           .sort((a, b) => a.rang - b.rang)
           .map((entree) => entree.option)
       : options;
+    const premieres = trouvees.slice(0, PROPOSITIONS_MAX);
+    // Sans recherche, le choix courant se montre toujours, même au-delà des
+    // premières : c'est de lui qu'on part.
+    const courant = !terme ? options.find((option) => option.id === value) : undefined;
     return {
-      propositions: trouvees.slice(0, PROPOSITIONS_MAX),
-      reste: Math.max(0, trouvees.length - PROPOSITIONS_MAX),
+      propositions: courant && !premieres.includes(courant) ? [courant, ...premieres] : premieres,
+      reste: Math.max(0, trouvees.length - premieres.length - (courant && !premieres.includes(courant) ? 1 : 0)),
     };
-  }, [options, terme]);
+  }, [options, terme, value]);
 
   // « Aucun » ne se propose que sans recherche : qui tape un nom cherche ce nom.
   const avecAucun = Boolean(noneLabel) && !terme;
   const entrees: (SearchOption | null)[] = avecAucun ? [null, ...propositions] : propositions;
   const indexActif = Math.min(actif, Math.max(0, entrees.length - 1));
+
+  /** La liste s'ouvre sur le choix courant : Entrée sans rien toucher le
+   *  garde, au lieu de le remplacer par la première option. */
+  function ouvrir() {
+    if (ouvert) return;
+    setOuvert(true);
+    const courant = entrees.findIndex((option) => (option?.id ?? "") === value);
+    setActif(Math.max(0, courant));
+  }
+
+  // L'option active reste à l'écran quand les flèches la font sortir de la
+  // hauteur de la liste.
+  useEffect(() => {
+    if (!ouvert) return;
+    document.getElementById(`${listId}-${indexActif}`)?.scrollIntoView({ block: "nearest" });
+  }, [ouvert, indexActif, listId]);
 
   function choisir(option: SearchOption | null) {
     onChange(option?.id ?? "");
@@ -116,8 +136,7 @@ export function SearchSelect({
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       if (!ouvert) {
-        setOuvert(true);
-        setActif(0);
+        ouvrir();
         return;
       }
       const pas = event.key === "ArrowDown" ? 1 : -1;
@@ -136,14 +155,7 @@ export function SearchSelect({
   const idOption = (index: number) => `${listId}-${index}`;
 
   return (
-    <div
-      className="relative"
-      onBlur={(event) => {
-        // Un clic dans la liste garde le focus dans ce bloc : on ne ferme que
-        // quand il le quitte vraiment.
-        if (!event.currentTarget.contains(event.relatedTarget)) fermer();
-      }}
-    >
+    <div className="relative">
       <input type="hidden" name={name} value={value} />
 
       <SearchIcon
@@ -158,10 +170,10 @@ export function SearchSelect({
         autoComplete="off"
         spellCheck={false}
         aria-expanded={ouvert}
-        aria-controls={listId}
+        aria-controls={ouvert ? listId : undefined}
         aria-autocomplete="list"
         aria-activedescendant={ouvert && entrees.length > 0 ? idOption(indexActif) : undefined}
-        aria-required={required || undefined}
+        required={required}
         aria-invalid={invalid || undefined}
         aria-describedby={describedBy}
         value={query ?? choisi?.label ?? ""}
@@ -172,7 +184,10 @@ export function SearchSelect({
           setActif(0);
         }}
         onFocus={(event) => event.target.select()}
-        onClick={() => setOuvert(true)}
+        onClick={ouvrir}
+        // La liste ne prend jamais le focus (voir `onMouseDown` plus bas) : le
+        // quitter, y compris vers la croix, referme donc la liste.
+        onBlur={fermer}
         onKeyDown={auClavier}
         className={cn(
           controlClasses,
@@ -196,7 +211,12 @@ export function SearchSelect({
       ) : null}
 
       {ouvert ? (
-        <div className="absolute inset-x-0 top-full z-20 mt-1 border border-rule bg-surface">
+        <div
+          // Un clic dans la liste — sur une option comme sur sa barre de
+          // défilement — ne vole pas le focus au champ.
+          onMouseDown={(event) => event.preventDefault()}
+          className="absolute inset-x-0 top-full z-20 mt-1 border border-rule bg-surface"
+        >
           <ul id={listId} role="listbox" className="max-h-[320px] overflow-y-auto">
             {entrees.map((option, index) => (
               <li
@@ -204,9 +224,6 @@ export function SearchSelect({
                 id={idOption(index)}
                 role="option"
                 aria-selected={(option?.id ?? "") === value}
-                // La souris ne vole pas le focus au champ : le choix se fait au
-                // clic, le champ garde la main.
-                onMouseDown={(event) => event.preventDefault()}
                 onMouseEnter={() => setActif(index)}
                 onClick={() => choisir(option)}
                 className={cn(
@@ -231,11 +248,16 @@ export function SearchSelect({
               {`Et ${reste} autre${reste > 1 ? "s" : ""} : précisez la recherche.`}
             </p>
           ) : null}
-          <p aria-live="polite" className="sr-only">
-            {terme ? `${propositions.length + reste} résultat${propositions.length + reste > 1 ? "s" : ""}` : ""}
-          </p>
         </div>
       ) : null}
+
+      {/* Rendue d'emblée, et non avec la liste : une région vivante qui naît
+          déjà remplie n'est pas annoncée. */}
+      <p aria-live="polite" className="sr-only">
+        {ouvert && terme
+          ? `${propositions.length + reste} résultat${propositions.length + reste > 1 ? "s" : ""}`
+          : ""}
+      </p>
     </div>
   );
 }

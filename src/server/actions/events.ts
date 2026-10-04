@@ -66,11 +66,14 @@ async function memberGroupId(
 ) {
   const id = objectIdOrNull(groupId ?? null);
   if (!id) return null;
-  if (currentGroupId && String(id) === currentGroupId) return id;
   const group = await Group.findOne({
     _id: id,
     hidden: { $ne: true },
-    $or: [{ authorId: user.id }, { memberIds: user.id }],
+    // Le groupe déjà associé n'a pas à compter celui qui enregistre ; masqué
+    // par la modération, il ne se garde pas pour autant.
+    ...(currentGroupId && String(id) === currentGroupId
+      ? {}
+      : { $or: [{ authorId: user.id }, { memberIds: user.id }] }),
   } as never)
     .select({ _id: 1 })
     .lean();

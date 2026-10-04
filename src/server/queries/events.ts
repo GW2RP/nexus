@@ -200,7 +200,11 @@ async function hydrateEvents(docs: EventDoc[], viewerId: string | null): Promise
       ? Place.find({ _id: { $in: placeIds } }).select({ name: 1, slug: 1, district: 1 }).lean()
       : Promise.resolve([]),
     groupIds.length
-      ? Group.find({ _id: { $in: groupIds } }).select({ name: 1, slug: 1 }).lean()
+      ? // Un groupe masqué par la modération ne se nomme plus sous ses scènes :
+        // son lien mènerait à une page introuvable.
+        Group.find({ _id: { $in: groupIds }, hidden: { $ne: true } } as never)
+          .select({ name: 1, slug: 1 })
+          .lean()
       : Promise.resolve([]),
     seriesIds.length
       ? EventSeries.find({ _id: { $in: seriesIds } }).select({ recurrence: 1, pausedAt: 1 }).lean()
