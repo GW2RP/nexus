@@ -224,6 +224,13 @@ export default async function AccountPage({
             </section>
           ) : null}
 
+          <section className="mb-8" aria-labelledby="mon-mot-de-passe">
+            <SectionHeading id="mon-mot-de-passe" title="Mon mot de passe" compact />
+            <Button asChild variant="outline" size="sm">
+              <Link href="/mon-compte/mot-de-passe">CHANGER LE MOT DE PASSE</Link>
+            </Button>
+          </section>
+
           <section aria-labelledby="mon-role">
             <SectionHeading id="mon-role" title="Mon rôle" compact />
             <p className="text-[18px] text-ink">{ROLE_LABELS[user.role]}</p>

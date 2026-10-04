@@ -104,6 +104,14 @@ async function Resultats({ searchParams }: { searchParams: Promise<Params> }) {
                     >
                       Images
                     </Link>
+                    {user.role !== "administration" ? (
+                      <Link
+                        href={`/admin/utilisateurs/${user.id}/mot-de-passe`}
+                        className="mt-1 block meta text-ink-muted underline hover:text-ink"
+                      >
+                        Mot de passe
+                      </Link>
+                    ) : null}
                   </th>
                   <td className="px-4 py-4 align-top body-compact break-all text-ink-body">
                     {user.email}
