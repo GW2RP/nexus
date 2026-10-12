@@ -97,6 +97,10 @@ export function BoardTextSession({
         // d'allure quand on se met à l'écrire.
         class: "flex min-h-full cursor-text select-text flex-col gap-[0.4em] leading-[1.45] focus:outline-none",
       },
+      // Le champ vit dans le panneau : défiler jusqu'au curseur pousserait le
+      // `scrollTop` de chaque ancêtre, canevas compris, que la vue ignore — et
+      // la création comme le collage tomberaient ensuite à côté.
+      handleScrollToSelection: () => true,
       handleKeyDown: (_view, event) => {
         if (event.key !== "Escape") return false;
         handlers.current.onEscape();
@@ -131,6 +135,20 @@ export function BoardTextSession({
  *  sélectionne un mot — sans que le panneau ne le prenne pour un glissé. */
 export function BoardTextContent({ editor, size }: { editor: Editor; size: number }) {
   const focused = useEditorState({ editor, selector: ({ editor: current }) => current.isFocused });
+
+  // Le navigateur fait défiler la note jusqu'au curseur quand le texte dépasse
+  // sa hauteur. Rendue ensuite en lecture dans le même cadre, elle garderait
+  // ce défilement et s'afficherait amputée de ses premières lignes.
+  useEffect(() => {
+    if (focused) return;
+    const body = (editor.view.dom as HTMLElement).closest("[data-element-body]");
+    const rewind = () => body?.querySelectorAll<HTMLElement>("*").forEach((node) => {
+      if (node.scrollTop || node.scrollLeft) node.scrollTo(0, 0);
+    });
+    rewind();
+    return rewind;
+  }, [editor, focused]);
+
   return (
     <EditorContent
       editor={editor}
@@ -156,8 +174,8 @@ export function focusTextAt(editor: Editor, clientX?: number, clientY?: number) 
     position = editor.view.posAtCoords({ left: clientX, top: clientY })?.pos ?? null;
     dom.style.pointerEvents = "";
   }
-  if (position === null) editor.commands.focus("end");
-  else editor.chain().focus().setTextSelection(position).run();
+  if (position === null) editor.commands.focus("end", { scrollIntoView: false });
+  else editor.chain().focus(null, { scrollIntoView: false }).setTextSelection(position).run();
 }
 
 /** La barre de mise en forme, dans l'inspecteur. Elle agit sur le texte de

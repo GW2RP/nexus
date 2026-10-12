@@ -237,7 +237,9 @@ function ElementPanel({
           </div>
         </>
       ) : rich ? (
-        <BoardTextToolbar id={`texte-${element.id}`} editor={textEditor} />
+        // Remontée à chaque élément : un lien en cours de saisie sur l'un ne
+        // doit pas se poser sur le suivant.
+        <BoardTextToolbar key={element.id} id={`texte-${element.id}`} editor={textEditor} />
       ) : (
         <div className="flex flex-col gap-2">
           <Label htmlFor={`legende-${element.id}`}>Légende</Label>

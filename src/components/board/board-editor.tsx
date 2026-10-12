@@ -1025,6 +1025,10 @@ export function BoardEditor({
           onPointerMove={onCanvasPointerMove}
           onPointerUp={onCanvasPointerUp}
           onPointerCancel={() => onCanvasPointerUp(null)}
+          // Le canevas ne défile jamais : la vue fait foi (`toBoard`). Un
+          // défilement qu'un champ ou le navigateur lui imposerait décalerait
+          // tout ce qu'on pose ensuite.
+          onScroll={(event) => event.currentTarget.scrollTo(0, 0)}
         >
           <div
             className={cn("absolute left-0 top-0 origin-top-left", !framed && "invisible")}
