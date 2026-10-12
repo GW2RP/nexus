@@ -1,11 +1,13 @@
 "use client";
 
+import type { Editor } from "@tiptap/react";
 import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 
 import { ArrowLabel, ArrowStrokes, BoardGrid, ElementBody } from "@/components/board/board-layer";
 import { BoardImagePlacer, uploadBoardImage } from "@/components/board/board-image-placer";
 import { ACCEPTED_IMAGE_TYPES, uploadFailureMessage } from "@/components/forms/upload-image";
 import { BoardInspector } from "@/components/board/board-inspector";
+import { BoardTextContent, BoardTextSession, focusTextAt } from "@/components/board/board-text-field";
 import {
   ARROW_DEFAULTS,
   BOARD_HEIGHT,
@@ -18,6 +20,7 @@ import {
   arrowGeometry,
   contentBounds,
   elementName,
+  isRichKind,
   newItemId,
   type ArrowPatch,
   type BoardArrow,
@@ -216,6 +219,8 @@ type Gesture =
       startY: number;
       origin: Pick<BoardElement, "x" | "y" | "w" | "h">;
       moved: boolean;
+      /** Un clic sans glissé sur un texte déjà choisi y pose le curseur. */
+      enterText?: boolean;
     };
 
 type Draft = {
@@ -309,6 +314,7 @@ export function BoardEditor({
   const [pasting, setPasting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [historyCounts, setHistoryCounts] = useState({ undo: 0, redo: 0 });
+  const [textEditor, setTextEditor] = useState<{ id: string; editor: Editor } | null>(null);
 
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -330,6 +336,23 @@ export function BoardEditor({
       Boolean(me) && canWrite && (ownerType === "groupe" || canModerate || authorId === me?.id),
     [me, canWrite, ownerType, canModerate],
   );
+
+  /* --- Le texte sur place ------------------------------------------------- */
+
+  // Le texte d'une note ou d'un bloc de texte s'écrit dans l'élément même. Son
+  // éditeur naît quand on choisit l'élément : le premier clic le saisit — on
+  // le glisse, on le pousse aux flèches —, le second pose le curseur au point
+  // cliqué. `Entrée` y entre au clavier, `Échap` en ressort.
+  const textTarget =
+    selectedElement && isRichKind(selectedElement.kind) && canModify(selectedElement.authorId)
+      ? selectedElement
+      : null;
+  const activeTextEditor =
+    textTarget && textEditor?.id === textTarget.id ? textEditor.editor : null;
+
+  const onTextEditor = useCallback((id: string, editor: Editor | null) => {
+    setTextEditor((current) => (editor ? { id, editor } : current?.id === id ? null : current));
+  }, []);
 
   const syncHistory = useCallback(
     () =>
@@ -762,7 +785,8 @@ export function BoardEditor({
     dispatch({ type: "op", op: { type: "modifier", id: current.id, patch }, me });
   }
 
-  function onCanvasPointerUp() {
+  /** `point` manque quand le geste est interrompu : rien n'a été cliqué. */
+  function onCanvasPointerUp(point: { clientX: number; clientY: number } | null) {
     const current = gesture.current;
     gesture.current = null;
     if (!current) return;
@@ -770,7 +794,12 @@ export function BoardEditor({
       if (!current.moved) select(null);
       return;
     }
-    if (!current.moved) return;
+    if (!current.moved) {
+      if (current.enterText && point && activeTextEditor && textTarget?.id === current.id) {
+        focusTextAt(activeTextEditor, point.clientX, point.clientY);
+      }
+      return;
+    }
     const element = stateRef.current.content.elements.find((one) => one.id === current.id);
     if (!element) return;
     const keys = current.mode === "move" ? ["x", "y"] : ["x", "y", "w", "h"];
@@ -788,7 +817,8 @@ export function BoardEditor({
       return;
     }
     if (tool !== "select") setTool("select");
-    if (selection?.type !== "element" || selection.id !== element.id) select({ type: "element", id: element.id });
+    const wasSelected = selection?.type === "element" && selection.id === element.id;
+    if (!wasSelected) select({ type: "element", id: element.id });
     if (!canModify(element.authorId)) return;
     gesture.current = {
       mode: "move",
@@ -798,6 +828,7 @@ export function BoardEditor({
       startY: event.clientY,
       origin: { x: element.x, y: element.y, w: element.w, h: element.h },
       moved: false,
+      enterText: wasSelected && isRichKind(element.kind),
     };
     canvasRef.current?.setPointerCapture(event.pointerId);
   }
@@ -833,6 +864,11 @@ export function BoardEditor({
       ArrowDown: [0, 1],
     };
     const move = moves[event.key];
+    if (event.key === "Enter" && activeTextEditor && textTarget?.id === element.id) {
+      event.preventDefault();
+      focusTextAt(activeTextEditor);
+      return;
+    }
     if (event.key === "Escape") {
       select(null);
       setPending(null);
@@ -962,6 +998,22 @@ export function BoardEditor({
 
   return (
     <div ref={rootRef} className="flex flex-col lg:h-full lg:min-h-0 lg:flex-row">
+      {textTarget ? (
+        <BoardTextSession
+          key={textTarget.id}
+          id={textTarget.id}
+          text={textTarget.text}
+          autoFocus={justCreated === textTarget.id}
+          onEditor={onTextEditor}
+          onChange={(text) => live("element", textTarget.id, { text })}
+          onBlur={settle}
+          onEscape={() =>
+            rootRef.current
+              ?.querySelector<HTMLElement>(`[data-element-button="${textTarget.id}"]`)
+              ?.focus()
+          }
+        />
+      ) : null}
       <div className="relative h-[60dvh] min-h-[320px] overflow-hidden bg-ground lg:h-auto lg:min-w-0 lg:flex-1">
         <div
           ref={canvasRef}
@@ -972,7 +1024,11 @@ export function BoardEditor({
           onPointerDown={onCanvasPointerDown}
           onPointerMove={onCanvasPointerMove}
           onPointerUp={onCanvasPointerUp}
-          onPointerCancel={onCanvasPointerUp}
+          onPointerCancel={() => onCanvasPointerUp(null)}
+          // Le canevas ne défile jamais : la vue fait foi (`toBoard`). Un
+          // défilement qu'un champ ou le navigateur lui imposerait décalerait
+          // tout ce qu'on pose ensuite.
+          onScroll={(event) => event.currentTarget.scrollTo(0, 0)}
         >
           <div
             className={cn("absolute left-0 top-0 origin-top-left", !framed && "invisible")}
@@ -1005,6 +1061,7 @@ export function BoardEditor({
                 >
                   <button
                     type="button"
+                    data-element-button={element.id}
                     aria-label={`${ELEMENT_KIND_LABELS[element.kind]} : ${elementName(element)}`}
                     aria-pressed={selected}
                     onClick={(event) => {
@@ -1018,7 +1075,15 @@ export function BoardEditor({
                     className="absolute inset-0 cursor-[inherit] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold"
                   />
                   <div className="pointer-events-none absolute inset-0">
-                    <ElementBody element={element} links={!editable} />
+                    <ElementBody
+                      element={element}
+                      links={!editable}
+                      text={
+                        activeTextEditor && textTarget?.id === element.id ? (
+                          <BoardTextContent editor={activeTextEditor} size={element.size} />
+                        ) : undefined
+                      }
+                    />
                   </div>
                   {pending === element.id ? (
                     <span aria-hidden="true" className="pointer-events-none absolute -inset-[7px] border-2 border-dashed border-crimson" />
@@ -1254,7 +1319,7 @@ export function BoardEditor({
             ]}
             canModify={selectedCanModify}
             canReport={canReport && Boolean(selectedElement) && selectedElement?.authorId !== me?.id}
-            autoFocusText={justCreated !== null && justCreated === selectedElement?.id}
+            textEditor={activeTextEditor}
             elementActions={elementActions}
             arrowActions={arrowActions}
             onFront={() =>
