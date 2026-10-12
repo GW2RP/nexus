@@ -46,20 +46,39 @@ export function BoardGrid() {
 
 /** Le corps d'un élément : ce qu'il montre, sans son cadre de sélection. Il
  *  porte le thème de son fond quand ce fond est une couleur libre
- *  (`themeForFill`). */
-export function ElementBody({ element, links }: { element: BoardElement; links: boolean }) {
+ *  (`themeForFill`).
+ *
+ *  `text` remplace le texte rendu d'une note ou d'un bloc de texte : l'éditeur
+ *  y pose le champ où l'on écrit, dans le même cadre et à la même place. */
+export function ElementBody({
+  element,
+  links,
+  text,
+}: {
+  element: BoardElement;
+  links: boolean;
+  text?: React.ReactNode;
+}) {
   return (
     <div
       className="absolute inset-0"
       data-theme={themeForFill(element.fill)}
       data-element-body={element.id}
     >
-      <ElementShape element={element} links={links} />
+      <ElementShape element={element} links={links} text={text} />
     </div>
   );
 }
 
-function ElementShape({ element, links }: { element: BoardElement; links: boolean }) {
+function ElementShape({
+  element,
+  links,
+  text,
+}: {
+  element: BoardElement;
+  links: boolean;
+  text?: React.ReactNode;
+}) {
   const stroke = colorCss("stroke", element.stroke);
   const ink = colorCss("ink", element.ink);
   // Une note sans fond ne se lirait plus sur la trame : elle garde le vélin.
@@ -116,7 +135,7 @@ function ElementShape({ element, links }: { element: BoardElement; links: boolea
             className="absolute left-1/2 top-2 -ml-1.5 size-3 rounded-full"
             style={{ background: stroke }}
           />
-          <BoardMarkdown text={element.text} size={element.size} links={links} />
+          {text ?? <BoardMarkdown text={element.text} size={element.size} links={links} />}
         </div>
       );
     case "texte":
@@ -125,7 +144,7 @@ function ElementShape({ element, links }: { element: BoardElement; links: boolea
           className={cn("absolute inset-0 overflow-hidden", element.fill !== "aucun" && "px-4 py-3")}
           style={{ background: fill, color: ink }}
         >
-          <BoardMarkdown text={element.text} size={element.size} links={links} />
+          {text ?? <BoardMarkdown text={element.text} size={element.size} links={links} />}
         </div>
       );
     case "triangle":

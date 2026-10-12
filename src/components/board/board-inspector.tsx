@@ -1,6 +1,8 @@
 "use client";
 
-import { BoardTextField } from "@/components/board/board-text-field";
+import type { Editor } from "@tiptap/react";
+
+import { BoardTextToolbar } from "@/components/board/board-text-field";
 import { ReportDialog } from "@/components/report-dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/field";
@@ -54,7 +56,7 @@ export function BoardInspector({
   facts,
   canModify,
   canReport,
-  autoFocusText,
+  textEditor,
   elementActions,
   arrowActions,
   onFront,
@@ -69,7 +71,9 @@ export function BoardInspector({
   facts: Fact[];
   canModify: boolean;
   canReport: boolean;
-  autoFocusText: boolean;
+  /** L'éditeur du texte de l'élément, qui s'écrit dans l'élément même :
+   *  l'inspecteur n'en porte que la barre de mise en forme. */
+  textEditor: Editor | null;
   elementActions: InspectorActions<ElementPatch>;
   arrowActions: InspectorActions<ArrowPatch>;
   onFront: () => void;
@@ -84,7 +88,7 @@ export function BoardInspector({
         element={element}
         canModify={canModify}
         canReport={canReport}
-        autoFocusText={autoFocusText}
+        textEditor={textEditor}
         actions={elementActions}
         onFront={onFront}
         onBack={onBack}
@@ -154,7 +158,7 @@ function ElementPanel({
   element,
   canModify,
   canReport,
-  autoFocusText,
+  textEditor,
   actions,
   onFront,
   onBack,
@@ -164,7 +168,7 @@ function ElementPanel({
   element: BoardElement;
   canModify: boolean;
   canReport: boolean;
-  autoFocusText: boolean;
+  textEditor: Editor | null;
   actions: InspectorActions<ElementPatch>;
   onFront: () => void;
   onBack: () => void;
@@ -233,14 +237,7 @@ function ElementPanel({
           </div>
         </>
       ) : rich ? (
-        <BoardTextField
-          key={element.id}
-          id={`texte-${element.id}`}
-          value={element.text}
-          autoFocus={autoFocusText}
-          onChange={(text) => actions.live({ text })}
-          onBlur={actions.settle}
-        />
+        <BoardTextToolbar id={`texte-${element.id}`} editor={textEditor} />
       ) : (
         <div className="flex flex-col gap-2">
           <Label htmlFor={`legende-${element.id}`}>Légende</Label>

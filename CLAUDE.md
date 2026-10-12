@@ -484,6 +484,15 @@ ce qu'un panneau porte : titre, gras, italique, barré, lien, listes, citation.
 Pas de souligné — il n'existe pas en markdown — ni d'image. Sa **taille** se
 choisit sur l'échelle de `tokens.css` (`TEXT_SIZES`), jamais librement.
 
+**Ce texte s'écrit dans l'élément même**, pas dans l'inspecteur : un seul
+éditeur (`BoardTextSession`), dont le champ se pose dans la note
+(`BoardTextContent`) et la barre de mise en forme dans l'inspecteur — deux
+champs pour un texte se disputeraient le curseur. Le premier clic saisit
+l'élément, le second pose le curseur au point cliqué ; `Entrée` y entre au
+clavier, `Échap` en ressort. Tant qu'on n'y écrit pas, le texte laisse passer le
+pointeur, sinon une note ne se glisserait plus ; une fois dedans, il le garde,
+et un glissé y sélectionne au lieu de déplacer.
+
 Une couleur se donne par **teinte du système** (encre, or, carmin ; vélin, ocre)
 ou **librement**. Une teinte suit le thème ; une couleur libre, non. Un élément
 au fond libre porte donc le thème de son fond (`themeForFill`) : clair sur un
