@@ -105,7 +105,23 @@ export const PLACE_TYPE_LABELS: Record<PlaceType, string> = {
   campement: "Campement",
 };
 
-export const REGIONS = ["kryte", "ascalon", "maguuma", "shiverpeaks", "orr", "desert"] as const;
+/** Les régions s'ajoutent **à la fin** : la simulation range dans chaque pas
+ *  le rang de la région de ses cellules, et un rang décalé relirait les pas
+ *  stockés sous une autre région. */
+export const REGIONS = [
+  "kryte",
+  "ascalon",
+  "maguuma",
+  "shiverpeaks",
+  "orr",
+  "desert",
+  "cantha",
+  "shing-jea",
+  "echovald",
+  "kaineng",
+  "mer-de-jade",
+  "brumes",
+] as const;
 export type Region = (typeof REGIONS)[number];
 
 export const REGION_LABELS: Record<Region, string> = {
@@ -115,6 +131,12 @@ export const REGION_LABELS: Record<Region, string> = {
   shiverpeaks: "Pics Glacés",
   orr: "Orr",
   desert: "Désert de Cristal",
+  cantha: "Cantha",
+  "shing-jea": "Shing Jea",
+  echovald: "Echovald",
+  kaineng: "Kaineng",
+  "mer-de-jade": "Mer de Jade",
+  brumes: "Brumes",
 };
 
 export const WEATHER_CONDITIONS = [
