@@ -296,10 +296,15 @@ export function plainExcerpt(text: string, max = 120): string {
  *  barré, code et échappements. Ses marques de bloc — titre, puce, citation —
  *  restent à qui les lit. */
 export function stripInlineMarkdown(line: string): string {
+  // Les échappements d'abord, mis de côté : `5 \* 3` est un astérisque écrit,
+  // pas une marque d'emphase, et le retirer avec les marques laisserait
+  // `5 \ 3`. Chaque caractère échappé revient tel quel à la fin.
+  const escaped: string[] = [];
   return line
+    .replace(/\\([\\`*_{}[\]()#+\-.!>~])/g, (_, char: string) => `\u0000${escaped.push(char) - 1}\u0000`)
     .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
     .replace(/(\*\*|__|\*|_|~~|`)/g, "")
-    .replace(/\\([\\`*_{}[\]()#+\-.!>~])/g, "$1");
+    .replace(/\u0000(\d+)\u0000/g, (_, index: string) => escaped[Number(index)]);
 }
 
 /** Le nom qu'un élément donne de lui-même : sa première ligne, ou son type. */

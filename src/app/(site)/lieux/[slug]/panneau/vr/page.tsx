@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 
 import { BoardVrScreen } from "@/components/board/board-vr-screen";
 import { vrPathOf } from "@/lib/board-vr";
@@ -11,11 +12,12 @@ type Props = { params: Promise<{ slug: string }> };
 
 export const dynamic = "force-dynamic";
 
-async function load(slug: string) {
+/** Une lecture par requête, pour les métadonnées comme pour la page. */
+const load = cache(async (slug: string) => {
   const place = await getPlaceBySlug(slug);
   const board = place ? await getPlaceBoard(place) : null;
   return place && board ? { place, board: { ...board, name: place.name } } : null;
-}
+});
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;

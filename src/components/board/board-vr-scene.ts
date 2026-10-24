@@ -56,9 +56,6 @@ const PILE_MAX = 0.012;
 /** Le champ de la vue dans la page. Le casque impose le sien pendant la
  *  session, et three.js le laisse sur la caméra en sortant. */
 const CHAMP = 50;
-/** Ce qu'une image a pour arriver, après quoi l'élément garde son cadre vide
- *  plutôt que de retenir toute la scène. */
-const DELAI_IMAGE_MS = 8000;
 /** De combien un élément saisi se décolle du tableau. */
 const DECOLLE = 0.025;
 /** La marge de liège autour de ce que porte le panneau, en pixels du panneau. */
@@ -66,8 +63,18 @@ const MARGE = 120;
 /** La définition des toiles : deux points par pixel, sans dépasser 1 536 de côté. */
 const DEFINITION = 2;
 const TOILE_MAX = 1536;
+/** Les points de toile que la scène entière s'accorde, toutes toiles confondues :
+ *  environ 170 Mo de textures, mipmaps comprises. Trois cents grands éléments
+ *  en définition double en demanderaient 3,7 Go, et un casque autonome perdrait
+ *  son contexte WebGL ; au-delà, la définition baisse pour tous. */
+const POINTS_MAX = 32_000_000;
+/** Le déplacement sous lequel un élément tenu ne bouge pas, en mètres : une
+ *  manette tremble toujours, et chaque pas retend ses cordelettes. */
+const TREMBLEMENT = 0.001;
 
-type Typo = { body: string; display: string };
+type Typo = { body: string; display: string; caption: StyleTexte; meta: StyleTexte };
+/** Un style de texte des jetons : sa taille, et sa hauteur de ligne rapportée à elle. */
+type StyleTexte = { size: number; lineHeight: number };
 
 /** Les jetons, lus là où ils vivent : une couleur du système n'a pas de valeur
  *  hors de la feuille de style, et la scène la demande au thème — celui de la
@@ -77,8 +84,7 @@ function lecteurDeJetons() {
   probe.style.display = "none";
   document.body.append(probe);
   return {
-    color(css: string, theme?: "light" | "dark"): string | null {
-      if (css === "transparent") return null;
+    color(css: string, theme?: "light" | "dark"): string {
       if (theme) probe.dataset.theme = theme;
       else delete probe.dataset.theme;
       probe.style.color = "";
@@ -89,6 +95,19 @@ function lecteurDeJetons() {
       probe.style.fontFamily = css;
       return getComputedStyle(probe).fontFamily;
     },
+    /** Le style d'une classe de texte de `tokens.css` (`caption`, `meta`…). */
+    text(className: string): StyleTexte {
+      const sample = document.createElement("span");
+      sample.className = className;
+      probe.append(sample);
+      // Le style calculé suit l'élément : on le lit avant de le retirer.
+      const { fontSize, lineHeight } = getComputedStyle(sample);
+      sample.remove();
+      const size = parseFloat(fontSize);
+      // La hauteur de ligne revient en pixels, ou nue quand elle est écrite nue.
+      const line = parseFloat(lineHeight);
+      return { size, lineHeight: lineHeight.endsWith("px") ? line / size : line || 1.45 };
+    },
     dispose() {
       probe.remove();
     },
@@ -98,25 +117,16 @@ function lecteurDeJetons() {
 type Jetons = ReturnType<typeof lecteurDeJetons>;
 
 /** Une image du magasin, chargée pour la toile. Le magasin la sert à toute
- *  origine ; si elle ne vient pas, l'élément garde son cadre et sa dimension. */
+ *  origine ; tant qu'elle ne vient pas, l'élément garde son cadre et sa
+ *  dimension, et la scène ne l'attend pas. */
 function chargerImage(src: string): Promise<HTMLImageElement | null> {
   if (!isBlobUrl(src)) return Promise.resolve(null);
   return new Promise((resolve) => {
     const image = new Image();
-    const delai = window.setTimeout(() => {
-      image.src = "";
-      resolve(null);
-    }, DELAI_IMAGE_MS);
     image.crossOrigin = "anonymous";
     image.decoding = "async";
-    image.onload = () => {
-      window.clearTimeout(delai);
-      resolve(image);
-    };
-    image.onerror = () => {
-      window.clearTimeout(delai);
-      resolve(null);
-    };
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
     image.src = src;
   });
 }
@@ -170,8 +180,14 @@ function ecrire(
 
 /** Le dessin d'un élément sur une toile, à l'allure qu'il a sur le panneau :
  *  même fond, même trait, même encre. L'épingle, elle, est en relief. */
-function dessiner(element: BoardElement, jetons: Jetons, typo: Typo, image: HTMLImageElement | null) {
-  const ratio = Math.min(DEFINITION, TOILE_MAX / Math.max(element.w, element.h));
+function dessiner(
+  element: BoardElement,
+  jetons: Jetons,
+  typo: Typo,
+  image: HTMLImageElement | null,
+  definition: number,
+) {
+  const ratio = Math.min(definition, TOILE_MAX / Math.max(element.w, element.h));
   const canvas = document.createElement("canvas");
   canvas.width = Math.ceil(element.w * ratio);
   canvas.height = Math.ceil(element.h * ratio);
@@ -181,14 +197,13 @@ function dessiner(element: BoardElement, jetons: Jetons, typo: Typo, image: HTML
 
   const { w, h } = element;
   const theme = themeForFill(element.fill);
-  const stroke = jetons.color(colorCss("stroke", element.stroke), theme) ?? "black";
-  const ink = jetons.color(colorCss("ink", element.ink), theme) ?? "black";
+  const stroke = jetons.color(colorCss("stroke", element.stroke), theme);
+  const ink = jetons.color(colorCss("ink", element.ink), theme);
   const rule = jetons.color("var(--rule)", theme);
   // Une note sans fond garde le vélin, comme sur le panneau ; un bloc de texte
   // aussi, ici : son encre posée à même le liège ne se lirait plus.
-  const fill = isRichKind(element.kind) && element.fill === "aucun"
-    ? jetons.color("var(--surface)", theme)
-    : jetons.color(colorCss("fill", element.fill), theme);
+  const fillCss = isRichKind(element.kind) && element.fill === "aucun" ? "var(--surface)" : colorCss("fill", element.fill);
+  const fill = fillCss === "transparent" ? null : jetons.color(fillCss, theme);
 
   const riche = (box: { x: number; y: number; w: number; h: number }) => {
     const size = element.size;
@@ -209,18 +224,23 @@ function dessiner(element: BoardElement, jetons: Jetons, typo: Typo, image: HTML
     ecrire(ctx, lignes, box, "left", size * 0.4);
   };
 
-  const legende = (box: { x: number; y: number; w: number; h: number }, align: "left" | "center") => {
-    if (!element.text.trim()) return;
+  // La légende d'une forme, ligne par ligne : une ligne vide garde son rang,
+  // comme sur le panneau. Sa hauteur se compte sur les mêmes lignes que celles
+  // qu'on écrit, sans quoi le centrage tomberait à côté.
+  const lignesDeLegende = element.text.trim()
+    ? element.text.split("\n").map((text) => ({
+        text,
+        font: `${element.size}px ${typo.body}`,
+        size: element.size,
+        lineHeight: 1.4,
+      }))
+    : [];
+  const hauteurDeLegende = lignesDeLegende.length * element.size * 1.4;
+  const legende = (box: { x: number; y: number; w: number }) => {
     ctx.fillStyle = ink;
-    const lignes = element.text.split("\n").map((text) => ({
-      text,
-      font: `${element.size}px ${typo.body}`,
-      size: element.size,
-      lineHeight: 1.4,
-    }));
-    // La hauteur annoncée ne compte pas les retours à la ligne : seul le cadre
-    // de l'élément borne ce qui s'écrit.
-    ecrire(ctx, lignes, { ...box, h: element.h - box.y }, align, 0);
+    // La hauteur annoncée ne compte pas les retours à la ligne d'un texte
+    // trop large : seul le cadre de l'élément borne ce qui s'écrit.
+    ecrire(ctx, lignesDeLegende, { ...box, h: element.h - box.y }, "center", 0);
   };
 
   switch (element.kind) {
@@ -230,7 +250,7 @@ function dessiner(element: BoardElement, jetons: Jetons, typo: Typo, image: HTML
         ctx.fillStyle = fill;
         ctx.fillRect(0, 0, w, h);
       }
-      if (element.kind === "note" && rule) {
+      if (element.kind === "note") {
         ctx.strokeStyle = rule;
         ctx.lineWidth = 1;
         ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
@@ -249,8 +269,8 @@ function dessiner(element: BoardElement, jetons: Jetons, typo: Typo, image: HTML
         ctx.fillRect(0, 0, w, h);
       }
       const caption = element.caption.trim();
-      const captionSize = 15;
-      const captionHeight = caption ? Math.min(h / 2, captionSize * 1.45 * 2 + 16) : 0;
+      const { size: captionSize, lineHeight: captionLine } = typo.caption;
+      const captionHeight = caption ? Math.min(h / 2, captionSize * captionLine * 2 + 16) : 0;
       const area = { x: 0, y: 0, w, h: h - captionHeight };
       if (image) {
         const scale = Math.min(area.w / image.naturalWidth, area.h / image.naturalHeight);
@@ -259,8 +279,8 @@ function dessiner(element: BoardElement, jetons: Jetons, typo: Typo, image: HTML
         ctx.drawImage(image, (area.w - iw) / 2, (area.h - ih) / 2, iw, ih);
       } else {
         // Rien d'inventé : le cadre dit la dimension qu'il attendait.
-        ctx.fillStyle = jetons.color("var(--ink-muted)", theme) ?? ink;
-        ctx.font = `15px ${typo.body}`;
+        ctx.fillStyle = jetons.color("var(--ink-muted)", theme);
+        ctx.font = `${captionSize}px ${typo.body}`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(`${w} × ${h}`, area.w / 2, area.h / 2);
@@ -276,10 +296,10 @@ function dessiner(element: BoardElement, jetons: Jetons, typo: Typo, image: HTML
         ctx.beginPath();
         ctx.rect(0, area.h, w, captionHeight);
         ctx.clip();
-        ctx.fillStyle = jetons.color("var(--ink-body)", theme) ?? ink;
+        ctx.fillStyle = jetons.color("var(--ink-body)", theme);
         ecrire(
           ctx,
-          [{ text: caption, font: `${captionSize}px ${typo.body}`, size: captionSize, lineHeight: 1.45 }],
+          [{ text: caption, font: `${captionSize}px ${typo.body}`, size: captionSize, lineHeight: captionLine }],
           { x: 12, y: area.h + 8, w: w - 24, h: captionHeight - 16 },
           "left",
           0,
@@ -305,9 +325,7 @@ function dessiner(element: BoardElement, jetons: Jetons, typo: Typo, image: HTML
       ctx.lineWidth = 2;
       ctx.stroke();
       const inset = w * 0.22;
-      const lignes = element.text.split("\n").filter(Boolean);
-      const haut = lignes.length * element.size * 1.4;
-      legende({ x: inset, y: h - 12 - haut, w: w - inset * 2, h: haut }, "center");
+      legende({ x: inset, y: h - 12 - hauteurDeLegende, w: w - inset * 2 });
       break;
     }
     default: {
@@ -325,9 +343,7 @@ function dessiner(element: BoardElement, jetons: Jetons, typo: Typo, image: HTML
       ctx.save();
       ctx.clip();
       const pad = element.kind === "rond" ? 16 : 8;
-      const lignes = element.text.split("\n").filter(Boolean);
-      const haut = lignes.length * element.size * 1.4;
-      legende({ x: pad, y: Math.max(pad, (h - haut) / 2), w: w - pad * 2, h: haut }, "center");
+      legende({ x: pad, y: Math.max(pad, (h - hauteurDeLegende) / 2), w: w - pad * 2 });
       ctx.restore();
     }
   }
@@ -336,21 +352,22 @@ function dessiner(element: BoardElement, jetons: Jetons, typo: Typo, image: HTML
 
 /** L'étiquette d'une cordelette : sa légende sur un bout de papier. */
 function etiquette(label: string, jetons: Jetons, typo: Typo) {
-  const size = 16;
+  // Le style des légendes de flèche sur le panneau (`ArrowLabel`).
+  const { size, lineHeight } = typo.meta;
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
   ctx.font = `${size}px ${typo.body}`;
   const w = Math.ceil(ctx.measureText(label).width) + 16;
-  const h = Math.ceil(size * 1.45) + 4;
+  const h = Math.ceil(size * lineHeight) + 4;
   canvas.width = w * DEFINITION;
   canvas.height = h * DEFINITION;
   ctx.scale(DEFINITION, DEFINITION);
-  ctx.fillStyle = jetons.color("var(--ground)") ?? "white";
+  ctx.fillStyle = jetons.color("var(--ground)");
   ctx.fillRect(0, 0, w, h);
-  ctx.strokeStyle = jetons.color("var(--rule)") ?? "black";
+  ctx.strokeStyle = jetons.color("var(--rule)");
   ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
-  ctx.fillStyle = jetons.color("var(--ink-body)") ?? "black";
+  ctx.fillStyle = jetons.color("var(--ink-body)");
   ctx.font = `${size}px ${typo.body}`;
   ctx.textBaseline = "middle";
   ctx.textAlign = "center";
@@ -373,10 +390,31 @@ type Cordelette = {
   tag: THREE.Mesh | null;
 };
 
-export async function createVrScene({ container, content, onSession, onMoved }: Options): Promise<VrScene> {
+export async function createVrScene(options: Options): Promise<VrScene> {
   const jetons = lecteurDeJetons();
+  // Ce que la construction a déjà posé dans la page, à retirer si elle échoue
+  // en route — un navigateur sans WebGL lève dès le rendu.
+  const defaire: (() => void)[] = [() => jetons.dispose()];
+  try {
+    return await monter(options, jetons, defaire);
+  } catch (error) {
+    for (const one of defaire.reverse()) one();
+    throw error;
+  }
+}
+
+async function monter(
+  { container, content, onSession, onMoved }: Options,
+  jetons: Jetons,
+  defaire: (() => void)[],
+): Promise<VrScene> {
   await document.fonts.ready;
-  const typo: Typo = { body: jetons.font("var(--font-body)"), display: jetons.font("var(--font-display)") };
+  const typo: Typo = {
+    body: jetons.font("var(--font-body)"),
+    display: jetons.font("var(--font-display)"),
+    caption: jetons.text("caption"),
+    meta: jetons.text("meta"),
+  };
 
   const bounds = contentBounds(content.elements, MARGE) ?? { x: 0, y: 0, w: 1200, h: 800 };
   const echelle = metresParPixel(bounds);
@@ -392,8 +430,13 @@ export async function createVrScene({ container, content, onSession, onMoved }: 
   renderer.domElement.style.display = "block";
   renderer.domElement.style.touchAction = "none";
   container.append(renderer.domElement);
+  defaire.push(() => {
+    renderer.dispose();
+    renderer.forceContextLoss();
+    renderer.domElement.remove();
+  });
 
-  const fond = new THREE.Color(jetons.color("var(--ground)") ?? "black");
+  const fond = new THREE.Color(jetons.color("var(--ground)"));
   const scene = new THREE.Scene();
   scene.background = fond;
 
@@ -406,7 +449,7 @@ export async function createVrScene({ container, content, onSession, onMoved }: 
     return one;
   }
   function couleur(css: string) {
-    return new THREE.Color(jetons.color(css) ?? "black");
+    return new THREE.Color(jetons.color(css));
   }
 
   // Le sol, pour que le tableau tienne quelque part dans la pièce.
@@ -441,17 +484,18 @@ export async function createVrScene({ container, content, onSession, onMoved }: 
   const aiguilleMaterial = garder(new THREE.MeshBasicMaterial({ color: couleur("var(--ink-muted)") }));
   const carmin = couleur("var(--crimson)");
 
-  const images = await Promise.all(
-    content.elements.map((element) => (element.kind === "image" ? chargerImage(element.src) : Promise.resolve(null))),
+  const definition = Math.min(
+    DEFINITION,
+    Math.sqrt(POINTS_MAX / content.elements.reduce((sum, one) => sum + one.w * one.h, 1)),
   );
+  let libere = false;
 
   const ordre = [...content.elements].sort((a, b) => a.z - b.z);
   const ecart = Math.min(ECART_PLAN, PILE_MAX / Math.max(1, ordre.length));
   const plan = (rang: number) => surface + rang * ecart;
   const epingles = new Map<string, Epingle>();
   for (const [rang, element] of ordre.entries()) {
-    const image = images[content.elements.indexOf(element)];
-    const texture = garder(new THREE.CanvasTexture(dessiner(element, jetons, typo, image)));
+    const texture = garder(new THREE.CanvasTexture(dessiner(element, jetons, typo, null, definition)));
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
     const mesh = new THREE.Mesh(
@@ -472,7 +516,7 @@ export async function createVrScene({ container, content, onSession, onMoved }: 
         new THREE.MeshBasicMaterial({
           color:
             element.kind === "note"
-              ? new THREE.Color(jetons.color(colorCss("stroke", element.stroke), themeForFill(element.fill)) ?? "black")
+              ? new THREE.Color(jetons.color(colorCss("stroke", element.stroke), themeForFill(element.fill)))
               : carmin,
         }),
       ),
@@ -491,6 +535,16 @@ export async function createVrScene({ container, content, onSession, onMoved }: 
     group.position.set(origine.x, origine.y, plan(rang));
     tableau.add(group);
     epingles.set(element.id, { element, group, mesh, origine, rang });
+
+    // L'image se redessine à son arrivée : la scène ne l'attend pas.
+    if (element.kind === "image") {
+      void chargerImage(element.src).then((image) => {
+        if (!image || libere) return;
+        texture.image = dessiner(element, jetons, typo, image, definition);
+        texture.needsUpdate = true;
+        redessiner();
+      });
+    }
   }
 
   // Les cordelettes, d'une épingle à l'autre. Une flèche à l'encre par défaut
@@ -630,7 +684,7 @@ export async function createVrScene({ container, content, onSession, onMoved }: 
     const epingle = epingles.get(prise.id)!;
     const x = THREE.MathUtils.clamp(sur.x - prise.decalage.x, limites.gauche, limites.droite);
     const y = THREE.MathUtils.clamp(sur.y - prise.decalage.y, limites.bas, limites.haut);
-    if (x === epingle.group.position.x && y === epingle.group.position.y) return;
+    if (Math.hypot(x - epingle.group.position.x, y - epingle.group.position.y) < TREMBLEMENT) return;
     epingle.group.position.x = x;
     epingle.group.position.y = y;
     for (const corde of parElement.get(prise.id) ?? []) tendre(corde);
@@ -752,7 +806,7 @@ export async function createVrScene({ container, content, onSession, onMoved }: 
 
   return {
     async enter(mode) {
-      if (session || entree || !navigator.xr) return;
+      if (libere || session || entree || !navigator.xr) return;
       entree = true;
       try {
         const next = await navigator.xr.requestSession(mode, {
@@ -799,7 +853,10 @@ export async function createVrScene({ container, content, onSession, onMoved }: 
       onMoved(false);
     },
     dispose() {
+      libere = true;
       renderer.setAnimationLoop(null);
+      // La fin de session ne doit plus remettre en place une scène libérée.
+      session?.removeEventListener("end", finDeSession);
       void session?.end().catch(() => undefined);
       observer.disconnect();
       canvas.removeEventListener("pointerdown", down);

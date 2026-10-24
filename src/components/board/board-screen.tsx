@@ -1,10 +1,10 @@
 import Link from "next/link";
 
 import { BoardEditor } from "@/components/board/board-editor";
+import { BoardFrame } from "@/components/board/board-frame";
 import { BoardVrLink } from "@/components/board/board-vr-link";
 import { LockIcon } from "@/components/icons";
 import { Badge } from "@/components/ui/badge";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { vrPathOf } from "@/lib/board-vr";
 import type { BoardVisibility } from "@/lib/boards";
 import { cn } from "@/lib/utils";
@@ -30,59 +30,53 @@ export function BoardScreen({
   editor: Omit<React.ComponentProps<typeof BoardEditor>, "boardId" | "initialContent" | "ownerType">;
 }) {
   return (
-    <div className="flex flex-col lg:h-[calc(100dvh-82px)] lg:min-h-[640px]">
-      <header className="border-b-2 border-rule bg-surface px-gutter-mobile pt-4 lg:px-gutter-app">
-        <Breadcrumb items={crumbs} />
-        <div className="-mt-2 flex flex-wrap items-end justify-between gap-x-6 gap-y-3 pb-3">
-          <div className="flex flex-wrap items-center gap-4">
-            <h1 className="font-display text-[22px] font-semibold leading-[1.2] sm:text-[27px]">
-              {board.name}
-            </h1>
-            <Badge variant={visibility === "public" ? "outline" : "default"}>
-              {visibility === "membres" ? <LockIcon size={12} /> : null}
-              {visibility === "membres" ? "MEMBRES" : "PUBLIC"}
-            </Badge>
+    <BoardFrame
+      crumbs={crumbs}
+      title={board.name}
+      badges={
+        <Badge variant={visibility === "public" ? "outline" : "default"}>
+          {visibility === "membres" ? <LockIcon size={12} /> : null}
+          {visibility === "membres" ? "MEMBRES" : "PUBLIC"}
+        </Badge>
+      }
+      actions={
+        <>
+          {tabs && tabs.length > 1 ? (
+            <nav aria-label="Panneaux du groupe" className="flex flex-wrap">
+              {tabs.map((tab) => {
+                const current = tab.id === board.id;
+                return (
+                  <Link
+                    key={tab.id}
+                    href={tab.path}
+                    aria-current={current ? "page" : undefined}
+                    className={cn(
+                      "-mb-[14px] flex min-h-tap items-center border-b-2 px-4 button-label",
+                      current
+                        ? "border-crimson text-ink"
+                        : "border-transparent text-gold-ink hover:bg-surface-selected",
+                    )}
+                  >
+                    {tab.name.toLocaleUpperCase("fr-FR")}
+                  </Link>
+                );
+              })}
+            </nav>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Un panneau vide n'a rien à épingler au tableau. */}
+            {board.elements.length > 0 ? <BoardVrLink href={vrPathOf(board.path)} /> : null}
+            {actions}
           </div>
-          <div className="flex flex-wrap items-end gap-4">
-            {tabs && tabs.length > 1 ? (
-              <nav aria-label="Panneaux du groupe" className="flex flex-wrap">
-                {tabs.map((tab) => {
-                  const current = tab.id === board.id;
-                  return (
-                    <Link
-                      key={tab.id}
-                      href={tab.path}
-                      aria-current={current ? "page" : undefined}
-                      className={cn(
-                        "-mb-[14px] flex min-h-tap items-center border-b-2 px-4 button-label",
-                        current
-                          ? "border-crimson text-ink"
-                          : "border-transparent text-gold-ink hover:bg-surface-selected",
-                      )}
-                    >
-                      {tab.name.toLocaleUpperCase("fr-FR")}
-                    </Link>
-                  );
-                })}
-              </nav>
-            ) : null}
-            <div className="flex flex-wrap items-center gap-3">
-              {/* Un panneau vide n'a rien à épingler au tableau. */}
-              {board.elements.length > 0 ? <BoardVrLink href={vrPathOf(board.path)} /> : null}
-              {actions}
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="lg:min-h-0 lg:flex-1">
-        <BoardEditor
-          boardId={board.id}
-          initialContent={{ elements: board.elements, arrows: board.arrows }}
-          ownerType={board.ownerType}
-          {...editor}
-        />
-      </div>
-    </div>
+        </>
+      }
+    >
+      <BoardEditor
+        boardId={board.id}
+        initialContent={{ elements: board.elements, arrows: board.arrows }}
+        ownerType={board.ownerType}
+        {...editor}
+      />
+    </BoardFrame>
   );
 }
