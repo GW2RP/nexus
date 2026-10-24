@@ -288,12 +288,18 @@ export function plainExcerpt(text: string, max = 120): string {
       .split("\n")
       .map((one) => one.trim())
       .find((one) => one.length > 0) ?? "";
-  const bare = line
-    .replace(/^(#{1,6}\s+|[-*+]\s+|\d+[.)]\s+|>\s?)/, "")
+  const bare = stripInlineMarkdown(line.replace(/^(#{1,6}\s+|[-*+]\s+|\d+[.)]\s+|>\s?)/, ""));
+  return bare.length > max ? `${bare.slice(0, max - 1)}…` : bare;
+}
+
+/** Une ligne de markdown sans sa syntaxe en ligne : liens, gras, italique,
+ *  barré, code et échappements. Ses marques de bloc — titre, puce, citation —
+ *  restent à qui les lit. */
+export function stripInlineMarkdown(line: string): string {
+  return line
     .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
     .replace(/(\*\*|__|\*|_|~~|`)/g, "")
     .replace(/\\([\\`*_{}[\]()#+\-.!>~])/g, "$1");
-  return bare.length > max ? `${bare.slice(0, max - 1)}…` : bare;
 }
 
 /** Le nom qu'un élément donne de lui-même : sa première ligne, ou son type. */

@@ -1,9 +1,11 @@
 import Link from "next/link";
 
 import { BoardEditor } from "@/components/board/board-editor";
+import { BoardVrLink } from "@/components/board/board-vr-link";
 import { LockIcon } from "@/components/icons";
 import { Badge } from "@/components/ui/badge";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
+import { vrPathOf } from "@/lib/board-vr";
 import type { BoardVisibility } from "@/lib/boards";
 import { cn } from "@/lib/utils";
 import type { BoardSummary } from "@/server/types";
@@ -64,7 +66,11 @@ export function BoardScreen({
                 })}
               </nav>
             ) : null}
-            {actions ? <div className="flex flex-wrap items-center gap-3">{actions}</div> : null}
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Un panneau vide n'a rien à épingler au tableau. */}
+              {board.elements.length > 0 ? <BoardVrLink href={vrPathOf(board.path)} /> : null}
+              {actions}
+            </div>
           </div>
         </div>
       </header>

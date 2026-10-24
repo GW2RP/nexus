@@ -530,6 +530,16 @@ Un élément se signale depuis son panneau (`element-panneau`). Il n'a pas
 d'adresse à lui : le signalement range celle de son panneau, qui l'ouvre
 sélectionné (`?element=`).
 
+**Un panneau s'explore aussi en VR** (`/…/vr`), en tableau de détective :
+chaque élément épinglé sur du liège, chaque flèche une cordelette tendue d'une
+épingle à l'autre. Le bouton « Explorer en VR » ne paraît qu'avec un casque
+(`useXrSupport`, `immersive-vr`) ; la page, elle, s'ouvre partout et montre la
+scène dans la fenêtre. **C'est une lecture** : on y décroche une note pour la
+reposer ailleurs, mais rien ne part au serveur, et la quitter l'oublie. La
+scène (`board-vr-scene.ts`, three.js) ne se charge qu'à l'ouverture de la page,
+et lit ses couleurs dans les jetons, au thème de la page ou à celui d'un fond
+libre (`themeForFill`).
+
 ## Les images
 
 Une image téléversée vit dans Vercel Blob, pas en base. Elle est rangée sous son
