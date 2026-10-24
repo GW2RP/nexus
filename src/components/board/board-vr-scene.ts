@@ -9,8 +9,6 @@ import {
   TABLEAU_HAUTEUR,
 } from "@/lib/board-vr";
 import {
-  BOARD_HEIGHT,
-  BOARD_WIDTH,
   colorCss,
   contentBounds,
   headingSize,
@@ -52,6 +50,15 @@ type Options = {
  *  qu'ils ne se disputent pas le même plan, pas assez pour se voir. */
 const LIEGE = 0.03;
 const ECART_PLAN = 0.0006;
+/** L'épaisseur que la pile entière ne dépasse pas : trois cents éléments à
+ *  0,6 mm flotteraient à 18 cm du liège. Au-delà, l'écart se resserre. */
+const PILE_MAX = 0.012;
+/** Le champ de la vue dans la page. Le casque impose le sien pendant la
+ *  session, et three.js le laisse sur la caméra en sortant. */
+const CHAMP = 50;
+/** Ce qu'une image a pour arriver, après quoi l'élément garde son cadre vide
+ *  plutôt que de retenir toute la scène. */
+const DELAI_IMAGE_MS = 8000;
 /** De combien un élément saisi se décolle du tableau. */
 const DECOLLE = 0.025;
 /** La marge de liège autour de ce que porte le panneau, en pixels du panneau. */
@@ -96,10 +103,20 @@ function chargerImage(src: string): Promise<HTMLImageElement | null> {
   if (!isBlobUrl(src)) return Promise.resolve(null);
   return new Promise((resolve) => {
     const image = new Image();
+    const delai = window.setTimeout(() => {
+      image.src = "";
+      resolve(null);
+    }, DELAI_IMAGE_MS);
     image.crossOrigin = "anonymous";
     image.decoding = "async";
-    image.onload = () => resolve(image);
-    image.onerror = () => resolve(null);
+    image.onload = () => {
+      window.clearTimeout(delai);
+      resolve(image);
+    };
+    image.onerror = () => {
+      window.clearTimeout(delai);
+      resolve(null);
+    };
     image.src = src;
   });
 }
@@ -365,13 +382,8 @@ export async function createVrScene({ container, content, onSession, onMoved }: 
   const echelle = metresParPixel(bounds);
   const largeur = bounds.w * echelle;
   const hauteur = bounds.h * echelle;
-  // Un élément déplacé ne quitte pas le panneau : les bornes sont les siennes.
-  const limites = {
-    gauche: (0 - bounds.x - bounds.w / 2) * echelle,
-    droite: (BOARD_WIDTH - bounds.x - bounds.w / 2) * echelle,
-    haut: -(0 - bounds.y - bounds.h / 2) * echelle,
-    bas: -(BOARD_HEIGHT - bounds.y - bounds.h / 2) * echelle,
-  };
+  // Un élément déplacé ne quitte pas le liège : son centre reste dessus.
+  const limites = { gauche: -largeur / 2, droite: largeur / 2, haut: hauteur / 2, bas: -hauteur / 2 };
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(window.devicePixelRatio);
@@ -385,7 +397,7 @@ export async function createVrScene({ container, content, onSession, onMoved }: 
   const scene = new THREE.Scene();
   scene.background = fond;
 
-  const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 50);
+  const camera = new THREE.PerspectiveCamera(CHAMP, 1, 0.01, 50);
   const centre = new THREE.Vector3(0, TABLEAU_HAUTEUR, -TABLEAU_DISTANCE);
 
   const jetables: { dispose(): void }[] = [];
@@ -434,6 +446,8 @@ export async function createVrScene({ container, content, onSession, onMoved }: 
   );
 
   const ordre = [...content.elements].sort((a, b) => a.z - b.z);
+  const ecart = Math.min(ECART_PLAN, PILE_MAX / Math.max(1, ordre.length));
+  const plan = (rang: number) => surface + rang * ecart;
   const epingles = new Map<string, Epingle>();
   for (const [rang, element] of ordre.entries()) {
     const image = images[content.elements.indexOf(element)];
@@ -474,11 +488,10 @@ export async function createVrScene({ container, content, onSession, onMoved }: 
       (element.x + element.w / 2 - bounds.x - bounds.w / 2) * echelle,
       -(element.y + element.h / 2 - bounds.y - bounds.h / 2) * echelle,
     );
-    group.position.set(origine.x, origine.y, surface + rang * ECART_PLAN);
+    group.position.set(origine.x, origine.y, plan(rang));
     tableau.add(group);
     epingles.set(element.id, { element, group, mesh, origine, rang });
   }
-  let rangMax = ordre.length;
 
   // Les cordelettes, d'une épingle à l'autre. Une flèche à l'encre par défaut
   // devient le fil rouge du tableau de détective ; une couleur choisie se garde.
@@ -540,6 +553,11 @@ export async function createVrScene({ container, content, onSession, onMoved }: 
   // Le cadrage hors casque : le tableau entier dans la fenêtre, et un léger
   // tour autour de lui à la souris.
   const vue = { lacet: 0, tangage: 0, distance: 1 };
+  // Hors casque, la scène ne se redessine que quand quelque chose a bougé.
+  let aRedessiner = true;
+  function redessiner() {
+    aRedessiner = true;
+  }
   function distanceDeCadrage() {
     const tan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
     return Math.max((hauteur / 2 + 0.12) / tan, (largeur / 2 + 0.12) / (tan * camera.aspect));
@@ -552,11 +570,13 @@ export async function createVrScene({ container, content, onSession, onMoved }: 
       centre.z + d * Math.cos(vue.lacet) * Math.cos(vue.tangage),
     );
     camera.lookAt(centre);
+    redessiner();
   }
   function redimensionner() {
     const { clientWidth: w, clientHeight: h } = container;
     if (!w || !h) return;
     camera.aspect = w / h;
+    camera.fov = CHAMP;
     camera.updateProjectionMatrix();
     if (!renderer.xr.isPresenting) renderer.setSize(w, h);
     placerCamera();
@@ -569,7 +589,7 @@ export async function createVrScene({ container, content, onSession, onMoved }: 
   // l'élément le plus proche, le promène sur le plan du tableau, et le
   // repose au premier plan.
   const raycaster = new THREE.Raycaster();
-  const plan = new THREE.Plane();
+  const planDuTableau = new THREE.Plane();
   const touche = new THREE.Vector3();
   type Prise = { id: string; decalage: THREE.Vector2 };
   const prises = new Map<string, Prise>();
@@ -577,11 +597,11 @@ export async function createVrScene({ container, content, onSession, onMoved }: 
   const meshes = () => [...epingles.values()].map((one) => one.mesh);
 
   function surLePlan(ray: THREE.Ray): THREE.Vector2 | null {
-    plan.setFromNormalAndCoplanarPoint(
+    planDuTableau.setFromNormalAndCoplanarPoint(
       new THREE.Vector3(0, 0, 1),
       new THREE.Vector3(0, 0, surface).add(tableau.position),
     );
-    if (!ray.intersectPlane(plan, touche)) return null;
+    if (!ray.intersectPlane(planDuTableau, touche)) return null;
     return new THREE.Vector2(touche.x - tableau.position.x, touche.y - tableau.position.y);
   }
 
@@ -597,7 +617,8 @@ export async function createVrScene({ container, content, onSession, onMoved }: 
       id: epingle.element.id,
       decalage: sur.sub(new THREE.Vector2(epingle.group.position.x, epingle.group.position.y)),
     });
-    epingle.group.position.z = surface + rangMax * ECART_PLAN + DECOLLE;
+    epingle.group.position.z = plan(ordre.length) + DECOLLE;
+    redessiner();
     return true;
   }
 
@@ -613,6 +634,7 @@ export async function createVrScene({ container, content, onSession, onMoved }: 
     epingle.group.position.x = x;
     epingle.group.position.y = y;
     for (const corde of parElement.get(prise.id) ?? []) tendre(corde);
+    redessiner();
     if (!deplace) {
       deplace = true;
       onMoved(true);
@@ -623,11 +645,17 @@ export async function createVrScene({ container, content, onSession, onMoved }: 
     const prise = prises.get(source);
     if (!prise) return;
     prises.delete(source);
+    // Reposé au premier plan, et la pile renumérotée : les rangs restent
+    // ceux de la liste, la pile ne s'épaissit pas à chaque reprise.
     const epingle = epingles.get(prise.id)!;
-    rangMax += 1;
-    epingle.rang = rangMax;
-    epingle.group.position.z = surface + rangMax * ECART_PLAN;
+    epingle.rang = Infinity;
+    const pile = [...epingles.values()].sort((a, b) => a.rang - b.rang);
+    for (const [rang, one] of pile.entries()) {
+      one.rang = rang;
+      if (![...prises.values()].some((autre) => autre.id === one.element.id)) one.group.position.z = plan(rang);
+    }
     for (const corde of parElement.get(prise.id) ?? []) tendre(corde);
+    redessiner();
   }
 
   // La souris, hors casque.
@@ -702,11 +730,15 @@ export async function createVrScene({ container, content, onSession, onMoved }: 
   renderer.setAnimationLoop(() => {
     if (renderer.xr.isPresenting) {
       for (const { manette, source } of manettes) promener(source, rayonDeManette(manette));
+    } else if (!aRedessiner) {
+      return;
     }
+    aRedessiner = false;
     renderer.render(scene, camera);
   });
 
   let session: XRSession | null = null;
+  let entree = false;
   function finDeSession() {
     session = null;
     for (const { source } of manettes) reposer(source);
@@ -720,37 +752,49 @@ export async function createVrScene({ container, content, onSession, onMoved }: 
 
   return {
     async enter(mode) {
-      if (session || !navigator.xr) return;
-      const next = await navigator.xr.requestSession(mode, {
-        optionalFeatures: ["local-floor", "bounded-floor", "hand-tracking"],
-      });
-      // Sans repère au sol — un téléphone en réalité augmentée —, l'origine
-      // est la tête : le tableau descend à sa hauteur.
-      const auSol = await next.requestReferenceSpace("local-floor").then(
-        () => true,
-        () => false,
-      );
-      renderer.xr.setReferenceSpaceType(auSol ? "local-floor" : "local");
-      tableau.position.set(centre.x, auSol ? centre.y : 0, centre.z);
-      tableau.updateMatrixWorld(true);
-      if (mode === "immersive-ar") {
-        scene.background = null;
-        sol.visible = false;
+      if (session || entree || !navigator.xr) return;
+      entree = true;
+      try {
+        const next = await navigator.xr.requestSession(mode, {
+          optionalFeatures: ["local-floor", "bounded-floor", "hand-tracking"],
+        });
+        session = next;
+        next.addEventListener("end", finDeSession, { once: true });
+        try {
+          // Sans repère au sol — un téléphone en réalité augmentée —, l'origine
+          // est la tête : le tableau descend à sa hauteur, et le sol, qui la
+          // couperait, disparaît.
+          const auSol = await next.requestReferenceSpace("local-floor").then(
+            () => true,
+            () => false,
+          );
+          renderer.xr.setReferenceSpaceType(auSol ? "local-floor" : "local");
+          tableau.position.set(centre.x, auSol ? centre.y : 0, centre.z);
+          tableau.updateMatrixWorld(true);
+          sol.visible = auSol && mode !== "immersive-ar";
+          if (mode === "immersive-ar") scene.background = null;
+          await renderer.xr.setSession(next);
+        } catch (error) {
+          // La session ouverte ne doit pas rester pendue au casque : la
+          // fermer remet la scène en place (`finDeSession`).
+          await next.end().catch(() => undefined);
+          throw error;
+        }
+        // Le casque a pu la fermer pendant qu'elle s'ouvrait.
+        if (session === next) onSession(true);
+      } finally {
+        entree = false;
       }
-      next.addEventListener("end", finDeSession, { once: true });
-      session = next;
-      await renderer.xr.setSession(next);
-      onSession(true);
     },
     reset() {
       // Les plans aussi : le dernier saisi ne reste pas devant.
       for (const [rang, element] of ordre.entries()) {
         const epingle = epingles.get(element.id)!;
         epingle.rang = rang;
-        epingle.group.position.set(epingle.origine.x, epingle.origine.y, surface + rang * ECART_PLAN);
+        epingle.group.position.set(epingle.origine.x, epingle.origine.y, plan(rang));
       }
-      rangMax = ordre.length;
       for (const corde of cordelettes) tendre(corde);
+      redessiner();
       deplace = false;
       onMoved(false);
     },
@@ -766,6 +810,8 @@ export async function createVrScene({ container, content, onSession, onMoved }: 
       for (const corde of cordelettes) corde.mesh.geometry.dispose();
       for (const one of jetables) one.dispose();
       renderer.dispose();
+      // Sans quoi chaque aller-retour par la page laisse un contexte WebGL ouvert.
+      renderer.forceContextLoss();
       canvas.remove();
       jetons.dispose();
     },
