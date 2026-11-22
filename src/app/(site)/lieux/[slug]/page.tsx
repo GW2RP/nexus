@@ -79,7 +79,7 @@ export default async function PlacePage({ params }: Props) {
     place.coordinates
       ? getWeatherAt(place.coordinates, place.region)
       : getWeatherForRegion(place.region),
-    getPlaceBoard(place),
+    getPlaceBoard(place, user),
   ]);
 
   const managerIds = place.managers.map((manager) => manager.id);

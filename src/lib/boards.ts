@@ -30,6 +30,21 @@ export const ELEMENT_KIND_LABELS: Record<ElementKind, string> = {
   image: "Image",
 };
 
+/** Ce qu'un élément montre, et à qui. Partagé, tout lecteur du panneau le voit ;
+ *  privé, son auteur seul — c'est l'aide de jeu que le MJ prépare avant la
+ *  scène et dévoile au moment voulu. Un élément d'avant ce champ est partagé.
+ *
+ *  Une liste plutôt qu'un booléen : d'autres audiences viendront avec les
+ *  outils de MJ — un joueur choisi, le cercle d'une scène —, et chacune n'aura
+ *  qu'à dire, dans `canSeeBoardItem`, qui la lit. */
+export const ELEMENT_VISIBILITIES = ["partage", "prive"] as const;
+export type ElementVisibility = (typeof ELEMENT_VISIBILITIES)[number];
+
+export const ELEMENT_VISIBILITY_LABELS: Record<ElementVisibility, string> = {
+  partage: "Partagé",
+  prive: "Privé",
+};
+
 /** Les notes et les blocs de texte portent du markdown ; les formes, une légende
  *  en texte brut ; une image, son alternative. */
 export function isRichKind(kind: ElementKind): boolean {
@@ -214,6 +229,8 @@ export type BoardElement = {
    *  ne remplace pas l'alternative : l'une dit ce qu'on voit, l'autre ce qu'on
    *  en dit. */
   caption: string;
+  /** Qui voit l'élément : un élément privé n'arrive qu'à son auteur. */
+  visibility: ElementVisibility;
   authorId: string;
   authorName: string | null;
   createdAt: string;
@@ -239,7 +256,10 @@ export type BoardContent = { elements: BoardElement[]; arrows: BoardArrow[] };
 
 /** Ce qu'une modification d'élément peut toucher. */
 export type ElementPatch = Partial<
-  Pick<BoardElement, "x" | "y" | "w" | "h" | "text" | "size" | "stroke" | "fill" | "ink" | "caption">
+  Pick<
+    BoardElement,
+    "x" | "y" | "w" | "h" | "text" | "size" | "stroke" | "fill" | "ink" | "caption" | "visibility"
+  >
 >;
 export type ArrowPatch = Partial<Pick<BoardArrow, "color" | "startTip" | "endTip" | "route" | "dash" | "width" | "label">>;
 
@@ -255,6 +275,7 @@ export type BoardOperation =
       element: Pick<BoardElement, "id" | "kind" | "x" | "y" | "w" | "h" | "text" | "size" | "stroke" | "fill" | "ink"> & {
         src?: string;
         caption?: string;
+        visibility?: ElementVisibility;
       };
     }
   | { type: "modifier"; id: string; patch: ElementPatch }

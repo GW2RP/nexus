@@ -28,10 +28,12 @@ import {
   canManageBoard,
   canManageGroup,
   canModifyBoardItem,
+  canRevealBoardItem,
   canSeeBoard,
+  canSeeBoardItem,
   canWriteBoard,
 } from "@/lib/permissions";
-import { getCurrentUser } from "@/lib/session";
+import { getCurrentUser, type SessionUser } from "@/lib/session";
 import { Board } from "@/models/board";
 import { Group } from "@/models/group";
 import { Place } from "@/models/place";
@@ -260,8 +262,10 @@ export async function boardOperationAction(
   operation: BoardOperation,
 ): Promise<BoardOperationResult> {
   let loaded: LoadedBoard | null = null;
+  let viewer: SessionUser | null = null;
   try {
     const user = await requireContributor();
+    viewer = user;
     loaded = await loadBoard(objectIdOrNull(boardId));
     if (!loaded || !canSeeBoard(user, loaded.access)) {
       return { ok: false, message: "Ce panneau n'existe plus." };
@@ -285,10 +289,16 @@ export async function boardOperationAction(
     const zs = elements.map((one) => one.z ?? 0);
     const filter = { _id: doc._id } as never;
 
+    /** Ce que ce lecteur voit du panneau : une aide de jeu privée n'existe que
+     *  pour son auteur, et un geste qui la viserait reçoit la même réponse
+     *  qu'un élément disparu — sans quoi on la découvrirait en devinant. */
+    const seen = (element: RawElement | undefined) =>
+      element && !element.hidden && canSeeBoardItem(user, element) ? element : undefined;
+
     /** L'élément visé, s'il existe encore et qu'on a le droit d'y toucher. */
     const target = (id: string) => {
-      const element = find(elements, id);
-      if (!element || element.hidden) throw new Refus("Cet élément n'est plus sur le panneau.");
+      const element = seen(find(elements, id));
+      if (!element) throw new Refus("Cet élément n'est plus sur le panneau.");
       if (!canModifyBoardItem(user, access, element.authorId)) {
         throw new Refus("Seul son auteur, ou l'équipe du lieu, touche à cet élément.");
       }
@@ -296,7 +306,9 @@ export async function boardOperationAction(
     };
     const targetArrow = (id: string) => {
       const arrow = find(arrows, id);
-      if (!arrow) throw new Refus("Cette flèche n'est plus sur le panneau.");
+      if (!arrow || !seen(find(elements, String(arrow.from))) || !seen(find(elements, String(arrow.to)))) {
+        throw new Refus("Cette flèche n'est plus sur le panneau.");
+      }
       if (!canModifyBoardItem(user, access, arrow.authorId)) {
         throw new Refus("Seul son auteur, ou l'équipe du lieu, touche à cette flèche.");
       }
@@ -305,7 +317,8 @@ export async function boardOperationAction(
 
     switch (op.type) {
       case "poser": {
-        const { id, kind, text, size, stroke, fill, ink, src: rawSrc, caption, ...geometry } = op.element;
+        const { id, kind, text, size, stroke, fill, ink, src: rawSrc, caption, visibility, ...geometry } =
+          op.element;
         if (elements.length >= ELEMENTS_MAX) {
           throw new Refus(`Un panneau ne porte pas plus de ${ELEMENTS_MAX} éléments.`);
         }
@@ -321,7 +334,9 @@ export async function boardOperationAction(
         // image qui n'est pas la sienne.
         const src = kind === "image" ? (rawSrc ?? "") : "";
         if (kind === "image") {
-          const known = boardImagesOf([...elements, ...removed]).includes(src);
+          const known = boardImagesOf(
+            [...elements, ...removed].filter((one) => canSeeBoardItem(user, one)),
+          ).includes(src);
           if (!isBoardImageOf(src, user.id) && !known) {
             throw new Refus("Cette image n'a pas été téléversée pour ce panneau.");
           }
@@ -340,6 +355,7 @@ export async function boardOperationAction(
               ink,
               src,
               caption: kind === "image" ? (caption ?? "") : "",
+              visibility: visibility ?? "partage",
               authorId: user.id,
               createdAt: new Date(),
             },
@@ -351,6 +367,11 @@ export async function boardOperationAction(
       case "modifier": {
         const element = target(op.id);
         const { x, y, w, h, stroke, fill, ink, ...rest } = op.patch;
+        // Dévoiler une aide de jeu, ou la reprendre, reste le geste de son
+        // auteur, même sur un panneau de groupe où chacun range tout.
+        if (rest.visibility !== undefined && !canRevealBoardItem(user, element.authorId)) {
+          throw new Refus("Seul son auteur partage cet élément ou le rend privé.");
+        }
         checkColor("stroke", stroke);
         checkColor("fill", fill);
         checkColor("ink", ink);
@@ -406,7 +427,9 @@ export async function boardOperationAction(
 
       case "retablir": {
         const element = find(removed, op.id);
-        if (!element) throw new Refus("Cet élément ne peut plus être rétabli.");
+        if (!element || !canSeeBoardItem(user, element)) {
+          throw new Refus("Cet élément ne peut plus être rétabli.");
+        }
         if (find(elements, op.id)) break;
         if (!canModifyBoardItem(user, access, element.authorId)) {
           throw new Refus("Seul son auteur, ou l'équipe du lieu, rétablit cet élément.");
@@ -439,8 +462,8 @@ export async function boardOperationAction(
           throw new Refus(`Un panneau ne porte pas plus de ${ARROWS_MAX} flèches.`);
         }
         if (from === to) throw new Refus("Une flèche relie deux éléments différents.");
-        const ends = [find(elements, from), find(elements, to)];
-        if (ends.some((end) => !end || end.hidden)) {
+        const ends = [seen(find(elements, from)), seen(find(elements, to))];
+        if (ends.some((end) => !end)) {
           throw new Refus("L'un des deux éléments n'est plus sur le panneau.");
         }
         if (find(arrows, id) || find(removedArrows, id)) throw new Refus("Cette flèche existe déjà.");
@@ -500,7 +523,7 @@ export async function boardOperationAction(
         if (!canModifyBoardItem(user, access, arrow.authorId)) {
           throw new Refus("Seul son auteur, ou l'équipe du lieu, rétablit cette flèche.");
         }
-        if (!find(elements, String(arrow.from)) || !find(elements, String(arrow.to))) {
+        if (!seen(find(elements, String(arrow.from))) || !seen(find(elements, String(arrow.to)))) {
           throw new Refus("L'un des deux éléments n'est plus sur le panneau.");
         }
         await Board.updateOne(filter, {
@@ -517,21 +540,24 @@ export async function boardOperationAction(
       error instanceof Refus || error instanceof Error
         ? error.message
         : "La modification n'a pas été enregistrée.";
-    return { ok: false, message, content: await freshContent(loaded) };
+    return { ok: false, message, content: await freshContent(loaded, viewer) };
   }
 }
 
 /** Le panneau tel qu'il est en base, pour que l'éditeur s'y range après un
  *  refus — ou quand on revient sur l'onglet après l'avoir quitté. */
-async function freshContent(loaded: LoadedBoard | null): Promise<BoardContent | undefined> {
+async function freshContent(
+  loaded: LoadedBoard | null,
+  viewer: SessionUser | null,
+): Promise<BoardContent | undefined> {
   if (!loaded) return undefined;
   const again = await loadBoard(String(loaded.doc._id));
-  return again ? serializeContent(again.doc) : undefined;
+  return again ? serializeContent(again.doc, viewer) : undefined;
 }
 
 export async function readBoardContentAction(boardId: string): Promise<BoardContent | null> {
   const user = await getCurrentUser();
   const loaded = await loadBoard(objectIdOrNull(boardId));
   if (!loaded || !canSeeBoard(user, loaded.access)) return null;
-  return serializeContent(loaded.doc);
+  return serializeContent(loaded.doc, user);
 }

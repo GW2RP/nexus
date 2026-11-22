@@ -1,4 +1,4 @@
-import type { BoardVisibility } from "@/lib/boards";
+import type { BoardVisibility, ElementVisibility } from "@/lib/boards";
 import type { EventVisibility, GroupVisibility, Role } from "@/lib/domain";
 import type { SessionUser } from "@/lib/session";
 
@@ -187,6 +187,28 @@ export function canModifyBoardItem(
   if (!user || !canWriteBoard(user, board)) return false;
   if (board.ownerType === "groupe") return true;
   return user.id === authorId || canEditPlace(user, board.place);
+}
+
+/** Qui voit un élément d'un panneau qu'il lit déjà. Partagé, tout le monde ;
+ *  privé, son auteur seul — ni le meneur, ni l'équipe du lieu, ni
+ *  l'administration : une aide de jeu dévoilée trop tôt gâche la scène, et
+ *  personne d'autre ne la voit, donc personne d'autre ne la signale.
+ *
+ *  Un élément qu'on ne voit pas, on n'y touche pas non plus : chaque geste du
+ *  serveur passe par ici avant `canModifyBoardItem`. */
+export function canSeeBoardItem(
+  user: SessionUser | null,
+  item: { authorId: string; visibility?: ElementVisibility | string | null },
+): boolean {
+  if (item.visibility !== "prive") return true;
+  return user !== null && user.id === item.authorId;
+}
+
+/** Qui change la visibilité d'un élément : son auteur seul. Le panneau d'un
+ *  groupe est commun, mais dévoiler une aide de jeu reste le geste du MJ qui
+ *  l'a préparée. */
+export function canRevealBoardItem(user: SessionUser | null, authorId: string): boolean {
+  return user !== null && user.id === authorId;
 }
 
 /** Qui renomme un panneau, change sa visibilité ou le ferme : le meneur du
