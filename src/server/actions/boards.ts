@@ -14,6 +14,8 @@ import {
   ELEMENT_MIN,
   ELEMENTS_MAX,
   LEGEND_MAX,
+  PRIVATE_ELEMENTS_MAX,
+  PRIVATE_ELEMENTS_PER_AUTHOR_MAX,
   isRichKind,
   isValidColor,
   tipsFromHeads,
@@ -37,6 +39,7 @@ import { getCurrentUser, type SessionUser } from "@/lib/session";
 import { Board } from "@/models/board";
 import { Group } from "@/models/group";
 import { Place } from "@/models/place";
+import { Report } from "@/models/report";
 import {
   boardImagesOf,
   deleteBoards,
@@ -289,6 +292,36 @@ export async function boardOperationAction(
     const zs = elements.map((one) => one.z ?? 0);
     const filter = { _id: doc._id } as never;
 
+    /** Un geste qui ne touche qu'une aide de jeu privée n'avance pas la date
+     *  du panneau : « modifié le » s'affiche à tous, et la verraient bouger
+     *  ceux à qui le MJ prépare la surprise. */
+    const isPrivate = (element: RawElement | undefined) => element?.visibility === "prive";
+    const write = (quiet: boolean, update: unknown, options: Record<string, unknown> = {}) =>
+      Board.updateOne(filter, update as never, quiet ? { ...options, timestamps: false } : options);
+    const arrowIsQuiet = (arrow: { from: unknown; to: unknown }) =>
+      isPrivate(find(elements, String(arrow.from))) || isPrivate(find(elements, String(arrow.to)));
+
+    /** La place qui reste pour un élément de cette visibilité, posé par ce
+     *  compte. Partagé, il compte au plafond du panneau ; privé, à celui de
+     *  son auteur et à celui de toutes les aides de jeu du panneau. */
+    const checkRoom = (visibility: string | undefined) => {
+      if (visibility !== "prive") {
+        if (elements.filter((one) => !isPrivate(one)).length >= ELEMENTS_MAX) {
+          throw new Refus(`Un panneau ne porte pas plus de ${ELEMENTS_MAX} éléments partagés.`);
+        }
+        return;
+      }
+      const privates = elements.filter(isPrivate);
+      if (privates.filter((one) => one.authorId === user.id).length >= PRIVATE_ELEMENTS_PER_AUTHOR_MAX) {
+        throw new Refus(
+          `Vous gardez au plus ${PRIVATE_ELEMENTS_PER_AUTHOR_MAX} éléments privés sur ce panneau : partagez-en, ou retirez-en.`,
+        );
+      }
+      if (privates.length >= PRIVATE_ELEMENTS_MAX) {
+        throw new Refus(`Ce panneau ne porte pas plus de ${PRIVATE_ELEMENTS_MAX} éléments privés.`);
+      }
+    };
+
     /** Ce que ce lecteur voit du panneau : une aide de jeu privée n'existe que
      *  pour son auteur, et un geste qui la viserait reçoit la même réponse
      *  qu'un élément disparu — sans quoi on la découvrirait en devinant. */
@@ -319,9 +352,7 @@ export async function boardOperationAction(
       case "poser": {
         const { id, kind, text, size, stroke, fill, ink, src: rawSrc, caption, visibility, ...geometry } =
           op.element;
-        if (elements.length >= ELEMENTS_MAX) {
-          throw new Refus(`Un panneau ne porte pas plus de ${ELEMENTS_MAX} éléments.`);
-        }
+        checkRoom(visibility);
         if (find(elements, id) || find(removed, id)) throw new Refus("Cet élément existe déjà.");
         checkColor("stroke", stroke);
         checkColor("fill", fill);
@@ -341,7 +372,7 @@ export async function boardOperationAction(
             throw new Refus("Cette image n'a pas été téléversée pour ce panneau.");
           }
         }
-        await Board.updateOne(filter, {
+        await write(visibility === "prive", {
           $push: {
             elements: {
               _id: oid(id),
@@ -360,7 +391,7 @@ export async function boardOperationAction(
               createdAt: new Date(),
             },
           },
-        } as never);
+        });
         break;
       }
 
@@ -371,6 +402,23 @@ export async function boardOperationAction(
         // auteur, même sur un panneau de groupe où chacun range tout.
         if (rest.visibility !== undefined && !canRevealBoardItem(user, element.authorId)) {
           throw new Refus("Seul son auteur partage cet élément ou le rend privé.");
+        }
+        const revealing = rest.visibility !== undefined && rest.visibility !== (element.visibility ?? "partage");
+        if (revealing) {
+          checkRoom(rest.visibility);
+          // Un élément signalé reste là où la modération le cherche : passé
+          // privé, il disparaîtrait de la page que suit le modérateur, et se
+          // repartagerait une fois le signalement classé.
+          if (
+            rest.visibility === "prive" &&
+            (await Report.exists({
+              targetType: "element-panneau",
+              targetId: element._id,
+              status: "en-attente",
+            } as never))
+          ) {
+            throw new Refus("Cet élément est signalé : il reste partagé le temps que l'équipe le regarde.");
+          }
         }
         checkColor("stroke", stroke);
         checkColor("fill", fill);
@@ -389,16 +437,16 @@ export async function boardOperationAction(
           if (value !== undefined) set[`elements.$[e].${key}`] = value;
         }
         if (Object.keys(set).length === 0) break;
-        await Board.updateOne(filter, { $set: set } as never, {
+        await write(isPrivate(element) && !revealing, { $set: set }, {
           arrayFilters: [{ "e._id": oid(op.id) }],
         });
         break;
       }
 
       case "plan": {
-        target(op.id);
+        const element = target(op.id);
         const z = op.sens === "avant" ? Math.max(0, ...zs) + 1 : Math.min(0, ...zs) - 1;
-        await Board.updateOne(filter, { $set: { "elements.$[e].z": z } } as never, {
+        await write(isPrivate(element), { $set: { "elements.$[e].z": z } }, {
           arrayFilters: [{ "e._id": oid(op.id) }],
         });
         break;
@@ -414,13 +462,13 @@ export async function boardOperationAction(
         // n'archive pas le panneau. Ce qui en sort par le fond ne se rétablira
         // plus, et son image part au magasin.
         const evicted = removed.slice(0, Math.max(0, removed.length + 1 - REMOVED_MAX));
-        await Board.updateOne(filter, {
+        await write(isPrivate(element), {
           $pull: { elements: { _id: id }, arrows: { $or: [{ from: id }, { to: id }] } },
           $push: {
             removed: { $each: [element], $slice: -REMOVED_MAX },
             removedArrows: { $each: attached, $slice: -100 },
           },
-        } as never);
+        });
         await releaseBoardImages(boardImagesOf(evicted));
         break;
       }
@@ -434,9 +482,7 @@ export async function boardOperationAction(
         if (!canModifyBoardItem(user, access, element.authorId)) {
           throw new Refus("Seul son auteur, ou l'équipe du lieu, rétablit cet élément.");
         }
-        if (elements.length >= ELEMENTS_MAX) {
-          throw new Refus(`Un panneau ne porte pas plus de ${ELEMENTS_MAX} éléments.`);
-        }
+        checkRoom(element.visibility ?? undefined);
         // Ses flèches reviennent avec lui, quand leur autre bout est encore là.
         const present = new Set(elements.map((one) => String(one._id)).concat(op.id));
         const back = removedArrows.filter(
@@ -446,19 +492,22 @@ export async function boardOperationAction(
             present.has(String(arrow.to)) &&
             !find(arrows, String(arrow._id)),
         );
-        await Board.updateOne(filter, {
+        await write(isPrivate(element), {
           $pull: {
             removed: { _id: oid(op.id) },
             removedArrows: { _id: { $in: back.map((arrow) => arrow._id) } },
           },
           $push: { elements: element, arrows: { $each: back } },
-        } as never);
+        });
         break;
       }
 
       case "relier": {
         const { id, from, to, ...style } = op.arrow;
-        if (arrows.length >= ARROWS_MAX) {
+        // Comme les éléments : une flèche qui touche une aide de jeu privée ne
+        // prend pas la place des flèches que tout le monde voit.
+        const quiet = arrowIsQuiet({ from, to });
+        if (arrows.filter((one) => arrowIsQuiet(one) === quiet).length >= ARROWS_MAX) {
           throw new Refus(`Un panneau ne porte pas plus de ${ARROWS_MAX} flèches.`);
         }
         if (from === to) throw new Refus("Une flèche relie deux éléments différents.");
@@ -468,7 +517,7 @@ export async function boardOperationAction(
         }
         if (find(arrows, id) || find(removedArrows, id)) throw new Refus("Cette flèche existe déjà.");
         checkColor("stroke", style.color);
-        await Board.updateOne(filter, {
+        await write(quiet, {
           $push: {
             arrows: {
               ...ARROW_DEFAULTS,
@@ -480,7 +529,7 @@ export async function boardOperationAction(
               createdAt: new Date(),
             },
           },
-        } as never);
+        });
         break;
       }
 
@@ -501,7 +550,7 @@ export async function boardOperationAction(
           set["arrows.$[a].endTip"] ??= arrow.endTip ?? tips.endTip;
         }
         const update = legacy ? { $set: set, $unset: { "arrows.$[a].heads": "" } } : { $set: set };
-        await Board.updateOne(filter, update as never, {
+        await write(arrowIsQuiet(arrow), update, {
           arrayFilters: [{ "a._id": oid(op.id) }],
         });
         break;
@@ -509,10 +558,10 @@ export async function boardOperationAction(
 
       case "retirer-fleche": {
         const arrow = targetArrow(op.id);
-        await Board.updateOne(filter, {
+        await write(arrowIsQuiet(arrow), {
           $pull: { arrows: { _id: oid(op.id) } },
           $push: { removedArrows: { $each: [arrow], $slice: -100 } },
-        } as never);
+        });
         break;
       }
 
@@ -526,10 +575,10 @@ export async function boardOperationAction(
         if (!seen(find(elements, String(arrow.from))) || !seen(find(elements, String(arrow.to)))) {
           throw new Refus("L'un des deux éléments n'est plus sur le panneau.");
         }
-        await Board.updateOne(filter, {
+        await write(arrowIsQuiet(arrow), {
           $pull: { removedArrows: { _id: oid(op.id) } },
           $push: { arrows: arrow },
-        } as never);
+        });
         break;
       }
     }

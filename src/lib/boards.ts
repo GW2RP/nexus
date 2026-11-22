@@ -56,7 +56,13 @@ export const BOARD_WIDTH = 4000;
 export const BOARD_HEIGHT = 3000;
 export const ELEMENT_MIN = 40;
 export const ELEMENT_MAX = 2000;
+/** Les éléments partagés d'un panneau. Les aides de jeu privées ne comptent
+ *  pas ici : invisibles des autres, elles ne doivent pas pouvoir remplir un
+ *  panneau que personne d'autre ne peut plus vider. Elles ont leurs plafonds,
+ *  par auteur et pour tout le panneau. */
 export const ELEMENTS_MAX = 300;
+export const PRIVATE_ELEMENTS_PER_AUTHOR_MAX = 50;
+export const PRIVATE_ELEMENTS_MAX = 300;
 export const ARROWS_MAX = 300;
 export const TEXT_MAX = 5000;
 export const LEGEND_MAX = 200;

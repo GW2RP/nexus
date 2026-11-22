@@ -535,7 +535,13 @@ joue **pour un lecteur** : une flèche dont un bout lui est caché ne lui arrive
 pas, sinon elle trahirait l'aide de jeu. Au serveur, un geste qui vise un
 élément invisible reçoit la réponse d'un élément disparu. Seul l'auteur le
 partage ou le reprend (`canRevealBoardItem`), même sur un panneau de groupe où
-chacun range tout. La visibilité est une liste et non un booléen : les
+chacun range tout. Comme personne d'autre ne peut les retirer, les aides de
+jeu ne comptent pas au plafond du panneau (`ELEMENTS_MAX`, les flèches de
+même) : elles ont le leur, par auteur et pour tout le panneau, sinon un compte
+remplirait d'invisibles une taverne que son équipe ne pourrait plus vider. Un
+geste qui ne touche qu'elles n'avance pas `updatedAt` (`timestamps: false`) :
+« modifié le » s'affiche à tous. Et un élément **signalé** ne passe pas privé :
+il quitterait la page que suit le modérateur. La visibilité est une liste et non un booléen : les
 prochains outils de MJ — un joueur choisi, le cercle d'une scène — n'auront
 qu'à y ajouter leur audience et à dire, dans `canSeeBoardItem`, qui la lit.
 
