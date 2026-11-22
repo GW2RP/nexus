@@ -526,6 +526,25 @@ quand plus aucun panneau ne la porte**, corbeille comprise
 la corbeille par le fond. Retirer un élément ne l'efface pas — « annuler »
 doit pouvoir le rétablir avec son image.
 
+**Une aide de jeu se prépare en privé.** Un élément est partagé ou privé
+(`visibility`, absent = partagé) : privé, il n'arrive qu'à son auteur — ni au
+meneur, ni à l'équipe du lieu, ni à l'administration, et personne d'autre ne le
+signale. Tout ce qui écrit sur le panneau peut en poser, c'est le MJ de la
+scène, pas un rôle. `canSeeBoardItem` porte la règle, et `serializeContent` la
+joue **pour un lecteur** : une flèche dont un bout lui est caché ne lui arrive
+pas, sinon elle trahirait l'aide de jeu. Au serveur, un geste qui vise un
+élément invisible reçoit la réponse d'un élément disparu. Seul l'auteur le
+partage ou le reprend (`canRevealBoardItem`), même sur un panneau de groupe où
+chacun range tout. Comme personne d'autre ne peut les retirer, les aides de
+jeu ne comptent pas au plafond du panneau (`ELEMENTS_MAX`, les flèches de
+même) : elles ont le leur, par auteur et pour tout le panneau, sinon un compte
+remplirait d'invisibles une taverne que son équipe ne pourrait plus vider. Un
+geste qui ne touche qu'elles n'avance pas `updatedAt` (`timestamps: false`) :
+« modifié le » s'affiche à tous. Et un élément **signalé** ne passe pas privé :
+il quitterait la page que suit le modérateur. La visibilité est une liste et non un booléen : les
+prochains outils de MJ — un joueur choisi, le cercle d'une scène — n'auront
+qu'à y ajouter leur audience et à dire, dans `canSeeBoardItem`, qui la lit.
+
 Un élément se signale depuis son panneau (`element-panneau`). Il n'a pas
 d'adresse à lui : le signalement range celle de son panneau, qui l'ouvre
 sélectionné (`?element=`).

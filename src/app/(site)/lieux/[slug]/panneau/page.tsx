@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const place = await getPlaceBySlug(slug);
-  const board = place ? await getPlaceBoard(place) : null;
+  const board = place ? await getPlaceBoard(place, null) : null;
   if (!place || !board) {
     return buildMetadata({
       title: "Panneau introuvable",
@@ -42,7 +42,7 @@ export default async function PlaceBoardPage({ params, searchParams }: Props) {
   const [{ slug }, { element }] = await Promise.all([params, searchParams]);
   const [place, user] = await Promise.all([getPlaceBySlug(slug), getCurrentUser()]);
   if (!place) notFound();
-  const board = await getPlaceBoard(place);
+  const board = await getPlaceBoard(place, user);
   if (!board) notFound();
 
   const team = { authorId: place.authorId, managerIds: place.managers.map((manager) => manager.id) };

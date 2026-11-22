@@ -9,6 +9,7 @@ import {
   BOARD_NAME_MAX,
   BOARD_VISIBILITIES,
   ELEMENT_KINDS,
+  ELEMENT_VISIBILITIES,
   LEGEND_MAX,
   TEXT_MAX,
   TEXT_SIZES,
@@ -407,6 +408,7 @@ const elementPatchSchema = z
     fill: color.optional(),
     ink: color.optional(),
     caption: caption.optional(),
+    visibility: z.enum(ELEMENT_VISIBILITIES).optional(),
   })
   .strict();
 
@@ -439,6 +441,7 @@ export const boardOperationSchema = z.discriminatedUnion("type", [
       ink: color,
       src: z.string().trim().max(500).optional(),
       caption: caption.optional(),
+      visibility: z.enum(ELEMENT_VISIBILITIES).optional(),
     }),
   }),
   z.object({ type: z.literal("modifier"), id: itemId, patch: elementPatchSchema }),

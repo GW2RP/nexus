@@ -12,6 +12,7 @@ import {
   ELEMENT_KINDS,
   ELEMENT_MAX,
   ELEMENT_MIN,
+  ELEMENT_VISIBILITIES,
   LEGACY_ARROW_HEADS,
   LEGEND_MAX,
   TEXT_MAX,
@@ -40,6 +41,9 @@ const elementSchema = new Schema(
     src: { type: String, default: "" },
     /** La légende d'une image, sous elle. */
     caption: { type: String, default: "", maxlength: LEGEND_MAX },
+    /** Partagé ou privé à son auteur. Absent sur les éléments d'avant les aides
+     *  de jeu : ils se lisent partagés. */
+    visibility: { type: String, enum: ELEMENT_VISIBILITIES },
     authorId: { type: String, required: true },
     /** Masqué par la modération : il ne s'affiche plus, mais reste consultable
      *  en base le temps que la décision soit contestée. */

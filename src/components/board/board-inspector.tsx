@@ -16,6 +16,8 @@ import {
   ARROW_WIDTHS,
   ARROW_WIDTH_LABELS,
   ELEMENT_KIND_LABELS,
+  ELEMENT_VISIBILITIES,
+  ELEMENT_VISIBILITY_LABELS,
   LEGEND_MAX,
   ARROW_LABEL_MAX,
   PALETTES,
@@ -55,6 +57,7 @@ export function BoardInspector({
   elements,
   facts,
   canModify,
+  canReveal,
   canReport,
   textEditor,
   elementActions,
@@ -70,6 +73,8 @@ export function BoardInspector({
   elements: BoardElement[];
   facts: Fact[];
   canModify: boolean;
+  /** Partager l'élément ou le rendre privé : son auteur seul. */
+  canReveal: boolean;
   canReport: boolean;
   /** L'éditeur du texte de l'élément, qui s'écrit dans l'élément même :
    *  l'inspecteur n'en porte que la barre de mise en forme. */
@@ -87,6 +92,7 @@ export function BoardInspector({
       <ElementPanel
         element={element}
         canModify={canModify}
+        canReveal={canReveal}
         canReport={canReport}
         textEditor={textEditor}
         actions={elementActions}
@@ -157,6 +163,7 @@ function Heading({
 function ElementPanel({
   element,
   canModify,
+  canReveal,
   canReport,
   textEditor,
   actions,
@@ -167,6 +174,7 @@ function ElementPanel({
 }: {
   element: BoardElement;
   canModify: boolean;
+  canReveal: boolean;
   canReport: boolean;
   textEditor: Editor | null;
   actions: InspectorActions<ElementPatch>;
@@ -191,7 +199,11 @@ function ElementPanel({
 
   const heading = (
     <Heading
-      eyebrow={ELEMENT_KIND_LABELS[element.kind]}
+      eyebrow={
+        element.visibility === "prive"
+          ? `${ELEMENT_KIND_LABELS[element.kind]} · ${ELEMENT_VISIBILITY_LABELS.prive}`
+          : ELEMENT_KIND_LABELS[element.kind]
+      }
       title={elementName(element)}
       author={element.authorName}
       createdAt={element.createdAt}
@@ -212,6 +224,23 @@ function ElementPanel({
   return (
     <div className="flex flex-col gap-5">
       {heading}
+
+      {canReveal ? (
+        // Une aide de jeu se prépare privée et se dévoile au moment voulu :
+        // c'est le premier réglage qu'on cherche, avant la forme.
+        <Segmented
+          legend="Visibilité"
+          options={ELEMENT_VISIBILITIES.map((value) => ({
+            value,
+            label: ELEMENT_VISIBILITY_LABELS[value],
+            content: ELEMENT_VISIBILITY_LABELS[value].toLocaleUpperCase("fr-FR"),
+          }))}
+          value={element.visibility}
+          onPick={(visibility) => {
+            if (visibility !== element.visibility) actions.commit({ visibility });
+          }}
+        />
+      ) : null}
 
       {image ? (
         <>

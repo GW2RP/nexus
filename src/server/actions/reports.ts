@@ -7,7 +7,7 @@ import type { Model } from "mongoose";
 import { collectMarkdownImages, deleteUploadedImages } from "@/lib/blob";
 import { plainExcerpt } from "@/lib/boards";
 import type { ReportTarget } from "@/lib/domain";
-import { canSeeBoard } from "@/lib/permissions";
+import { canSeeBoard, canSeeBoardItem } from "@/lib/permissions";
 import { Character } from "@/models/character";
 import { Event } from "@/models/event";
 import { ModerationLog } from "@/models/moderation-log";
@@ -95,7 +95,13 @@ export async function createReportAction(
       // Un élément se signale depuis son panneau, et seulement par qui le lit :
       // un panneau réservé aux membres ne se découvre pas en devinant ses éléments.
       const found = await loadBoardOfElement(targetId);
-      if (!found || found.element.hidden || !canSeeBoard(user, found.access)) {
+      // Une aide de jeu privée n'existe que pour son auteur, qui ne se signale pas.
+      if (
+        !found ||
+        found.element.hidden ||
+        !canSeeBoard(user, found.access) ||
+        !canSeeBoardItem(user, found.element)
+      ) {
         return errorState("Ce contenu n'existe plus.");
       }
       authorId = found.element.authorId;

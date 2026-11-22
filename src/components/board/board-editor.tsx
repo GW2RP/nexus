@@ -16,6 +16,7 @@ import {
   ELEMENT_KIND_LABELS,
   ELEMENT_MAX,
   ELEMENT_MIN,
+  ELEMENT_VISIBILITY_LABELS,
   GRID,
   arrowGeometry,
   contentBounds,
@@ -30,6 +31,7 @@ import {
   type BoardOwner,
   type ElementKind,
   type ElementPatch,
+  type ElementVisibility,
 } from "@/lib/boards";
 import { cn } from "@/lib/utils";
 import { boardOperationAction, readBoardContentAction } from "@/server/actions/boards";
@@ -86,6 +88,7 @@ function applyOp(state: State, op: BoardOperation, me: Me): State {
               ...op.element,
               src: op.element.src ?? "",
               caption: op.element.caption ?? "",
+              visibility: op.element.visibility ?? "partage",
               z: maxZ + 1,
               authorId: me.id,
               authorName: me.name,
@@ -311,6 +314,11 @@ export function BoardEditor({
   const [justCreated, setJustCreated] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [placingImage, setPlacingImage] = useState(false);
+  /** Poser en privé : ce que l'on pose ensuite n'est visible que de soi, le
+   *  temps de préparer une aide de jeu. Le réglage ne touche pas ce qui est
+   *  déjà posé — chaque élément se partage depuis l'inspecteur. */
+  const [privateMode, setPrivateMode] = useState(false);
+  const newVisibility: ElementVisibility = privateMode ? "prive" : "partage";
   const [pasting, setPasting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [historyCounts, setHistoryCounts] = useState({ undo: 0, redo: 0 });
@@ -684,6 +692,7 @@ export function BoardEditor({
       h: image.h,
       text: image.alt,
       src: image.src,
+      visibility: newVisibility,
       x: clamp(Math.round((point.x - image.w / 2) / GRID) * GRID, 0, BOARD_WIDTH - image.w),
       y: clamp(Math.round((point.y - image.h / 2) / GRID) * GRID, 0, BOARD_HEIGHT - image.h),
     };
@@ -699,6 +708,7 @@ export function BoardEditor({
       id: newItemId(),
       kind,
       ...defaults,
+      visibility: newVisibility,
       x: clamp(Math.round((point.x - defaults.w / 2) / GRID) * GRID, 0, BOARD_WIDTH - defaults.w),
       y: clamp(Math.round((point.y - defaults.h / 2) / GRID) * GRID, 0, BOARD_HEIGHT - defaults.h),
     };
@@ -953,7 +963,7 @@ export function BoardEditor({
   function duplicate() {
     if (!selectedElement) return;
     settle();
-    const { kind, w, h, text, size, stroke, fill, ink, src, caption } = selectedElement;
+    const { kind, w, h, text, size, stroke, fill, ink, src, caption, visibility } = selectedElement;
     // Une image dupliquée partage le fichier de l'autre : il ne quittera le
     // magasin qu'une fois les deux parties.
     const element = {
@@ -968,6 +978,9 @@ export function BoardEditor({
       ink,
       src,
       caption,
+      // Une copie d'aide de jeu reste privée : elle ne se dévoile pas d'un
+      // geste qui ne le dit pas.
+      visibility: visibility === "prive" ? ("prive" as const) : newVisibility,
       x: clamp(selectedElement.x + GRID, 0, BOARD_WIDTH - w),
       y: clamp(selectedElement.y + GRID, 0, BOARD_HEIGHT - h),
     };
@@ -1062,7 +1075,7 @@ export function BoardEditor({
                   <button
                     type="button"
                     data-element-button={element.id}
-                    aria-label={`${ELEMENT_KIND_LABELS[element.kind]} : ${elementName(element)}`}
+                    aria-label={`${ELEMENT_KIND_LABELS[element.kind]}${element.visibility === "prive" ? ` ${ELEMENT_VISIBILITY_LABELS.prive.toLocaleLowerCase("fr-FR")}` : ""} : ${elementName(element)}`}
                     aria-pressed={selected}
                     onClick={(event) => {
                       // Un clic de souris a déjà été traité au pointeur. Seule
@@ -1085,6 +1098,18 @@ export function BoardEditor({
                       }
                     />
                   </div>
+                  {element.visibility === "prive" ? (
+                    // Une aide de jeu privée se reconnaît d'un coup d'œil :
+                    // son auteur doit savoir ce que les autres ne voient pas.
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute -inset-[3px] border border-dashed border-gold"
+                    >
+                      <span className="absolute -top-px left-2 -translate-y-full border border-b-0 border-gold bg-surface px-1.5 py-1 chip-label text-gold-ink">
+                        {ELEMENT_VISIBILITY_LABELS.prive.toLocaleUpperCase("fr-FR")}
+                      </span>
+                    </span>
+                  ) : null}
                   {pending === element.id ? (
                     <span aria-hidden="true" className="pointer-events-none absolute -inset-[7px] border-2 border-dashed border-crimson" />
                   ) : null}
@@ -1198,6 +1223,27 @@ export function BoardEditor({
                   <rect x="3.5" y="5" width="17" height="14" />
                   <path d="M3.5 16l5-5 4 4 3-3 5 5" strokeLinejoin="round" />
                   <circle cx="15.5" cy="9" r="1.5" />
+                </Glyph>
+              </button>
+            ) : null}
+            {me ? (
+              <button
+                type="button"
+                aria-label="Poser en privé"
+                title="Poser en privé"
+                aria-pressed={privateMode}
+                onClick={() => setPrivateMode((on) => !on)}
+                className={cn(
+                  "flex size-tap shrink-0 items-center justify-center border",
+                  privateMode
+                    ? "border-gold bg-surface-selected text-gold-ink"
+                    : "border-transparent text-ink-body hover:bg-surface-selected",
+                )}
+              >
+                <Glyph>
+                  <path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6z" strokeLinejoin="round" />
+                  <circle cx="12" cy="12" r="2.5" />
+                  <path d="M4 20L20 4" />
                 </Glyph>
               </button>
             ) : null}
@@ -1318,6 +1364,7 @@ export function BoardEditor({
               { label: "Flèches", value: String(arrows.length) },
             ]}
             canModify={selectedCanModify}
+            canReveal={Boolean(me) && canWrite && selectedElement?.authorId === me?.id}
             canReport={canReport && Boolean(selectedElement) && selectedElement?.authorId !== me?.id}
             textEditor={activeTextEditor}
             elementActions={elementActions}

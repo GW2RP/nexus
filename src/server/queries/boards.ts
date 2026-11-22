@@ -13,9 +13,10 @@ import {
   type BoardOwner,
   type BoardVisibility,
   type ElementKind,
+  type ElementVisibility,
   tipsFromHeads,
 } from "@/lib/boards";
-import { canSeeBoard, type BoardAccess, type GroupAccess } from "@/lib/permissions";
+import { canSeeBoard, canSeeBoardItem, type BoardAccess, type GroupAccess } from "@/lib/permissions";
 import type { SessionUser } from "@/lib/session";
 import { Board, type BoardDocument } from "@/models/board";
 import { connectToDatabase, loadAuthors, toIso, toObjectId } from "@/server/queries/shared";
@@ -34,10 +35,17 @@ function pick<T extends string>(values: readonly T[], value: unknown, fallback: 
   return values.includes(value as T) ? (value as T) : fallback;
 }
 
-/** Le contenu lisible d'un panneau : les éléments que la modération n'a pas
- *  masqués, et les flèches dont les deux bouts sont encore là. */
-export async function serializeContent(doc: Pick<BoardDoc, "elements" | "arrows">): Promise<BoardContent> {
-  const elements = ((doc.elements ?? []) as RawElement[]).filter((element) => !element.hidden);
+/** Le contenu lisible d'un panneau, pour un lecteur : les éléments que la
+ *  modération n'a pas masqués et qu'il a le droit de voir — un élément privé
+ *  n'arrive qu'à son auteur —, et les flèches dont les deux bouts sont encore
+ *  là pour lui. Une flèche qui touche une aide de jeu privée la trahirait. */
+export async function serializeContent(
+  doc: Pick<BoardDoc, "elements" | "arrows">,
+  viewer: SessionUser | null,
+): Promise<BoardContent> {
+  const elements = ((doc.elements ?? []) as RawElement[]).filter(
+    (element) => !element.hidden && canSeeBoardItem(viewer, element),
+  );
   const visible = new Set(elements.map((element) => String(element._id)));
   const arrows = ((doc.arrows ?? []) as RawArrow[]).filter(
     (arrow) => visible.has(String(arrow.from)) && visible.has(String(arrow.to)),
@@ -64,6 +72,7 @@ export async function serializeContent(doc: Pick<BoardDoc, "elements" | "arrows"
         ink: element.ink,
         src: element.src ?? "",
         caption: element.caption ?? "",
+        visibility: (element.visibility === "prive" ? "prive" : "partage") as ElementVisibility,
         authorId: element.authorId,
         authorName: authors.get(element.authorId)?.name ?? null,
         createdAt: toIso(element.createdAt ?? new Date(0)),
@@ -87,8 +96,8 @@ export async function serializeContent(doc: Pick<BoardDoc, "elements" | "arrows"
   };
 }
 
-async function toSummary(doc: BoardDoc, path: string): Promise<BoardSummary> {
-  const content = await serializeContent(doc);
+async function toSummary(doc: BoardDoc, path: string, viewer: SessionUser | null): Promise<BoardSummary> {
+  const content = await serializeContent(doc, viewer);
   return {
     ...content,
     id: String(doc._id),
@@ -133,7 +142,7 @@ export async function listGroupBoards(
     }),
   );
   return Promise.all(
-    visible.map((doc) => toSummary(doc, groupBoardPath(group.slug, String(doc._id)))),
+    visible.map((doc) => toSummary(doc, groupBoardPath(group.slug, String(doc._id)), viewer)),
   );
 }
 
@@ -183,11 +192,14 @@ export async function getGroupBoard(
     group,
   };
   if (!canSeeBoard(viewer, access)) return null;
-  return { board: await toSummary(doc, groupBoardPath(group.slug, boardId)), access };
+  return { board: await toSummary(doc, groupBoardPath(group.slug, boardId), viewer), access };
 }
 
-/** Le panneau d'un lieu, s'il en a ouvert un. */
-export async function getPlaceBoard(place: { id: string; slug: string }): Promise<BoardSummary | null> {
+/** Le panneau d'un lieu, s'il en a ouvert un, tel que le lecteur le voit. */
+export async function getPlaceBoard(
+  place: { id: string; slug: string },
+  viewer: SessionUser | null,
+): Promise<BoardSummary | null> {
   await connectToDatabase();
   const placeId = toObjectId(place.id);
   if (!placeId) return null;
@@ -195,5 +207,5 @@ export async function getPlaceBoard(place: { id: string; slug: string }): Promis
     .select({ removed: 0, removedArrows: 0 })
     .lean()) as BoardDoc | null;
   if (!doc) return null;
-  return toSummary(doc, placeBoardPath(place.slug));
+  return toSummary(doc, placeBoardPath(place.slug), viewer);
 }
