@@ -3,8 +3,12 @@ import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 import { auth } from "@/lib/auth";
+import type { Role } from "@/lib/domain";
 import { env } from "@/lib/env";
+import { canSeeBoard, type BoardAccess } from "@/lib/permissions";
+import type { SessionUser } from "@/lib/session";
 import { ActivityInstance } from "@/models/activity-instance";
+import { ActivitySession } from "@/models/activity-session";
 import { connectToDatabase, toObjectId } from "@/server/queries/shared";
 
 /** L'activité Discord du hub.
@@ -16,15 +20,17 @@ import { connectToDatabase, toObjectId } from "@/server/queries/shared";
  *  - il reçoit un **laissez-passer** d'instance (`ActivityPass`), signé ici :
  *    il dit « ce compte Discord est dans cette instance », vérifié auprès de
  *    Discord par le jeton du bot. C'est lui qui ouvre en lecture le panneau
- *    que l'instance montre, compte du hub ou non ;
+ *    que l'instance montre, compte du hub ou non. Il est court et se renouvelle
+ *    en rejouant la présence (`/api/discord/renouveler`) : qui quitte le salon
+ *    cesse de lire son panneau au renouvellement suivant ;
  *  - si son compte Discord est lié à un compte du hub, il reçoit aussi une
  *    session, que l'activité représente en `Authorization: Bearer` comme
  *    l'application bureau. Les droits d'écriture sont alors ceux du site. */
 
 const DISCORD_API = "https://discord.com/api/v10";
 
-/** Un laissez-passer vaut le temps d'une soirée de jeu. */
-const PASS_MS = 12 * 60 * 60 * 1000;
+/** Un laissez-passer vaut un quart d'heure ; l'activité le renouvelle avant. */
+const PASS_MS = 15 * 60 * 1000;
 /** Une instance oubliée s'efface une semaine après son dernier changement. */
 const INSTANCE_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -100,8 +106,9 @@ export async function isInInstance(instanceId: string, discordId: string): Promi
 /* --- Le compte du hub ---------------------------------------------------- */
 
 /** Le compte du hub lié à ce compte Discord, et une session pour lui. La
- *  session est courte (`dontRememberMe`) : l'activité en ouvre une à chaque
- *  lancement. */
+ *  session est courte (`dontRememberMe`), et l'activité n'en garde qu'une par
+ *  compte : la précédente est révoquée, sinon chaque lancement en laisserait
+ *  une ouverte. */
 export async function openLinkedSession(
   discordId: string,
 ): Promise<{ token: string; user: { id: string; name: string } } | null> {
@@ -111,8 +118,36 @@ export async function openLinkedSession(
     accountId: discordId,
   });
   if (!owner || owner.kind !== "owned") return null;
+  await connectToDatabase();
+  const previous = (await ActivitySession.findOne({ userId: owner.user.id } as never).lean()) as
+    | { token?: string }
+    | null;
+  if (previous?.token) await context.internalAdapter.deleteSession(previous.token);
   const session = await context.internalAdapter.createSession(owner.user.id, true);
+  await ActivitySession.updateOne(
+    { userId: owner.user.id } as never,
+    { $set: { token: session.token, expiresAt: session.expiresAt } } as never,
+    { upsert: true },
+  );
   return { token: session.token, user: { id: owner.user.id, name: owner.user.name } };
+}
+
+/** Un compte du hub tel que les règles d'accès le lisent. */
+async function sessionUserById(userId: string): Promise<SessionUser | null> {
+  const context = await auth.$context;
+  const user = (await context.internalAdapter.findUserById(userId)) as
+    | (Record<string, unknown> & { id: string; name: string; email: string; image?: string | null })
+    | null;
+  if (!user) return null;
+  const suspended = user.suspendedUntil as Date | string | null | undefined;
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    image: user.image ?? null,
+    role: ((user.role as string | undefined) ?? "membre") as Role,
+    suspendedUntil: suspended ? new Date(suspended) : null,
+  };
 }
 
 /* --- Le laissez-passer --------------------------------------------------- */
@@ -155,12 +190,12 @@ export function readPass(raw: string | null | undefined): ActivityPass | null {
 
 /* --- Le panneau de l'instance -------------------------------------------- */
 
-export async function instanceBoardId(instanceId: string): Promise<string | null> {
+async function instanceBoard(instanceId: string): Promise<{ boardId: string; setBy: string } | null> {
   await connectToDatabase();
   const found = (await ActivityInstance.findOne({ instanceId } as never)
-    .select({ boardId: 1 })
-    .lean()) as { boardId?: unknown } | null;
-  return found?.boardId ? String(found.boardId) : null;
+    .select({ boardId: 1, setBy: 1 })
+    .lean()) as { boardId?: unknown; setBy?: string } | null;
+  return found?.boardId && found.setBy ? { boardId: String(found.boardId), setBy: found.setBy } : null;
 }
 
 export async function setInstanceBoard(instanceId: string, boardId: string, userId: string): Promise<void> {
@@ -174,10 +209,26 @@ export async function setInstanceBoard(instanceId: string, boardId: string, user
   );
 }
 
-/** Le laissez-passer ouvre-t-il ce panneau ? Seulement celui que son
- *  instance montre en ce moment : changer de panneau referme l'ancien. */
-export async function activityGrantsBoard(rawPass: string | null, boardId: string): Promise<boolean> {
+/** Ce que le laissez-passer ouvre en lecture : le panneau que son instance
+ *  montre en ce moment, et le compte qui l'y a posé. */
+export type ActivityReadGrant = { boardId: string; setter: SessionUser | null };
+
+export async function activityReadGrant(rawPass: string | null): Promise<ActivityReadGrant | null> {
   const pass = readPass(rawPass);
-  if (!pass) return false;
-  return (await instanceBoardId(pass.instanceId)) === boardId;
+  if (!pass) return null;
+  const found = await instanceBoard(pass.instanceId);
+  if (!found) return null;
+  return { boardId: found.boardId, setter: await sessionUserById(found.setBy) };
+}
+
+/** L'accord ouvre-t-il ce panneau ? Seulement celui que l'instance montre —
+ *  changer de panneau referme l'ancien —, et seulement tant que celui qui l'a
+ *  posé **peut** encore le lire : retiré du groupe, ou le panneau passé aux
+ *  membres, le salon cesse de le lire avec lui. */
+export function activityGrantsBoard(
+  grant: ActivityReadGrant | null,
+  boardId: string,
+  access: BoardAccess,
+): boolean {
+  return grant !== null && grant.boardId === boardId && canSeeBoard(grant.setter, access);
 }

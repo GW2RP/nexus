@@ -42,10 +42,14 @@ type Phase =
 
 /** Le suivi du panneau de l'instance : un autre participant a pu en changer. */
 const FOLLOW_MS = 5000;
+/** Le laissez-passer vaut un quart d'heure : on le renouvelle avant. */
+const RENEW_MS = 10 * 60 * 1000;
 
 /** Chaque requête vers le hub porte le laissez-passer, et la session s'il y en
- *  a une. Une requête vers un autre hôte n'en voit rien. */
-function withActivityHeaders(pass: string, token: string | null) {
+ *  a une. Une requête vers un autre hôte n'en voit rien. Rend de quoi changer
+ *  de laissez-passer quand il se renouvelle. */
+function withActivityHeaders(initialPass: string, token: string | null): (next: string) => void {
+  let pass = initialPass;
   const original = window.fetch.bind(window);
   window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
     const raw = input instanceof Request ? input.url : String(input);
@@ -57,6 +61,9 @@ function withActivityHeaders(pass: string, token: string | null) {
     headers.set("x-activite", pass);
     if (token) headers.set("Authorization", `Bearer ${token}`);
     return original(input instanceof Request ? new Request(input, { headers }) : input, { ...init, headers });
+  };
+  return (next) => {
+    pass = next;
   };
 }
 
@@ -94,6 +101,7 @@ export function DiscordActivity({
     patchUrlMappings(mappings, { patchFetch: true, patchXhr: true, patchSrcAttributes: true });
 
     let cancelled = false;
+    let renewal: ReturnType<typeof setInterval> | null = null;
     const sdk = new DiscordSDK(clientId);
 
     function onParticipants(data: { participants: { id: string; username: string; global_name?: string | null; nickname?: string }[] }) {
@@ -121,8 +129,25 @@ export function DiscordActivity({
         );
         await sdk.commands.authenticate({ access_token: entry.accessToken });
         if (cancelled) return;
-        withActivityHeaders(entry.laissezPasser, entry.session?.token ?? null);
+        const setPass = withActivityHeaders(entry.laissezPasser, entry.session?.token ?? null);
         setPhase({ step: "prete", entry, sdk });
+
+        // Discord rejoue la présence à chaque renouvellement : qui a quitté le
+        // salon ne lit plus son panneau.
+        renewal = setInterval(async () => {
+          try {
+            const { laissezPasser } = await readJson<{ laissezPasser: string }>(
+              await fetch("/api/discord/renouveler", { method: "POST" }),
+            );
+            setPass(laissezPasser);
+          } catch (failure) {
+            if (renewal) clearInterval(renewal);
+            setPhase({
+              step: "erreur",
+              message: failure instanceof Error ? failure.message : "Vous n'êtes plus dans cette activité.",
+            });
+          }
+        }, RENEW_MS);
 
         onParticipants(await sdk.commands.getInstanceConnectedParticipants());
         await sdk.subscribe("ACTIVITY_INSTANCE_PARTICIPANTS_UPDATE", onParticipants);
@@ -138,6 +163,7 @@ export function DiscordActivity({
 
     return () => {
       cancelled = true;
+      if (renewal) clearInterval(renewal);
     };
   }, [clientId, blobHost, inDiscord]);
 

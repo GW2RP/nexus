@@ -550,7 +550,10 @@ avance la `revision` du panneau (`$inc` dans l'écriture, et dans les gestes de
 modération) ; l'éditeur relit `/api/panneaux/<id>?depuis=<révision>` toutes les
 deux secondes, onglet visible, et ne redescend le contenu que si elle a bougé.
 Un geste qui ne touche qu'une aide de jeu privée ne l'avance pas, pour la même
-raison qu'il ne touche pas `updatedAt`. Ce qui arrive des autres remplace le
+raison qu'il ne touche pas `updatedAt`. Les droits se jouent **avant** la
+réponse « rien n'a bougé » (`loadBoardAccess`, sans les éléments) : sans quoi
+elle trahirait l'existence d'un panneau réservé, et un accès retiré ne se
+verrait pas. Ce qui arrive des autres remplace le
 contenu **sans toucher à l'historique ni à la corbeille** — chaque geste y nomme
 son élément —, et jamais par-dessus un geste à soi encore en route : une
 relecture partie avant un geste local (`localEpoch`) arrive sans lui et
@@ -574,14 +577,19 @@ du portail (`/stockage`, `/vercel-blob`), que `patchUrlMappings` applique.
 **Le cookie du site n'existe pas dans l'activité.** L'entrée
 (`/api/discord/connexion`) échange le code du SDK, vérifie auprès de Discord —
 par le jeton du bot — que le compte est **dans l'instance**, et rend un
-**laissez-passer** signé (`x-activite`) ; si le compte Discord est lié au hub,
-une session aussi, représentée en `Authorization: Bearer` comme l'overlay. Les
+**laissez-passer** signé (`x-activite`), valable un quart d'heure et renouvelé
+en rejouant la présence (`/api/discord/renouveler`) ; si le compte Discord est
+lié au hub, une session aussi — une seule par compte, la précédente révoquée —,
+représentée en `Authorization: Bearer` comme l'overlay. Les
 deux en-têtes partent sur chaque requête vers le hub, actions serveur comprises
-(`allowedOrigins: *.discordsays.com`), jamais vers un autre hôte.
+(`allowedOrigins`, restreint au sous-domaine de **notre** application), jamais
+vers un autre hôte.
 
 **L'instance accorde la lecture, pas l'écriture.** Le panneau qu'elle montre
 (`ActivityInstance`) se lit par tout participant, compte du hub ou non — c'est
-celui que le salon regarde, posé par quelqu'un qui pouvait le lire. Les aides de
+celui que le salon regarde —, tant que celui qui l'a posé **peut** encore le
+lire : l'accord se rejoue à chaque lecture (`activityGrantsBoard`), jamais servi
+périmé. Les aides de
 jeu privées restent à leur auteur. Écrire suit les règles du site. Changer le
 panneau demande une session et de pouvoir le lire soi-même, et Discord confirme
 de nouveau la présence dans l'instance.

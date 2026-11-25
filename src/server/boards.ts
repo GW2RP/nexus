@@ -27,22 +27,21 @@ export type LoadedBoard = {
   ownerPath: string;
 };
 
-/** Un panneau et ce qui décide de ses droits : son groupe ou son lieu, relus à
- *  chaque écriture. Une appartenance retirée doit l'être au geste suivant. */
-export async function loadBoard(boardId: string | null): Promise<LoadedBoard | null> {
-  await connectToDatabase();
-  const id = boardId ? toObjectId(boardId) : null;
-  if (!id) return null;
-  const doc = (await Board.findOne({ _id: id, hidden: { $ne: true } } as never).lean()) as BoardDoc | null;
-  if (!doc) return null;
+type BoardHead = Pick<BoardDoc, "ownerType" | "groupId" | "placeId" | "visibility" | "revision"> & {
+  _id: unknown;
+};
 
+/** Ce qui décide des droits sur un panneau : son groupe ou son lieu, relus à
+ *  chaque appel. Une appartenance retirée doit l'être au geste suivant. */
+async function accessOf(
+  doc: BoardHead,
+): Promise<Pick<LoadedBoard, "access" | "path" | "ownerPath"> | null> {
   if (doc.ownerType === "lieu") {
     const place = await Place.findOne({ _id: doc.placeId, hidden: { $ne: true } } as never)
       .select({ slug: 1, authorId: 1, managerIds: 1 })
       .lean();
     if (!place) return null;
     return {
-      doc,
       access: {
         ownerType: "lieu",
         place: { authorId: place.authorId, managerIds: place.managerIds ?? [] },
@@ -57,7 +56,6 @@ export async function loadBoard(boardId: string | null): Promise<LoadedBoard | n
     .lean();
   if (!group) return null;
   return {
-    doc,
     access: {
       ownerType: "groupe",
       visibility: doc.visibility as BoardVisibility,
@@ -70,6 +68,33 @@ export async function loadBoard(boardId: string | null): Promise<LoadedBoard | n
     path: groupBoardPath(group.slug, String(doc._id)),
     ownerPath: `/groupes/${group.slug}`,
   };
+}
+
+/** Un panneau et ce qui décide de ses droits. */
+export async function loadBoard(boardId: string | null): Promise<LoadedBoard | null> {
+  await connectToDatabase();
+  const id = boardId ? toObjectId(boardId) : null;
+  if (!id) return null;
+  const doc = (await Board.findOne({ _id: id, hidden: { $ne: true } } as never).lean()) as BoardDoc | null;
+  if (!doc) return null;
+  const rights = await accessOf(doc);
+  return rights ? { doc, ...rights } : null;
+}
+
+/** Les droits sur un panneau et sa révision, sans descendre ses éléments :
+ *  ce que la relecture de l'éditeur demande toutes les deux secondes. */
+export async function loadBoardAccess(
+  boardId: string,
+): Promise<{ access: BoardAccess; revision: number } | null> {
+  await connectToDatabase();
+  const id = toObjectId(boardId);
+  if (!id) return null;
+  const head = (await Board.findOne({ _id: id, hidden: { $ne: true } } as never)
+    .select({ ownerType: 1, groupId: 1, placeId: 1, visibility: 1, revision: 1 })
+    .lean()) as BoardHead | null;
+  if (!head) return null;
+  const rights = await accessOf(head);
+  return rights ? { access: rights.access, revision: head.revision ?? 0 } : null;
 }
 
 /** Le panneau qui porte un élément, pour un signalement ou sa décision. */

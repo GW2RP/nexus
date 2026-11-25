@@ -8,8 +8,12 @@ const nextConfig: NextConfig = {
     serverActions: {
       // L'activité Discord sert le hub depuis `<application>.discordsays.com`,
       // derrière le proxy de Discord : les gestes du panneau y partent par les
-      // mêmes actions serveur que sur le site.
-      allowedOrigins: ["*.discordsays.com"],
+      // mêmes actions serveur que sur le site. La nôtre seulement — chaque
+      // application Discord a son sous-domaine, et la vérification d'origine
+      // est la défense des actions contre les requêtes croisées.
+      allowedOrigins: process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID
+        ? [`${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID}.discordsays.com`]
+        : [],
     },
   },
   images: {

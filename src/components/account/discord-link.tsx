@@ -41,7 +41,7 @@ export function DiscordLink({ linkId: discordId }: { linkId: string | null }) {
 
   return (
     <div className="flex flex-col items-start gap-3">
-      <p className="text-[18px] text-ink">{linked ? "Lié" : "Non lié"}</p>
+      <p className="body-compact text-ink">{linked ? "Lié" : "Non lié"}</p>
       <Button variant="outline" size="sm" onClick={linked ? unlink : link} disabled={busy}>
         {linked ? "DÉLIER DISCORD" : "LIER DISCORD"}
       </Button>

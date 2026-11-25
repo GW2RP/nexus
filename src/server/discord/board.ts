@@ -12,6 +12,7 @@ import { Board } from "@/models/board";
 import { Group } from "@/models/group";
 import { Place } from "@/models/place";
 import { loadBoard, type BoardDoc } from "@/server/boards";
+import { activityGrantsBoard, type ActivityReadGrant } from "@/server/discord/activity";
 import { serializeContent } from "@/server/queries/boards";
 import { connectToDatabase } from "@/server/queries/shared";
 
@@ -19,12 +20,14 @@ import { connectToDatabase } from "@/server/queries/shared";
  *  le panneau que tout le salon regarde —, l'écriture reste celle du site : un
  *  membre du groupe, l'équipe du lieu. */
 export async function activityBoardView(
-  boardId: string,
+  grant: ActivityReadGrant,
   viewer: SessionUser | null,
 ): Promise<ActivityBoard | null> {
-  const loaded = await loadBoard(boardId);
+  const loaded = await loadBoard(grant.boardId);
   if (!loaded) return null;
   const { doc, access } = loaded;
+  // Celui qui l'a posé doit encore pouvoir le lire, ou le lecteur lui-même.
+  if (!activityGrantsBoard(grant, grant.boardId, access) && !canSeeBoard(viewer, access)) return null;
   const owner =
     access.ownerType === "lieu"
       ? await Place.findById(doc.placeId).select({ name: 1 }).lean()

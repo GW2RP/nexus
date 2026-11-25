@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/session";
 import { pullBoard } from "@/server/board-sync";
-import { activityGrantsBoard } from "@/server/discord/activity";
+import { activityReadGrant } from "@/server/discord/activity";
 
 export const dynamic = "force-dynamic";
 
@@ -25,8 +25,8 @@ export async function GET(
   const depuis = raw !== null && /^\d+$/.test(raw) ? Number(raw) : null;
 
   const user = await getCurrentUser();
-  const granted = await activityGrantsBoard(request.headers.get("x-activite"), id);
-  const pulled = await pullBoard(id, depuis, user, granted);
+  const grant = await activityReadGrant(request.headers.get("x-activite"));
+  const pulled = await pullBoard(id, depuis, user, grant);
   if (!pulled) {
     return NextResponse.json({ erreur: "Ce panneau n'existe plus." }, { status: 404 });
   }
