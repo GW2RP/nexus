@@ -19,6 +19,30 @@ export const auth = betterAuth({
     // sans quoi aucun compte ne pourrait ouvrir de session.
     requireEmailVerification: false,
   },
+  // Discord ne sert qu'à lier un compte existant, depuis « Mon compte » : c'est
+  // ce lien qui reconnaît un joueur dans l'activité Discord du hub. Il n'ouvre
+  // pas de compte (`disableSignUp`), et le lien ne se fait jamais tout seul sur
+  // la foi d'une adresse — le hub ne vérifie pas les siennes.
+  ...(env.discordClientId && env.discordClientSecret
+    ? {
+        socialProviders: {
+          discord: {
+            clientId: env.discordClientId,
+            clientSecret: env.discordClientSecret,
+            disableSignUp: true,
+            disableImplicitSignUp: true,
+          },
+        },
+      }
+    : {}),
+  account: {
+    accountLinking: {
+      enabled: true,
+      disableImplicitLinking: true,
+      // Le compte Discord porte rarement l'adresse du compte du hub.
+      allowDifferentEmails: true,
+    },
+  },
   user: {
     additionalFields: {
       role: {

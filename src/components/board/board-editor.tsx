@@ -34,7 +34,7 @@ import {
   type ElementVisibility,
 } from "@/lib/boards";
 import { cn } from "@/lib/utils";
-import { boardOperationAction, readBoardContentAction } from "@/server/actions/boards";
+import { boardOperationAction } from "@/server/actions/boards";
 
 /** L'éditeur d'un panneau.
  *
@@ -191,11 +191,31 @@ function applyOp(state: State, op: BoardOperation, me: Me): State {
   }
 }
 
-type Action = { type: "op"; op: BoardOperation; me: Me } | { type: "reset"; content: BoardContent };
+type Action =
+  | { type: "op"; op: BoardOperation; me: Me }
+  | { type: "reset"; content: BoardContent }
+  | { type: "sync"; content: BoardContent };
 
 function reducer(state: State, action: Action): State {
   if (action.type === "reset") return { content: action.content, trash: {}, trashArrows: {} };
+  // Les gestes des autres arrivent : la corbeille de la séance reste, pour
+  // qu'« annuler » rétablisse encore ce qu'on a soi-même retiré.
+  if (action.type === "sync") return { ...state, content: action.content };
   return applyOp(state, action.op, action.me);
+}
+
+/** Le délai entre deux relectures du panneau, onglet visible. */
+const PULL_MS = 2000;
+
+type Pull = { revision: number; content: BoardContent | null };
+
+/** Où en est le panneau depuis `revision` : `null` s'il n'existe plus pour ce
+ *  lecteur. Une panne du réseau lève, et la relecture suivante réessaie. */
+async function pullBoard(boardId: string, revision: number): Promise<Pull | null> {
+  const response = await fetch(`/api/panneaux/${boardId}?depuis=${revision}`, { cache: "no-store" });
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`Relecture refusée (${response.status})`);
+  return (await response.json()) as Pull;
 }
 
 /** Ce qu'on refait après l'avoir annulé : un élément posé puis annulé est à la
@@ -265,6 +285,7 @@ function Glyph({ children }: { children: React.ReactNode }) {
 export function BoardEditor({
   boardId,
   initialContent,
+  initialRevision = 0,
   me,
   ownerType,
   canWrite,
@@ -275,6 +296,8 @@ export function BoardEditor({
 }: {
   boardId: string;
   initialContent: BoardContent;
+  /** La révision lue avec `initialContent`, d'où part le suivi. */
+  initialRevision?: number;
   me: Me | null;
   ownerType: BoardOwner;
   /** Poser sur le panneau. */
@@ -332,6 +355,10 @@ export function BoardEditor({
   const sending = useRef(false);
   const draft = useRef<Draft | null>(null);
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** La révision que l'écran montre, et un compteur des gestes locaux : une
+   *  relecture partie avant un geste arrive sans lui, et ne s'applique pas. */
+  const revision = useRef(initialRevision);
+  const localEpoch = useRef(0);
 
   const { elements, arrows } = state.content;
   const selectedElement =
@@ -423,6 +450,7 @@ export function BoardEditor({
   const apply = useCallback(
     (op: BoardOperation) => {
       if (!me) return;
+      localEpoch.current += 1;
       dispatch({ type: "op", op, me });
       send(op);
     },
@@ -486,6 +514,7 @@ export function BoardEditor({
         }
       }
       Object.assign(draft.current.after, patch);
+      localEpoch.current += 1;
       dispatch({
         type: "op",
         op:
@@ -589,22 +618,59 @@ export function BoardEditor({
     return () => canvas.removeEventListener("wheel", onWheel);
   }, [zoomAround]);
 
-  // Revenir sur l'onglet : le panneau a pu bouger entre-temps. On le relit —
-  // sauf si l'on a soi-même des gestes en route, qu'on écraserait.
+  // Le temps réel : le panneau se relit toutes les deux secondes, onglet
+  // visible, et tout de suite quand on y revient. La révision dit s'il a bougé ;
+  // le contenu ne descend que dans ce cas. Ce qui vient des autres s'applique
+  // sans toucher à l'historique — chaque geste y nomme son élément —, mais
+  // jamais par-dessus un geste à soi encore en route : il l'effacerait de
+  // l'écran le temps d'un aller-retour.
   useEffect(() => {
-    async function onVisible() {
-      if (document.visibilityState !== "visible") return;
-      if (sending.current || queue.current.length > 0 || draft.current || gesture.current) return;
-      const content = await readBoardContentAction(boardId);
-      if (content && !sending.current && queue.current.length === 0 && !draft.current) {
-        dispatch({ type: "reset", content });
-        history.current = { undo: [], redo: [] };
-        syncHistory();
+    let stopped = false;
+    let running = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const busy = () =>
+      sending.current || queue.current.length > 0 || Boolean(draft.current) || Boolean(gesture.current);
+
+    async function tick() {
+      if (timer) clearTimeout(timer);
+      timer = null;
+      if (stopped || running) return;
+      if (document.visibilityState === "visible" && !busy()) {
+        running = true;
+        const epoch = localEpoch.current;
+        try {
+          const pulled = await pullBoard(boardId, revision.current);
+          if (stopped) return;
+          if (pulled === null) {
+            setError("Ce panneau n'est plus accessible.");
+            return;
+          }
+          if (pulled.content === null) {
+            revision.current = pulled.revision;
+          } else if (!busy() && localEpoch.current === epoch) {
+            revision.current = pulled.revision;
+            dispatch({ type: "sync", content: pulled.content });
+          }
+        } catch {
+          // Le réseau a manqué une relecture : la suivante la refait.
+        } finally {
+          running = false;
+        }
       }
+      if (!stopped) timer = setTimeout(tick, PULL_MS);
     }
+
+    function onVisible() {
+      if (document.visibilityState === "visible") void tick();
+    }
+    timer = setTimeout(tick, PULL_MS);
     document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [boardId, syncHistory]);
+    return () => {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [boardId]);
 
   // Annuler et rétablir au clavier. L'écoute est posée sur le document : après
   // une suppression, l'élément qui avait le focus n'existe plus, et le focus

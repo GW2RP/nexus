@@ -330,4 +330,7 @@ export type BoardSummary = BoardContent & {
   authorId: string;
   createdAt: string;
   updatedAt: string;
+  /** Le numéro de la dernière écriture partagée : l'éditeur part de lui pour
+   *  suivre le panneau (`/api/panneaux/<id>`). */
+  revision: number;
 };

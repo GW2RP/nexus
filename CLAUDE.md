@@ -545,9 +545,58 @@ il quitterait la page que suit le modérateur. La visibilité est une liste et n
 prochains outils de MJ — un joueur choisi, le cercle d'une scène — n'auront
 qu'à y ajouter leur audience et à dire, dans `canSeeBoardItem`, qui la lit.
 
+**Le panneau se suit en temps réel.** Chaque geste que tout le monde voit
+avance la `revision` du panneau (`$inc` dans l'écriture, et dans les gestes de
+modération) ; l'éditeur relit `/api/panneaux/<id>?depuis=<révision>` toutes les
+deux secondes, onglet visible, et ne redescend le contenu que si elle a bougé.
+Un geste qui ne touche qu'une aide de jeu privée ne l'avance pas, pour la même
+raison qu'il ne touche pas `updatedAt`. Les droits se jouent **avant** la
+réponse « rien n'a bougé » (`loadBoardAccess`, sans les éléments) : sans quoi
+elle trahirait l'existence d'un panneau réservé, et un accès retiré ne se
+verrait pas. Ce qui arrive des autres remplace le
+contenu **sans toucher à l'historique ni à la corbeille** — chaque geste y nomme
+son élément —, et jamais par-dessus un geste à soi encore en route : une
+relecture partie avant un geste local (`localEpoch`) arrive sans lui et
+l'effacerait le temps d'un aller-retour. La relecture est une route et non une
+action serveur : Next sérialise les actions, et la relecture attendrait derrière
+les gestes.
+
 Un élément se signale depuis son panneau (`element-panneau`). Il n'a pas
 d'adresse à lui : le signalement range celle de son panneau, qui l'ouvre
 sélectionné (`?element=`).
+
+## L'activité Discord
+
+Le hub se lance en **activité Discord** : un salon regarde et remplit le même
+panneau. Discord sert `/discord` (le `proxy.ts` y réécrit la racine quand la
+requête porte `frame_id`) depuis `<application>.discordsays.com`, derrière son
+proxy et une CSP qui refuse tout autre hôte. Le hub y est joint par des adresses
+relatives ; les images du magasin et leur envoi passent par les correspondances
+du portail (`/stockage`, `/vercel-blob`), que `patchUrlMappings` applique.
+
+**Le cookie du site n'existe pas dans l'activité.** L'entrée
+(`/api/discord/connexion`) échange le code du SDK, vérifie auprès de Discord —
+par le jeton du bot — que le compte est **dans l'instance**, et rend un
+**laissez-passer** signé (`x-activite`), valable un quart d'heure et renouvelé
+en rejouant la présence (`/api/discord/renouveler`) ; si le compte Discord est
+lié au hub, une session aussi — une seule par compte, la précédente révoquée —,
+représentée en `Authorization: Bearer` comme l'overlay. Les
+deux en-têtes partent sur chaque requête vers le hub, actions serveur comprises
+(`allowedOrigins`, restreint au sous-domaine de **notre** application), jamais
+vers un autre hôte.
+
+**L'instance accorde la lecture, pas l'écriture.** Le panneau qu'elle montre
+(`ActivityInstance`) se lit par tout participant, compte du hub ou non — c'est
+celui que le salon regarde —, tant que celui qui l'a posé **peut** encore le
+lire : l'accord se rejoue à chaque lecture (`activityGrantsBoard`), jamais servi
+périmé. Les aides de
+jeu privées restent à leur auteur. Écrire suit les règles du site. Changer le
+panneau demande une session et de pouvoir le lire soi-même, et Discord confirme
+de nouveau la présence dans l'instance.
+
+Discord ne sert qu'à **lier** un compte existant, depuis « Mon compte » : il
+n'ouvre pas de compte (`disableSignUp`) et ne se lie jamais sur la foi d'une
+adresse (`disableImplicitLinking`) — le hub ne vérifie pas les siennes.
 
 ## Les images
 

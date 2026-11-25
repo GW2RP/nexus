@@ -109,6 +109,7 @@ async function toSummary(doc: BoardDoc, path: string, viewer: SessionUser | null
     authorId: doc.authorId,
     createdAt: toIso(doc.createdAt ?? new Date(0)),
     updatedAt: toIso(doc.updatedAt ?? new Date(0)),
+    revision: doc.revision ?? 0,
   };
 }
 
