@@ -141,7 +141,10 @@ export async function deleteBoardElement(elementId: string): Promise<void> {
     .lean()) as Pick<BoardDoc, "elements"> | null;
   await Board.updateOne(
     { "elements._id": id } as never,
-    { $pull: { elements: { _id: id }, arrows: { $or: [{ from: id }, { to: id }] } } } as never,
+    {
+      $pull: { elements: { _id: id }, arrows: { $or: [{ from: id }, { to: id }] } },
+      $inc: { revision: 1 },
+    } as never,
   );
   await releaseBoardImages(boardImagesOf(found?.elements));
 }
@@ -163,7 +166,7 @@ export async function setBoardElementHidden(elementId: string, hidden: boolean):
   if (!id) return;
   await Board.updateOne(
     { "elements._id": id } as never,
-    { $set: { "elements.$[e].hidden": hidden } } as never,
+    { $set: { "elements.$[e].hidden": hidden }, $inc: { revision: 1 } } as never,
     { arrayFilters: [{ "e._id": id }] },
   );
 }

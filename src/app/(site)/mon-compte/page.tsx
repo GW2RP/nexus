@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { CharacterRow } from "@/components/content/character-card";
 import { EventRow } from "@/components/content/event-row";
+import { DiscordLink } from "@/components/account/discord-link";
 import { SignOutButton } from "@/components/layout/sign-out-button";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -12,12 +13,14 @@ import { LoadMore } from "@/components/ui/load-more";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { ROLE_LABELS } from "@/lib/domain";
+import { env } from "@/lib/env";
 import { IMAGE_QUOTA_BYTES, formatMegaoctets } from "@/lib/images";
 import { isSuspended } from "@/lib/permissions";
 import { buildMetadata } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
 import { formatLongDate } from "@/lib/dates";
 import { imageUsage } from "@/server/images";
+import { linkedDiscordId } from "@/server/discord/link";
 import { listCharactersOf } from "@/server/queries/characters";
 import { listEvents } from "@/server/queries/events";
 import { listPlaces } from "@/server/queries/places";
@@ -46,7 +49,8 @@ export default async function AccountPage({
   const annoncesPage = Math.max(1, Number(params.annonces ?? 1) || 1);
   const annoncesLimite = ANNONCES_PAR_PAGE * annoncesPage;
 
-  const [characters, places, registrations, authoredPlusOne, images] = await Promise.all([
+  const discordEnabled = Boolean(env.discordClientId);
+  const [characters, places, registrations, authoredPlusOne, images, discordLinked] = await Promise.all([
     listCharactersOf(user.id),
     listPlaces({ authorId: user.id, pageSize: 24 }),
     listEvents({ registeredFor: user.id, viewer: user, limit: 20 }),
@@ -65,6 +69,7 @@ export default async function AccountPage({
       console.error("Espace d'images illisible :", error);
       return null;
     }),
+    discordEnabled ? linkedDiscordId(user.id) : Promise.resolve(null),
   ]);
   const authored = authoredPlusOne.slice(0, annoncesLimite);
   const moreAuthored = authoredPlusOne.length > annoncesLimite;
@@ -221,6 +226,13 @@ export default async function AccountPage({
                   style={{ width: `${Math.min(100, (images / IMAGE_QUOTA_BYTES) * 100)}%` }}
                 />
               </div>
+            </section>
+          ) : null}
+
+          {discordEnabled ? (
+            <section className="mb-8" aria-labelledby="mon-discord">
+              <SectionHeading id="mon-discord" title="Mon compte Discord" compact />
+              <DiscordLink linkId={discordLinked} />
             </section>
           ) : null}
 

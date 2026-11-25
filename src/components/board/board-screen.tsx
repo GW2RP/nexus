@@ -25,7 +25,7 @@ export function BoardScreen({
   /** Les autres panneaux du même groupe. */
   tabs?: { id: string; name: string; path: string }[];
   actions?: React.ReactNode;
-  editor: Omit<React.ComponentProps<typeof BoardEditor>, "boardId" | "initialContent" | "ownerType">;
+  editor: Omit<React.ComponentProps<typeof BoardEditor>, "boardId" | "initialContent" | "initialRevision" | "ownerType">;
 }) {
   return (
     <div className="flex flex-col lg:h-[calc(100dvh-82px)] lg:min-h-[640px]">
@@ -73,6 +73,7 @@ export function BoardScreen({
         <BoardEditor
           boardId={board.id}
           initialContent={{ elements: board.elements, arrows: board.arrows }}
+          initialRevision={board.revision}
           ownerType={board.ownerType}
           {...editor}
         />

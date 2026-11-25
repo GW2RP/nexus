@@ -95,6 +95,12 @@ const boardSchema = new Schema(
     removed: { type: [elementSchema], default: [] },
     removedArrows: { type: [arrowSchema], default: [] },
     hidden: { type: Boolean, default: false },
+    /** Le numéro de la dernière écriture que tout le monde voit. Les éditeurs
+     *  ouverts le relisent pour savoir si le panneau a bougé, sans redescendre
+     *  son contenu entier à chaque fois. Une aide de jeu privée ne l'avance
+     *  pas : elle n'arrive qu'à son auteur, et les autres verraient le panneau
+     *  « bouger » sans rien y trouver. */
+    revision: { type: Number, default: 0 },
   },
   { timestamps: true, versionKey: false },
 );

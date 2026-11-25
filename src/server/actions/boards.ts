@@ -35,7 +35,7 @@ import {
   canSeeBoardItem,
   canWriteBoard,
 } from "@/lib/permissions";
-import { getCurrentUser, type SessionUser } from "@/lib/session";
+import type { SessionUser } from "@/lib/session";
 import { Board } from "@/models/board";
 import { Group } from "@/models/group";
 import { Place } from "@/models/place";
@@ -296,8 +296,14 @@ export async function boardOperationAction(
      *  du panneau : « modifié le » s'affiche à tous, et la verraient bouger
      *  ceux à qui le MJ prépare la surprise. */
     const isPrivate = (element: RawElement | undefined) => element?.visibility === "prive";
-    const write = (quiet: boolean, update: unknown, options: Record<string, unknown> = {}) =>
-      Board.updateOne(filter, update as never, quiet ? { ...options, timestamps: false } : options);
+    // Un geste que tout le monde voit avance aussi la révision du panneau :
+    // c'est elle que les éditeurs ouverts relisent pour le suivre.
+    const write = (quiet: boolean, update: Record<string, unknown>, options: Record<string, unknown> = {}) =>
+      Board.updateOne(
+        filter,
+        (quiet ? update : { ...update, $inc: { revision: 1 } }) as never,
+        quiet ? { ...options, timestamps: false } : options,
+      );
     const arrowIsQuiet = (arrow: { from: unknown; to: unknown }) =>
       isPrivate(find(elements, String(arrow.from))) || isPrivate(find(elements, String(arrow.to)));
 
@@ -594,7 +600,7 @@ export async function boardOperationAction(
 }
 
 /** Le panneau tel qu'il est en base, pour que l'éditeur s'y range après un
- *  refus — ou quand on revient sur l'onglet après l'avoir quitté. */
+ *  refus. */
 async function freshContent(
   loaded: LoadedBoard | null,
   viewer: SessionUser | null,
@@ -602,11 +608,4 @@ async function freshContent(
   if (!loaded) return undefined;
   const again = await loadBoard(String(loaded.doc._id));
   return again ? serializeContent(again.doc, viewer) : undefined;
-}
-
-export async function readBoardContentAction(boardId: string): Promise<BoardContent | null> {
-  const user = await getCurrentUser();
-  const loaded = await loadBoard(objectIdOrNull(boardId));
-  if (!loaded || !canSeeBoard(user, loaded.access)) return null;
-  return serializeContent(loaded.doc, user);
 }

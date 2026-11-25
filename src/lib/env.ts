@@ -25,6 +25,20 @@ export const env = {
   get cronSecret() {
     return process.env.CRON_SECRET ?? "";
   },
+  /** L'application Discord : son identifiant et son secret servent à la fois
+   *  à lier un compte Discord depuis le site et à connecter l'activité. Sans
+   *  eux, ni l'un ni l'autre ne s'ouvre. */
+  get discordClientId() {
+    return process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID ?? "";
+  },
+  get discordClientSecret() {
+    return process.env.DISCORD_CLIENT_SECRET ?? "";
+  },
+  /** Le jeton du bot de l'application : il sert à vérifier qu'un participant
+   *  est bien dans l'instance de l'activité qu'il dit rejoindre. */
+  get discordBotToken() {
+    return process.env.DISCORD_BOT_TOKEN ?? "";
+  },
   get siteUrl() {
     // Vercel expose l'URL de la préproduction ; en production on force le domaine canonique.
     const explicit = process.env.NEXT_PUBLIC_SITE_URL;
