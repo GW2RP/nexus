@@ -313,11 +313,20 @@ export function MapExplorer({
                 .filter(Boolean)
                 .join(" · ")}
               note={
-                selectedPlace.upcomingEventCount > 0
-                  ? `${selectedPlace.upcomingEventCount} évènement${
-                      selectedPlace.upcomingEventCount > 1 ? "s" : ""
-                    } à venir`
-                  : null
+                [
+                  selectedPlace.presentCount > 0
+                    ? `${selectedPlace.presentCount} présent${
+                        selectedPlace.presentCount > 1 ? "s" : ""
+                      } en ce moment`
+                    : null,
+                  selectedPlace.upcomingEventCount > 0
+                    ? `${selectedPlace.upcomingEventCount} évènement${
+                        selectedPlace.upcomingEventCount > 1 ? "s" : ""
+                      } à venir`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ") || null
               }
               activity={selectedPlace.activity}
               href={`/lieux/${selectedPlace.slug}`}
@@ -456,6 +465,11 @@ export function MapExplorer({
                             .join(" · ")}
                         </span>
                         <PlaceActivityLine activity={place.activity} />
+                        {place.presentCount > 0 ? (
+                          <span className="block meta text-gold-ink">
+                            {place.presentCount} présent{place.presentCount > 1 ? "s" : ""}
+                          </span>
+                        ) : null}
                         {place.upcomingEventCount > 0 ? (
                           <span className="block text-[15px] text-crimson-ink">
                             {place.upcomingEventCount} évènement

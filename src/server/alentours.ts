@@ -49,6 +49,10 @@ export async function lieuxAutour(point: Point, rayon: number, limite: number) {
           // Jugé à l'heure de la réponse, et resservi par le CDN deux minutes
           // au plus : l'overlay rejuge l'échéance de son côté.
           activity: lieu.activity,
+          // Les présents du moment, resservis comme le statut deux minutes
+          // au plus : la fréquentation se lit d'un coup d'œil, pas à la
+          // seconde.
+          presentCount: lieu.presentCount,
           distance: Math.round(distance),
         },
       ];

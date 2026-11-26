@@ -104,6 +104,7 @@ export function formeLieuResume(lieu: PlaceSummary) {
     coordinates: lieu.coordinates,
     upcomingEventCount: lieu.upcomingEventCount,
     activity: lieu.activity,
+    presentCount: lieu.presentCount,
   };
 }
 
@@ -116,6 +117,8 @@ export function formeLieu(lieu: PlaceDetail) {
     access: lieu.access,
     floorPlans: lieu.floorPlans,
     keepers: lieu.keepers,
+    // Les noms sont publics, sur la fiche comme ici.
+    presents: lieu.presents,
     updatedAt: lieu.updatedAt,
   };
 }

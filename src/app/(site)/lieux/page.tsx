@@ -23,7 +23,7 @@ import { lirePage } from "@/lib/pagination";
 import { canContribute } from "@/lib/permissions";
 import { SITE_URL, buildMetadata, jsonLdScript } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
-import { listPlaces } from "@/server/queries/places";
+import { listPlaces, listPlacesForMap } from "@/server/queries/places";
 
 export const metadata: Metadata = buildMetadata({
   title: "Registre des lieux",
@@ -102,6 +102,10 @@ export default function PlacesPage({ searchParams }: { searchParams: Promise<Par
           />
         </div>
 
+        <Suspense fallback={null}>
+          <EnCeMoment />
+        </Suspense>
+
         <PendingResults>
           <Suspense fallback={<CardGridSkeleton count={6} />}>
             <Resultats searchParams={searchParams} />
@@ -109,6 +113,40 @@ export default function PlacesPage({ searchParams }: { searchParams: Promise<Par
         </PendingResults>
       </UrlFilters>
     </div>
+  );
+}
+
+/** Les lieux où l'on joue en ce moment, les plus fréquentés d'abord : la
+ *  question qu'on se pose en se connectant, avant celle du registre entier.
+ *  Rien ne s'affiche quand personne ne s'est déclaré nulle part. */
+async function EnCeMoment() {
+  const animes = (await listPlacesForMap())
+    .filter((place) => place.presentCount > 0)
+    .sort((a, b) => b.presentCount - a.presentCount || a.name.localeCompare(b.name, "fr"))
+    .slice(0, 8);
+  if (animes.length === 0) return null;
+  return (
+    <section aria-labelledby="lieux-en-ce-moment" className="mb-8 border border-gold bg-surface px-5 py-4">
+      <h2 id="lieux-en-ce-moment" className="eyebrow text-gold-eyebrow">
+        EN CE MOMENT
+      </h2>
+      <ul className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
+        {animes.map((place) => (
+          <li key={place.id} className="body-compact">
+            <Link
+              href={`/lieux/${place.slug}`}
+              className="text-crimson-ink underline-offset-4 hover:underline"
+            >
+              {place.name}
+            </Link>
+            <span className="text-ink-muted">
+              {" · "}
+              {place.presentCount} présent{place.presentCount > 1 ? "s" : ""}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

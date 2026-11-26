@@ -16,6 +16,7 @@ import type {
 } from "@/lib/domain";
 import type { BoardContent, BoardOwner, BoardVisibility } from "@/lib/boards";
 import type { PlaceActivity } from "@/lib/place-activity";
+import type { Present } from "@/lib/place-presence";
 import type { Phenomene } from "@/lib/weather/phenomena";
 
 /** Les formes sérialisées que les composants reçoivent : des objets simples,
@@ -69,6 +70,8 @@ export type PlaceSummary = {
   authorId: string;
   /** Le statut que son équipe déclare, jugé à l'heure de la lecture. */
   activity: PlaceActivity | null;
+  /** Combien de comptes s'y déclarent en ce moment. */
+  presentCount: number;
 };
 
 export type FloorPoint = {
@@ -89,6 +92,8 @@ export type FloorPlan = {
 };
 
 export type PlaceDetail = PlaceSummary & {
+  /** Qui s'y tient en ce moment, les premiers arrivés d'abord. */
+  presents: Present[];
   description: string | null;
   access: string | null;
   logoUrl: string | null;

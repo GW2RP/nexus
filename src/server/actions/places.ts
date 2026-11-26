@@ -9,6 +9,7 @@ import {
   deleteUploadedImages,
 } from "@/lib/blob";
 import { canEditContent, canEditPlace, canManagePlaceTeam } from "@/lib/permissions";
+import { getCurrentUser } from "@/lib/session";
 import { uniqueSlug } from "@/lib/slug";
 import { Character } from "@/models/character";
 import { Place } from "@/models/place";
@@ -27,6 +28,7 @@ import {
 import { placeActivitySchema, placeSchema } from "@/server/actions/schemas";
 import { deleteBoards } from "@/server/boards";
 import { ecrireActivite } from "@/server/place-activity";
+import { declarerPresence, PresenceRefusee, quitterPresence } from "@/server/place-presence";
 import { listCharactersOfMany } from "@/server/queries/characters";
 import { toObjectId } from "@/server/queries/shared";
 
@@ -309,4 +311,54 @@ export async function updatePlaceActivityAction(
   revalidatePath("/lieux");
   revalidatePath("/carte");
   return successState("Statut enregistré.");
+}
+
+/** « J'y suis », depuis la fiche du lieu : sous l'un de ses personnages,
+ *  pour deux heures. Redéclarer au même lieu renouvelle les deux heures et
+ *  garde l'heure d'arrivée ; ailleurs, la présence s'y déplace. */
+export async function declarePresenceAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  let slug: string;
+  try {
+    const user = await requireContributor();
+    const id = objectIdOrNull(formData.get("id"));
+    if (!id) return errorState("Ce lieu n'existe plus.");
+    const characterId = objectIdOrNull(formData.get("characterId"));
+    if (!characterId) {
+      return errorState("Choisissez le personnage qui s'y tient.", {
+        characterId: "Choisissez un personnage.",
+      });
+    }
+    ({
+      lieu: { slug },
+    } = await declarerPresence(user, { id }, { characterId, source: "site" }));
+  } catch (error) {
+    if (error instanceof PresenceRefusee) return errorState(error.message);
+    return toActionState(error);
+  }
+
+  revalidatePath(`/lieux/${slug}`);
+  revalidatePath("/lieux");
+  revalidatePath("/carte");
+  return successState("Vous y êtes.");
+}
+
+/** Quitter le lieu où l'on s'était déclaré. Un compte suspendu peut toujours
+ *  partir : on ne le retient pas au lieu jusqu'à l'échéance. */
+export async function leavePresenceAction(): Promise<ActionState> {
+  let slug: string | null;
+  try {
+    const user = await getCurrentUser();
+    if (!user) return errorState("Connexion requise.");
+    slug = await quitterPresence(user);
+  } catch (error) {
+    return toActionState(error);
+  }
+
+  if (slug) revalidatePath(`/lieux/${slug}`);
+  revalidatePath("/lieux");
+  revalidatePath("/carte");
+  return successState("Vous avez quitté le lieu.");
 }
