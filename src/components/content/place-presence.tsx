@@ -28,6 +28,7 @@ export function PlacePresence({
   mine,
   characters,
   signedIn,
+  canDeclare,
 }: {
   placeId: string;
   presents: Present[];
@@ -35,7 +36,10 @@ export function PlacePresence({
   mine: PresenceDeclaree | null;
   /** Les personnages du lecteur, pour choisir qui s'y tient. */
   characters: { id: string; name: string }[];
+  /** Connecté : de quoi quitter le lieu, même suspendu. */
   signedIn: boolean;
+  /** Peut se déclarer : un compte suspendu ne le peut plus. */
+  canDeclare: boolean;
 }) {
   const [declared, declare] = useActionState(declarePresenceAction, idleState);
   const [left, leave] = useActionState(leavePresenceAction, idleState);
@@ -106,7 +110,7 @@ export function PlacePresence({
             </form>
           </div>
         </div>
-      ) : characters.length === 0 ? (
+      ) : !canDeclare ? null : characters.length === 0 ? (
         <Button asChild variant="outline" size="sm" className="self-start">
           <Link href="/personnages/nouveau">CRÉER UN PERSONNAGE</Link>
         </Button>

@@ -32,7 +32,7 @@ import { connectToDatabase, toObjectId } from "@/server/queries/shared";
 export class PresenceRefusee extends Error {
   constructor(
     message: string,
-    readonly statut: 400 | 404,
+    readonly statut: 400 | 404 | 409,
   ) {
     super(message);
   }
@@ -63,7 +63,13 @@ function memeNom(a: string, b: string): boolean {
 export async function declarerPresence(
   user: SessionUser,
   cible: { id: string } | { slug: string },
-  demande: { characterId?: string; characterName?: string; source: SourcePresence },
+  demande: {
+    characterId?: string;
+    characterName?: string;
+    source: SourcePresence;
+    /** Ne renouvelle que la présence en place à ce lieu, de cette source. */
+    renouveler?: boolean;
+  },
 ): Promise<PresenceDeclaree> {
   await connectToDatabase();
   const filtreLieu =
@@ -99,6 +105,11 @@ export async function declarerPresence(
   const avant = await PlacePresence.findOne({ userId: user.id }).lean();
   const memeLieu =
     avant && String(avant.placeId) === String(place._id) && avant.until.getTime() > maintenant.getTime();
+  // Un renouvellement en retard sur ce qui s'est passé ailleurs — quitté, ou
+  // déclaré à un autre lieu depuis le site — ne ramène pas l'ancienne.
+  if (demande.renouveler && !(memeLieu && avant.source === demande.source)) {
+    throw new PresenceRefusee("Cette présence n'est plus en place.", 409);
+  }
   const since = memeLieu ? avant.since : maintenant;
 
   await PlacePresence.updateOne(
@@ -140,10 +151,24 @@ function coordonnees(
 }
 
 /** Quitter le lieu où l'on s'était déclaré. Rend le slug du lieu quitté, pour
- *  revalider sa fiche, ou `null` si l'on n'était nulle part. */
-export async function quitterPresence(user: SessionUser): Promise<string | null> {
+ *  revalider sa fiche, ou `null` si l'on n'était nulle part.
+ *
+ *  `seulement` borne le départ à une présence précise — celle que l'overlay
+ *  retire quand on s'éloigne : déclaré ailleurs depuis le site entre-temps,
+ *  on y reste. */
+export async function quitterPresence(
+  user: SessionUser,
+  seulement?: { slug: string; source: SourcePresence },
+): Promise<string | null> {
   await connectToDatabase();
-  const avant = await PlacePresence.findOneAndDelete({ userId: user.id }).lean();
+  const filtre: Record<string, unknown> = { userId: user.id };
+  if (seulement) {
+    const place = await Place.findOne({ slug: seulement.slug }).select({ _id: 1 }).lean();
+    if (!place) return null;
+    filtre.placeId = place._id;
+    filtre.source = seulement.source;
+  }
+  const avant = await PlacePresence.findOneAndDelete(filtre).lean();
   if (!avant) return null;
   const place = await Place.findById(avant.placeId).select({ slug: 1 }).lean();
   return place?.slug ?? null;

@@ -270,7 +270,8 @@ export default async function PlacePage({ params }: Props) {
             presents={place.presents}
             mine={mine}
             characters={characters.map((character) => ({ id: character.id, name: character.name }))}
-            signedIn={Boolean(user) && canContribute(user)}
+            signedIn={Boolean(user)}
+            canDeclare={canContribute(user)}
           />
 
           <section className="mb-8" aria-labelledby="en-bref">

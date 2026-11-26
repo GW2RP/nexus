@@ -18,7 +18,7 @@ import { fromGameInput } from "@/lib/dates";
 import { PLANS_MAX, POINTS_PAR_PLAN_MAX, clampPourcentage } from "@/lib/floor-plans";
 import { isBlobUrl } from "@/lib/images";
 import { MESSAGE_ACTIVITE_MAX } from "@/lib/place-activity";
-import { NOM_PERSONNAGE_MAX } from "@/lib/place-presence";
+import { NOM_EN_JEU_MAX } from "@/lib/place-presence";
 import { CONTINENT_HEIGHT, CONTINENT_WIDTH } from "@/lib/map";
 import {
   EVENT_TYPES,
@@ -224,7 +224,10 @@ export const placePresenceSchema = z.object({
     .string()
     .trim()
     .min(1, "Le personnage joué n'est pas nommé.")
-    .max(NOM_PERSONNAGE_MAX, `${NOM_PERSONNAGE_MAX} caractères au plus.`),
+    .max(NOM_EN_JEU_MAX, `${NOM_EN_JEU_MAX} caractères au plus.`),
+  // Un renouvellement ne vaut que pour la présence qu'il renouvelle : faite
+  // ou quittée ailleurs entre-temps, il est refusé plutôt que de la ramener.
+  renouveler: z.boolean().optional(),
   // La route est celle de l'overlay : sa déclaration vit un quart d'heure,
   // et il la renouvelle. Celle de deux heures ne s'écrit que depuis la fiche.
   source: z.literal("overlay").default("overlay"),

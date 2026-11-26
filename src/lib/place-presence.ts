@@ -15,9 +15,9 @@ export const DUREE_PRESENCE_OVERLAY_MS = 15 * 60 * 1000;
 export const SOURCES_PRESENCE = ["overlay", "site"] as const;
 export type SourcePresence = (typeof SOURCES_PRESENCE)[number];
 
-/** Un nom de personnage, tel que le jeu l'écrit : 19 caractères au plus en
- *  jeu, 80 sur une fiche. */
-export const NOM_PERSONNAGE_MAX = 80;
+/** Un nom de personnage tel que le jeu l'écrit : 19 caractères au plus. Ce
+ *  que l'overlay envoie ne peut pas être plus long qu'un vrai nom. */
+export const NOM_EN_JEU_MAX = 19;
 
 /** Une présence déclarée, telle que le compte la relit. */
 export type PresenceDeclaree = {

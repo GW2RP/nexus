@@ -13,8 +13,9 @@ export const dynamic = "force-dynamic";
  * `Authorization: Bearer` : elle le propose quand le personnage passe à côté,
  * et le renouvelle tant qu'il y reste. La déclaration vit un quart d'heure.
  *
- * Corps : `{ personnage: string }`, le nom en jeu. Réponse : la présence
- * écrite, échéance comprise.
+ * Corps : `{ personnage: string, renouveler?: boolean }`, le nom en jeu.
+ * Réponse : la présence écrite, échéance comprise. Un renouvellement d'une
+ * présence quittée ou déplacée entre-temps répond 409.
  */
 export async function POST(
   request: Request,
@@ -40,7 +41,11 @@ export async function POST(
     const presence = await declarerPresence(
       user,
       { slug },
-      { characterName: demande.data.personnage, source: demande.data.source },
+      {
+        characterName: demande.data.personnage,
+        source: demande.data.source,
+        renouveler: demande.data.renouveler,
+      },
     );
     revalidatePath(`/lieux/${slug}`);
     return NextResponse.json({ presence }, { headers: { "Cache-Control": "private, no-store" } });
