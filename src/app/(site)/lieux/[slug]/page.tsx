@@ -7,6 +7,7 @@ import { BoardPreview } from "@/components/board/board-preview";
 import { EventRow } from "@/components/content/event-row";
 import { PlaceActivityStatus } from "@/components/content/place-activity";
 import { PlaceActivityPanel } from "@/components/content/place-activity-panel";
+import { PlacePresence } from "@/components/content/place-presence";
 import { PlaceTabs } from "@/components/content/place-tabs";
 import { WeatherBadge } from "@/components/content/weather-badge";
 import { ReportDialog } from "@/components/report-dialog";
@@ -19,13 +20,20 @@ import { FramedMedia } from "@/components/ui/framed-media";
 import { RichText } from "@/components/ui/rich-text";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { PLACE_TYPE_LABELS, REGION_LABELS } from "@/lib/domain";
-import { canEditContent, canEditPlace, canReportContent } from "@/lib/permissions";
+import {
+  canContribute,
+  canEditContent,
+  canEditPlace,
+  canReportContent,
+} from "@/lib/permissions";
 import { formatLongDate } from "@/lib/dates";
 import { SITE_URL, breadcrumbJsonLd, buildMetadata, jsonLdScript } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/session";
 import { deletePlaceAction } from "@/server/actions/places";
 import { getPlaceBoard } from "@/server/queries/boards";
 import { listEvents } from "@/server/queries/events";
+import { presenceDe } from "@/server/place-presence";
+import { listCharactersOf } from "@/server/queries/characters";
 import { getPlaceBySlug } from "@/server/queries/places";
 import { getWeatherAt, getWeatherForRegion } from "@/server/queries/weather";
 
@@ -72,7 +80,7 @@ export default async function PlacePage({ params }: Props) {
   const [place, user] = await Promise.all([getPlaceBySlug(slug), getCurrentUser()]);
   if (!place) notFound();
 
-  const [events, weather, board] = await Promise.all([
+  const [events, weather, board, mine, characters] = await Promise.all([
     listEvents({ placeId: place.id, limit: 6, viewer: user }),
     // Le lieu a des coordonnées : on prend le temps de sa cellule, pas la
     // moyenne de sa région. La brume d'un marais n'est pas celle de la Kryte.
@@ -80,6 +88,8 @@ export default async function PlacePage({ params }: Props) {
       ? getWeatherAt(place.coordinates, place.region)
       : getWeatherForRegion(place.region),
     getPlaceBoard(place, user),
+    user ? presenceDe(user.id) : null,
+    user ? listCharactersOf(user.id) : [],
   ]);
 
   const managerIds = place.managers.map((manager) => manager.id);
@@ -254,6 +264,14 @@ export default async function PlacePage({ params }: Props) {
 
         <aside className="lg:w-[320px] lg:shrink-0">
           {canEdit ? <PlaceActivityPanel placeId={place.id} activity={place.activity} /> : null}
+
+          <PlacePresence
+            placeId={place.id}
+            presents={place.presents}
+            mine={mine}
+            characters={characters.map((character) => ({ id: character.id, name: character.name }))}
+            signedIn={Boolean(user) && canContribute(user)}
+          />
 
           <section className="mb-8" aria-labelledby="en-bref">
             <SectionHeading id="en-bref" title="En bref" compact />

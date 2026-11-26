@@ -18,6 +18,7 @@ import { fromGameInput } from "@/lib/dates";
 import { PLANS_MAX, POINTS_PAR_PLAN_MAX, clampPourcentage } from "@/lib/floor-plans";
 import { isBlobUrl } from "@/lib/images";
 import { MESSAGE_ACTIVITE_MAX } from "@/lib/place-activity";
+import { NOM_PERSONNAGE_MAX } from "@/lib/place-presence";
 import { CONTINENT_HEIGHT, CONTINENT_WIDTH } from "@/lib/map";
 import {
   EVENT_TYPES,
@@ -216,6 +217,19 @@ export const placeSchema = placeFields.refine(placeAlt.check, placeAlt.options);
 /** Le statut d'un lieu, tel que son équipe le bascule — depuis la fiche ou
  *  depuis l'application bureau. Sans `message`, celui d'avant reste ; un
  *  message vide l'efface. */
+/** « Je suis à ce lieu », depuis l'application bureau : le personnage par son
+ *  nom en jeu, celui que le lien Mumble donne. */
+export const placePresenceSchema = z.object({
+  personnage: z
+    .string()
+    .trim()
+    .min(1, "Le personnage joué n'est pas nommé.")
+    .max(NOM_PERSONNAGE_MAX, `${NOM_PERSONNAGE_MAX} caractères au plus.`),
+  // La route est celle de l'overlay : sa déclaration vit un quart d'heure,
+  // et il la renouvelle. Celle de deux heures ne s'écrit que depuis la fiche.
+  source: z.literal("overlay").default("overlay"),
+});
+
 export const placeActivitySchema = z.object({
   active: z.boolean(),
   message: z

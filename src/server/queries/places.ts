@@ -10,6 +10,7 @@ import { pasEncoreFini } from "@/server/queries/events";
 import { Character } from "@/models/character";
 import { Event } from "@/models/event";
 import { Place, type PlaceDocument } from "@/models/place";
+import { avecPresents, presentsAuLieu } from "@/server/place-presence";
 import {
   type QueryFilter,
   PAGE_SIZE,
@@ -98,7 +99,9 @@ function withLiveActivity<T extends { activity: PlaceActivity | null }>(place: T
   return { ...place, activity: activiteA(place.activity) };
 }
 
-function baseSummary(doc: PlaceDocument & { _id: unknown }): Omit<PlaceSummary, "upcomingEventCount"> {
+function baseSummary(
+  doc: PlaceDocument & { _id: unknown },
+): Omit<PlaceSummary, "upcomingEventCount" | "presentCount"> {
   return {
     id: String(doc._id),
     slug: doc.slug,
@@ -201,9 +204,11 @@ const listPlacesStored = remember(
   [TAGS.places, TAGS.events],
 );
 
+/** Le statut et les présents, joints à la sortie du cache : ils disent
+ *  l'heure qu'il est, pas celle de la dernière écriture. */
 export async function listPlaces(options: ListOptions = {}) {
   const result = await listPlacesStored(options);
-  return { ...result, items: result.items.map(withLiveActivity) };
+  return { ...result, items: await avecPresents(result.items.map(withLiveActivity)) };
 }
 
 const listPlacesForMapStored = remember(
@@ -224,7 +229,7 @@ const listPlacesForMapStored = remember(
 
 /** Tous les lieux épinglables sur la carte — la carte les charge d'un coup. */
 export async function listPlacesForMap() {
-  return (await listPlacesForMapStored()).map(withLiveActivity);
+  return avecPresents((await listPlacesForMapStored()).map(withLiveActivity));
 }
 
 export const getPlaceBySlug = cache(async (slug: string): Promise<PlaceDetail | null> => {
@@ -243,7 +248,7 @@ export const getPlaceBySlug = cache(async (slug: string): Promise<PlaceDetail | 
         : [];
   const managerIds = doc.managerIds ?? [];
 
-  const [authors, keeperDocs, counts] = await Promise.all([
+  const [authors, keeperDocs, counts, presents] = await Promise.all([
     loadAuthors([doc.authorId, ...managerIds]),
     keeperIds.length > 0
       ? Character.find({ _id: { $in: keeperIds }, hidden: { $ne: true } })
@@ -251,6 +256,7 @@ export const getPlaceBySlug = cache(async (slug: string): Promise<PlaceDetail | 
           .lean()
       : Promise.resolve([]),
     upcomingEventsByPlace(),
+    presentsAuLieu(String(doc._id)),
   ]);
 
   // Mongo rend les personnages dans son ordre à lui : on remet celui de l'auteur.
@@ -266,6 +272,8 @@ export const getPlaceBySlug = cache(async (slug: string): Promise<PlaceDetail | 
   return withLiveActivity({
     ...baseSummary(doc as PlaceDocument & { _id: unknown }),
     upcomingEventCount: counts[String(doc._id)] ?? 0,
+    presentCount: presents.length,
+    presents,
     description: doc.description ?? null,
     access: doc.access ?? null,
     logoUrl: doc.logoUrl ?? null,

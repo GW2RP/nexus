@@ -429,9 +429,17 @@ l'interrupteur de la fiche et pour l'application bureau
 que la modification du lieu. L'overlay lit les lieux qu'on tient par
 `GET /api/lieux/geres`, **jamais mise en cache** : les alentours sont publics
 et resservis par le CDN, ils ne peuvent pas dire qui les lit. Avec les scènes
-du jour `pour-moi`, ce sont les seules routes de l'overlay qui demandent une
-session. L'administration modifie
+du jour `pour-moi` et la présence à un lieu (plus bas), ce sont les seules
+routes de l'overlay qui demandent une session. L'administration modifie
 tous les lieux sur le site, mais n'en tient aucun : `geres` ne lui en rend pas.
+
+La présence à un lieu passe par trois routes derrière le jeton, **jamais
+mises en cache** : `POST /api/lieux/[slug]/presence` (le nom en jeu, pour un
+quart d'heure), `GET /api/presence` (la sienne, d'où qu'elle vienne) et
+`POST /api/presence/quitter`. `GET /api/personnages/miens` rend les
+personnages du compte, champ par champ : l'overlay y retrouve la fiche du
+personnage joué pour sa présence Discord. Les alentours portent le compte des
+présents, resservi deux minutes comme le statut.
 
 **Le relevé de météo et les alentours portent `Cache-Control: public,
 s-maxage`** (`reponsePublique`). C'est le seul cache du hub que l'horloge
@@ -443,6 +451,34 @@ l'overlay **arrondit les points qu'il demande** au centre d'une cellule ou
 d'une case de grille : deux joueurs au même endroit demandent la même adresse,
 et le CDN la ressert sans rappeler la fonction. Une erreur ne porte jamais cet
 en-tête.
+
+## La fréquentation des lieux
+
+**« Je suis à ce lieu »** : un compte déclare qu'il s'y tient, sous l'un de
+ses personnages (`PlacePresence`, `src/server/place-presence.ts`). **Un
+compte, un lieu à la fois** : se déclarer ailleurs déplace la présence, et
+la redéclarer au même lieu renouvelle l'échéance sans toucher l'heure
+d'arrivée. Sur la fiche, on lit **qui** est là — les noms des personnages,
+liés à leur fiche quand ils en ont une : le jeu de rôle est public, et c'est
+ce qui donne envie de rejoindre.
+
+Deux sources, deux durées (`src/lib/place-presence.ts`). Depuis **la fiche**,
+on choisit l'un de ses personnages, pour **deux heures**, renouvelables :
+personne ne la confirme, elle doit tomber d'elle-même. Depuis
+**l'application bureau**, qui la propose quand le personnage passe près du
+lieu, un **quart d'heure**, qu'elle renouvelle tant qu'il y reste : le
+personnage s'y désigne par son nom en jeu, relié à la fiche du compte qui
+porte le même, et affiché tel quel sinon — c'est le nom que les autres
+joueurs lisent au-dessus de sa tête.
+
+L'échéance (`until`) **se juge à la lecture**, comme le statut d'un lieu ;
+l'index d'expiration ne fait que le ménage, à son heure à lui. Et **rien ne
+passe par `remember`** : la fréquentation change à chaque arrivée, une
+étiquette retirée à chaque geste ne servirait jamais son entrée. Le compte
+des présents (`presentCount`) se joint aux listes **à la sortie** de leur
+cache (`avecPresents`), en une agrégation sur une collection qui ne compte
+que les présents. Le registre ouvre sur « En ce moment », les lieux les plus
+fréquentés d'abord, et ne montre rien quand personne n'est nulle part.
 
 ## Les panneaux d'affichage
 

@@ -45,6 +45,11 @@ export function PlaceCard({ place }: { place: PlaceSummary }) {
           {[place.district, REGION_LABELS[place.region]].filter(Boolean).join(", ")}
         </p>
         <PlaceActivityStatus activity={place.activity} />
+        {place.presentCount > 0 ? (
+          <p className="meta text-gold-ink">
+            {place.presentCount} présent{place.presentCount > 1 ? "s" : ""} en ce moment
+          </p>
+        ) : null}
         {place.summary ? (
           <p className="body-compact text-ink-body">{place.summary}</p>
         ) : null}
